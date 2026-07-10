@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fire Translate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="dark-theme">
+  <!-- Top Header Bar -->
+  <header class="app-header">
+    <div class="logo-area">
+      <svg class="header-logo-svg" viewBox="0 0 512 512" width="28" height="28">
+        <defs>
+          <linearGradient id="headerFlameGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#ef4444" />
+            <stop offset="50%" stop-color="#f97316" />
+            <stop offset="100%" stop-color="#fbbf24" />
+          </linearGradient>
+        </defs>
+        <path d="M256,60 C256,60 380,180 380,300 C380,380 320,440 256,440 C192,440 132,380 132,300 C132,190 190,140 190,140 C190,140 160,200 160,280 C160,340 200,390 256,390 C312,390 330,340 330,290 C330,210 270,140 270,90 Z" fill="url(#headerFlameGrad)"/>
+      </svg>
+      <span class="logo-text">Fire <span class="logo-highlight">Translate</span></span>
+    </div>
+    
+    <div class="header-actions">
+      <!-- Open in Side Panel (only active in popup mode) -->
+      <button id="btn-sidepanel" class="header-btn" title="Open in Side Panel">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+      </button>
+      <!-- History Panel Trigger -->
+      <button id="btn-history" class="header-btn" title="Translation History">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      </button>
+      <!-- Logs Panel Trigger -->
+      <button id="btn-logs" class="header-btn" title="System Logs">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+      </button>
+      <!-- Settings Panel Trigger -->
+      <button id="btn-settings" class="header-btn" title="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+      <!-- Divider -->
+      <span class="action-divider"></span>
+      <!-- Theme Toggle -->
+      <button id="btn-theme" class="header-btn" title="Toggle Light/Dark Mode">
+        <!-- Sun (Light mode indicator/toggle) -->
+        <svg id="icon-sun" class="hidden" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <!-- Moon (Dark mode indicator/toggle) -->
+        <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Workspace -->
+  <main class="workspace">
+    <!-- Left Column (Source Input) -->
+    <section class="column source-col">
+      <div class="col-header">
+        <div class="lang-selector-wrapper">
+          <select id="select-source" class="lang-select">
+            <option value="auto">Auto Detect (自動偵測)</option>
+            <option value="en">English (英文)</option>
+            <option value="zh-TW">Traditional Chinese (繁體中文)</option>
+            <option value="zh-CN">Simplified Chinese (簡體中文)</option>
+            <option value="ja">Japanese (日本語)</option>
+            <option value="ko">Korean (韓語)</option>
+            <option value="es">Spanish (西班牙語)</option>
+            <option value="fr">French (法語)</option>
+            <option value="de">German (德語)</option>
+            <option value="ru">Russian (俄語)</option>
+            <option value="pt">Portuguese (葡萄牙語)</option>
+            <option value="it">Italian (義大利語)</option>
+          </select>
+        </div>
+        
+        <div class="col-actions">
+          <button id="btn-paste" class="icon-action-btn" title="Paste Clipboard">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+          </button>
+          <button id="btn-clear-src" class="icon-action-btn" title="Clear text">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+      
+      <div class="textarea-container">
+        <textarea id="src-textarea" placeholder="Type or paste text to translate..."></textarea>
+      </div>
+
+      <div class="col-footer">
+        <span id="char-counter" class="info-text">0 characters</span>
+        <button id="btn-translate" class="primary-btn">
+          <span>Translate</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Swap Center Bar (Only for visual desktop side-by-side mode) -->
+    <div class="swap-bar">
+      <button id="btn-swap-lang" class="swap-btn" title="Swap languages">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+      </button>
+    </div>
+
+    <!-- Right Column (Target Output) -->
+    <section class="column target-col">
+      <div class="col-header">
+        <div class="lang-selector-wrapper">
+          <select id="select-target" class="lang-select">
+            <option value="zh-TW" selected>Traditional Chinese (繁體中文)</option>
+            <option value="zh-CN">Simplified Chinese (簡體中文)</option>
+            <option value="en">English (英文)</option>
+            <option value="ja">Japanese (日本語)</option>
+            <option value="ko">Korean (韓語)</option>
+            <option value="es">Spanish (西班牙語)</option>
+            <option value="fr">French (法語)</option>
+            <option value="de">German (德語)</option>
+            <option value="ru">Russian (俄語)</option>
+            <option value="pt">Portuguese (葡萄牙語)</option>
+            <option value="it">Italian (義大利語)</option>
+          </select>
+        </div>
+        
+        <div class="col-actions">
+          <button id="btn-tts" class="icon-action-btn" title="Read Aloud" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+          </button>
+          <button id="btn-copy" class="icon-action-btn" title="Copy Translation" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="target-output-container">
+        <!-- Spinner Overlay -->
+        <div id="loader" class="loader-overlay hidden">
+          <div class="flame-spinner">
+            <svg class="spinner-svg" viewBox="0 0 50 50">
+              <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+            </svg>
+            <span class="loader-text">Translating via LLM...</span>
+          </div>
+        </div>
+        <!-- Translation Text Area -->
+        <div id="target-content" class="target-content empty" placeholder="Translation will appear here..."></div>
+      </div>
+
+      <div class="col-footer">
+        <span id="status-message" class="info-text">Ready</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Sliding Drawer Panels (Settings, History, Logs) -->
+  
+  <!-- 1. Settings Panel -->
+  <div id="drawer-settings" class="drawer">
+    <div class="drawer-header">
+      <h3>Translation Settings</h3>
+      <button class="drawer-close" title="Close Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label for="input-api-endpoint">Server API Endpoint</label>
+        <input type="text" id="input-api-endpoint" placeholder="http://192.168.3.202:4090">
+        <small class="form-help">OpenAI-compatible Chat Completion endpoint.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="input-model">Model Name</label>
+        <input type="text" id="input-model" placeholder="qwen">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label for="input-temperature">Temperature: <span id="val-temperature">0.1</span></label>
+          <input type="range" id="input-temperature" min="0" max="2" step="0.05" value="0.1">
+        </div>
+        <div class="form-group flex-1">
+          <label for="input-max-history">Max History Items</label>
+          <input type="number" id="input-max-history" min="5" max="1000" value="100">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="checkbox-row" style="margin-bottom: 8px;">
+          <input type="checkbox" id="check-auto-translate">
+          <label for="check-auto-translate">Translate automatically while typing</label>
+        </div>
+        <div class="checkbox-row" style="margin-bottom: 8px;">
+          <input type="checkbox" id="check-rich-learning">
+          <label for="check-rich-learning">Enable Rich Learning Mode (Vocab & Alternatives)</label>
+        </div>
+        <div class="checkbox-row" style="margin-bottom: 8px;">
+          <input type="checkbox" id="check-dblclick-translate">
+          <label for="check-dblclick-translate">Double-click on webpage text to translate</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="check-stream-translations">
+          <label for="check-stream-translations">Enable streaming results (word-by-word)</label>
+        </div>
+      </div>
+
+      <div class="form-group" id="group-simple-prompt">
+        <label for="input-system-prompt">Simple Translation Prompt Template</label>
+        <textarea id="input-system-prompt" class="small-textarea" placeholder="Enter simple translation prompt..."></textarea>
+        <small class="form-help">Use <code>{target_lang}</code> which will be replaced dynamically with the destination language name (e.g. 繁體中文, English).</small>
+      </div>
+
+      <div class="form-group" id="group-learning-prompt">
+        <label for="input-system-prompt-learning">Rich Learning Prompt Template</label>
+        <textarea id="input-system-prompt-learning" class="small-textarea" placeholder="Enter learning translation prompt..."></textarea>
+        <small class="form-help">Must instruct the model to return JSON containing <code>alternatives</code> and <code>vocabulary</code> fields based on original and translated text inputs.</small>
+      </div>
+
+      <div class="settings-actions">
+        <button id="btn-clear-cache" class="secondary-btn" style="margin-right: auto; color: var(--danger-color); border-color: var(--border-color);">Clear Cache</button>
+        <button id="btn-reset-settings" class="secondary-btn">Reset Defaults</button>
+        <button id="btn-save-settings" class="primary-btn">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. History Panel -->
+  <div id="drawer-history" class="drawer">
+    <div class="drawer-header">
+      <h3>Translation History</h3>
+      <div class="header-actions-inline">
+        <button id="btn-clear-history" class="text-danger-btn">Clear All</button>
+        <button class="drawer-close" title="Close History">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+    <div id="history-list" class="drawer-body list-container">
+      <!-- Dynamically filled -->
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <p>No translation history yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Logs Panel -->
+  <div id="drawer-logs" class="drawer">
+    <div class="drawer-header">
+      <h3>System Debug Logs</h3>
+      <div class="header-actions-inline">
+        <button id="btn-clear-logs" class="text-danger-btn">Clear Logs</button>
+        <button class="drawer-close" title="Close Logs">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+    <div id="logs-list" class="drawer-body list-container console-theme">
+      <!-- Dynamically filled -->
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        <p>Log is empty.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backdrop for drawers -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+
+  <!-- Scripts -->
+  <script src="popup.js"></script>
+</body>
+</html>
