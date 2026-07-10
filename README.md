@@ -85,6 +85,25 @@ The extension posts requests to `${API_ENDPOINT}/v1/chat/completions` with the f
 
 ---
 
+## 🧪 Testing the Extension
+
+We have set up an isolated, zero-dependency unit test suite using Node's native `vm` module to mock the Chrome extension storage and browser DOM to execute scripts.
+
+To run the unit tests, use:
+```bash
+npm test
+```
+
+This runs tests verifying:
+* Caching utility saves and loads correctly.
+* Cache LRU eviction limits storage to 500 items.
+* System prompt substitutions for target languages.
+* Fallback JSON regex string parsing.
+* Content script loading and event registrations.
+* Service worker loading and background listeners.
+
+---
+
 ## 📂 File Structure
 
 * `manifest.json`: Configuration for permissions, action popup, background service, and host permissions.
@@ -92,4 +111,6 @@ The extension posts requests to `${API_ENDPOINT}/v1/chat/completions` with the f
 * `popup.html`: The HTML layout featuring the split grid and sliding panel drawers.
 * `popup.css`: The styling system containing dark/light variables, fluid layout wrappers, responsive styles, loading spinners, and log consoles.
 * `popup.js`: Controller script coordinating translation HTTP requests, history managers, debug logging, audio synthesis, and event hooks.
+* `tests.js`: Custom unit test runner mocking browser contexts to run isolated scripts.
+* `package.json`: NPM package metadata and test scripts.
 * `icons/`: Holds `icon16.png`, `icon48.png`, and `icon128.png` assets.
