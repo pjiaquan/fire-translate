@@ -64,10 +64,13 @@ function removeBubble() {
   activeBubble = null;
 }
 
-function showBubble(text, selection) {
+async function showBubble(text, selection) {
   if (!selection.rangeCount) return;
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
+
+  const settings = await chrome.storage.local.get("textSize");
+  const textSize = settings.textSize || "medium";
 
   // Create Shadow Host element
   const host = document.createElement("div");
@@ -87,7 +90,7 @@ function showBubble(text, selection) {
   
   // Create Bubble wrapper
   const bubble = document.createElement("div");
-  bubble.className = "translation-bubble";
+  bubble.className = `translation-bubble size-${textSize}`;
   bubble.style.pointerEvents = "auto";
   
   // Shadow DOM Internal Styles
@@ -103,13 +106,26 @@ function showBubble(text, selection) {
       padding: 12px 14px !important;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-      font-size: 13px !important;
-      line-height: 1.5 !important;
       display: flex;
       flex-direction: column;
       gap: 8px;
       box-sizing: border-box !important;
       animation: bubbleFadeIn 0.2s ease-out;
+    }
+    
+    .translation-bubble.size-small {
+      font-size: 11px !important;
+      line-height: 1.35 !important;
+    }
+    
+    .translation-bubble.size-medium {
+      font-size: 13.5px !important;
+      line-height: 1.5 !important;
+    }
+    
+    .translation-bubble.size-large {
+      font-size: 16px !important;
+      line-height: 1.6 !important;
     }
     
     @keyframes bubbleFadeIn {

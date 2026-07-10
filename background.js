@@ -21,7 +21,8 @@ chrome.runtime.onInstalled.addListener(() => {
     "targetLang",
     "richLearningMode",
     "systemPromptLearning",
-    "streamTranslations"
+    "streamTranslations",
+    "textSize"
   ], (result) => {
     const defaults = {};
     if (result.apiEndpoint === undefined) defaults.apiEndpoint = "http://192.168.3.202:4090";
@@ -33,7 +34,7 @@ chrome.runtime.onInstalled.addListener(() => {
     if (result.richLearningMode === undefined) defaults.richLearningMode = true;
     if (result.systemPromptLearning === undefined) {
       defaults.systemPromptLearning = `你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（同義詞、替換翻譯及關鍵字詞彙）。
-請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 \`\`\`json）、前言、後記或解釋：
+請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 \`\`\`json）、前言、後記或解釋：
 
 {
   "alternatives": [
@@ -64,6 +65,7 @@ chrome.runtime.onInstalled.addListener(() => {
     if (result.targetLang === undefined) defaults.targetLang = "繁體中文";
     if (result.doubleClickTranslate === undefined) defaults.doubleClickTranslate = true;
     if (result.streamTranslations === undefined) defaults.streamTranslations = true;
+    if (result.textSize === undefined) defaults.textSize = "medium";
     
     if (Object.keys(defaults).length > 0) {
       chrome.storage.local.set(defaults);

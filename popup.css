@@ -1092,3 +1092,31 @@ input[type="range"]::-webkit-slider-thumb:hover {
   line-height: 1.4;
 }
 
+/* Text Font Size Adjustments */
+.font-size-small #src-textarea,
+.font-size-small #target-content,
+.font-size-small .translation-text,
+.font-size-small .history-item-original,
+.font-size-small .history-item-translated {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+.font-size-medium #src-textarea,
+.font-size-medium #target-content,
+.font-size-medium .translation-text,
+.font-size-medium .history-item-original,
+.font-size-medium .history-item-translated {
+  font-size: 14.5px !important;
+  line-height: 1.5 !important;
+}
+
+.font-size-large #src-textarea,
+.font-size-large #target-content,
+.font-size-large .translation-text,
+.font-size-large .history-item-original,
+.font-size-large .history-item-translated {
+  font-size: 18px !important;
+  line-height: 1.6 !important;
+}
+

@@ -176,7 +176,7 @@
         <input type="text" id="input-model" placeholder="qwen">
       </div>
 
-      <div class="form-row">
+      <div class="flex-row gap-12">
         <div class="form-group flex-1">
           <label for="input-temperature">Temperature: <span id="val-temperature">0.1</span></label>
           <input type="range" id="input-temperature" min="0" max="2" step="0.05" value="0.1">
@@ -184,6 +184,14 @@
         <div class="form-group flex-1">
           <label for="input-max-history">Max History Items</label>
           <input type="number" id="input-max-history" min="5" max="1000" value="100">
+        </div>
+        <div class="form-group flex-1">
+          <label for="select-text-size">Text Font Size</label>
+          <select id="select-text-size">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+          </select>
         </div>
       </div>
 

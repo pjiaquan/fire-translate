@@ -612,6 +612,11 @@ function togglePromptVisibility() {
 }
 checkRichLearning.addEventListener("change", togglePromptVisibility);
 
+function updateTextSizeClass(size) {
+  document.body.classList.remove("font-size-small", "font-size-medium", "font-size-large");
+  document.body.classList.add(`font-size-${size}`);
+}
+
 async function loadSettingsToUI() {
   const res = await chrome.storage.local.get([
     "apiEndpoint",
@@ -623,7 +628,8 @@ async function loadSettingsToUI() {
     "autoTranslate",
     "richLearningMode",
     "doubleClickTranslate",
-    "streamTranslations"
+    "streamTranslations",
+    "textSize"
   ]);
   
   document.getElementById("input-api-endpoint").value = res.apiEndpoint ?? "http://192.168.3.202:4090";
@@ -635,6 +641,10 @@ async function loadSettingsToUI() {
   checkRichLearning.checked = res.richLearningMode !== false;
   document.getElementById("check-dblclick-translate").checked = res.doubleClickTranslate !== false;
   document.getElementById("check-stream-translations").checked = res.streamTranslations !== false;
+  
+  const textSize = res.textSize || "medium";
+  document.getElementById("select-text-size").value = textSize;
+  updateTextSizeClass(textSize);
   
   const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
   document.getElementById("input-system-prompt").value = res.systemPrompt ?? defaultPrompt;
@@ -660,6 +670,7 @@ btnSaveSettings.addEventListener("click", async () => {
   const streamTranslations = document.getElementById("check-stream-translations").checked;
   const systemPrompt = document.getElementById("input-system-prompt").value.trim();
   const systemPromptLearning = document.getElementById("input-system-prompt-learning").value.trim();
+  const textSize = document.getElementById("select-text-size").value;
 
   await chrome.storage.local.set({
     apiEndpoint,
@@ -671,9 +682,11 @@ btnSaveSettings.addEventListener("click", async () => {
     doubleClickTranslate,
     streamTranslations,
     systemPrompt,
-    systemPromptLearning
+    systemPromptLearning,
+    textSize
   });
 
+  updateTextSizeClass(textSize);
   await addLog("info", "Settings saved successfully");
   closeAllDrawers();
   
@@ -694,6 +707,7 @@ btnResetSettings.addEventListener("click", async () => {
       richLearningMode: true,
       doubleClickTranslate: true,
       streamTranslations: true,
+      textSize: "medium",
       systemPrompt: "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。",
       systemPromptLearning: "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（同義詞、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（同義詞1）\", \"（同義詞2）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}"
     });
