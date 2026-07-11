@@ -22,7 +22,10 @@ chrome.runtime.onInstalled.addListener(() => {
     "richLearningMode",
     "systemPromptLearning",
     "streamTranslations",
-    "textSize"
+    "textSize",
+    "enableTelegram",
+    "telegramBotToken",
+    "telegramChatId"
   ], (result) => {
     const defaults = {};
     if (result.apiEndpoint === undefined) defaults.apiEndpoint = "http://192.168.3.202:4090";
@@ -66,6 +69,9 @@ chrome.runtime.onInstalled.addListener(() => {
     if (result.doubleClickTranslate === undefined) defaults.doubleClickTranslate = true;
     if (result.streamTranslations === undefined) defaults.streamTranslations = true;
     if (result.textSize === undefined) defaults.textSize = "medium";
+    if (result.enableTelegram === undefined) defaults.enableTelegram = false;
+    if (result.telegramBotToken === undefined) defaults.telegramBotToken = "";
+    if (result.telegramChatId === undefined) defaults.telegramChatId = "";
     
     if (Object.keys(defaults).length > 0) {
       chrome.storage.local.set(defaults);
@@ -182,6 +188,9 @@ async function translateInlineText(srcText) {
   if (data.choices && data.choices[0] && data.choices[0].message) {
     const translatedText = data.choices[0].message.content.trim();
     
+    // Dispatch to Telegram (if enabled)
+    sendToTelegram(srcText, translatedText).catch(() => {});
+    
     if (richLearningMode) {
       try {
         const insights = await fetchLearningInsights(srcText, translatedText, targetLang, model);
@@ -267,8 +276,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
 
     activePhase2Fetches.set(srcText, promise);
+  } else if (message.action === "sendTelegram") {
+    sendToTelegram(message.srcText, message.translatedText);
   }
 });
+
+async function sendToTelegram(srcText, translatedText) {
+  const config = await chrome.storage.local.get([
+    "enableTelegram",
+    "telegramBotToken",
+    "telegramChatId"
+  ]);
+
+  if (!config.enableTelegram || !config.telegramBotToken || !config.telegramChatId) {
+    return;
+  }
+
+  const botToken = config.telegramBotToken.trim();
+  const chatId = config.telegramChatId.trim();
+  if (!botToken || !chatId) return;
+
+  const text = `*Fire Translate*\n\n*Original:*\n${srcText}\n\n*Translation:*\n${translatedText}`;
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: "Markdown"
+      })
+    });
+    if (!response.ok) {
+      console.warn("Telegram send failed:", response.status, await response.text());
+    }
+  } catch (err) {
+    console.warn("Error sending to Telegram:", err);
+  }
+}
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "translate-selection" && info.selectionText) {
@@ -498,6 +545,9 @@ chrome.runtime.onConnect.addListener((port) => {
           } catch (e) {
             return; // Port was closed, abort Phase 2
           }
+
+          // Send to Telegram (if enabled)
+          sendToTelegram(msg.text, translationText).catch(() => {});
 
           // Phase 2: Learning Insights
           if (richLearningMode) {

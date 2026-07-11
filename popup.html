@@ -226,6 +226,24 @@
         <small class="form-help">Must instruct the model to return JSON containing <code>alternatives</code> and <code>vocabulary</code> fields based on original and translated text inputs.</small>
       </div>
 
+      <!-- Telegram Section -->
+      <div style="margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
+        <div class="checkbox-row" style="margin-bottom: 8px;">
+          <input type="checkbox" id="check-enable-telegram">
+          <label for="check-enable-telegram">Send translations to Telegram (Optional)</label>
+        </div>
+        <div id="telegram-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="input-telegram-token">Telegram Bot Token</label>
+            <input type="text" id="input-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="input-telegram-chatid">Telegram Chat ID / Group ID</label>
+            <input type="text" id="input-telegram-chatid" placeholder="-100123456789">
+          </div>
+        </div>
+      </div>
+
       <div class="settings-actions">
         <button id="btn-clear-cache" class="secondary-btn" style="margin-right: auto; color: var(--danger-color); border-color: var(--border-color);">Clear Cache</button>
         <button id="btn-reset-settings" class="secondary-btn">Reset Defaults</button>

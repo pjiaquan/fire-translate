@@ -474,6 +474,13 @@ function showLearningLoader() {
     await setCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, cacheData);
     await addHistoryItem(srcText, translatedText, srcLang, targetLang);
 
+    // Send to Telegram (if enabled)
+    chrome.runtime.sendMessage({
+      action: "sendTelegram",
+      srcText,
+      translatedText
+    }).catch(() => {});
+
     // Trigger Phase 2 in the background
     if (richLearningMode) {
       showLearningLoader();
@@ -561,6 +568,18 @@ function togglePromptVisibility() {
 }
 checkRichLearning.addEventListener("change", togglePromptVisibility);
 
+const checkEnableTelegram = document.getElementById("check-enable-telegram");
+const telegramFields = document.getElementById("telegram-fields");
+
+function toggleTelegramVisibility() {
+  if (checkEnableTelegram.checked) {
+    telegramFields.classList.remove("hidden");
+  } else {
+    telegramFields.classList.add("hidden");
+  }
+}
+checkEnableTelegram.addEventListener("change", toggleTelegramVisibility);
+
 function updateTextSizeClass(size) {
   document.body.classList.remove("font-size-small", "font-size-medium", "font-size-large");
   document.body.classList.add(`font-size-${size}`);
@@ -578,7 +597,10 @@ async function loadSettingsToUI() {
     "richLearningMode",
     "doubleClickTranslate",
     "streamTranslations",
-    "textSize"
+    "textSize",
+    "enableTelegram",
+    "telegramBotToken",
+    "telegramChatId"
   ]);
   
   document.getElementById("input-api-endpoint").value = res.apiEndpoint ?? "http://192.168.3.202:4090";
@@ -590,6 +612,11 @@ async function loadSettingsToUI() {
   checkRichLearning.checked = res.richLearningMode !== false;
   document.getElementById("check-dblclick-translate").checked = res.doubleClickTranslate !== false;
   document.getElementById("check-stream-translations").checked = res.streamTranslations !== false;
+  
+  checkEnableTelegram.checked = res.enableTelegram === true;
+  document.getElementById("input-telegram-token").value = res.telegramBotToken || "";
+  document.getElementById("input-telegram-chatid").value = res.telegramChatId || "";
+  toggleTelegramVisibility();
   
   const textSize = res.textSize || "medium";
   document.getElementById("select-text-size").value = textSize;
@@ -620,6 +647,9 @@ btnSaveSettings.addEventListener("click", async () => {
   const systemPrompt = document.getElementById("input-system-prompt").value.trim();
   const systemPromptLearning = document.getElementById("input-system-prompt-learning").value.trim();
   const textSize = document.getElementById("select-text-size").value;
+  const enableTelegram = checkEnableTelegram.checked;
+  const telegramBotToken = document.getElementById("input-telegram-token").value.trim();
+  const telegramChatId = document.getElementById("input-telegram-chatid").value.trim();
 
   await chrome.storage.local.set({
     apiEndpoint,
@@ -632,7 +662,10 @@ btnSaveSettings.addEventListener("click", async () => {
     streamTranslations,
     systemPrompt,
     systemPromptLearning,
-    textSize
+    textSize,
+    enableTelegram,
+    telegramBotToken,
+    telegramChatId
   });
 
   updateTextSizeClass(textSize);
@@ -657,6 +690,9 @@ btnResetSettings.addEventListener("click", async () => {
       doubleClickTranslate: true,
       streamTranslations: true,
       textSize: "medium",
+      enableTelegram: false,
+      telegramBotToken: "",
+      telegramChatId: "",
       systemPrompt: "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。",
       systemPromptLearning: "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（同義詞、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（同義詞1）\", \"（同義詞2）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}"
     });
