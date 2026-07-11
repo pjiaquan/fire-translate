@@ -382,7 +382,7 @@ async function sendToTelegram(srcText, translatedText) {
       } catch (e) {}
     }
     const transTextSafe = String(cleanTranslation);
-    htmlMessage += `${idx + 1}. <b>${escapeTelegramHTML(srcTextSafe)}</b> &rarr; ${escapeTelegramHTML(transTextSafe)}\n`;
+    htmlMessage += `${idx + 1}. <b>${escapeTelegramHTML(srcTextSafe)}</b> → ${escapeTelegramHTML(transTextSafe)}\n`;
   });
 
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
