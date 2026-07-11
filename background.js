@@ -326,6 +326,23 @@ async function addHistoryItemBg(src, target, srcLang, targetLang) {
   await chrome.storage.local.set({ history });
 }
 
+async function addLogBg(type, message, details = null) {
+  try {
+    const res = await chrome.storage.local.get("logs");
+    let logs = res.logs || [];
+    logs.unshift({
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+      details
+    });
+    if (logs.length > 200) logs = logs.slice(0, 200);
+    await chrome.storage.local.set({ logs });
+  } catch (e) {
+    console.error("Failed to write background log:", e);
+  }
+}
+
 async function sendToTelegram(srcText, translatedText) {
   const config = await chrome.storage.local.get([
     "enableTelegram",
@@ -356,14 +373,16 @@ async function sendToTelegram(srcText, translatedText) {
 
   let htmlMessage = `<b>🔥 Fire Translate - Daily Review (${new Date().toLocaleDateString()})</b>\n\n`;
   todayItems.forEach((item, idx) => {
-    let cleanTranslation = item.translatedText;
-    if (cleanTranslation.startsWith("{") && cleanTranslation.endsWith("}")) {
+    const srcTextSafe = String(item.srcText || "");
+    let cleanTranslation = item.translatedText || "";
+    if (typeof cleanTranslation === "string" && cleanTranslation.startsWith("{") && cleanTranslation.endsWith("}")) {
       try {
         const parsed = JSON.parse(cleanTranslation);
-        cleanTranslation = parsed.translation;
+        cleanTranslation = parsed.translation || "";
       } catch (e) {}
     }
-    htmlMessage += `${idx + 1}. <b>${escapeTelegramHTML(item.srcText)}</b> &rarr; ${escapeTelegramHTML(cleanTranslation)}\n`;
+    const transTextSafe = String(cleanTranslation);
+    htmlMessage += `${idx + 1}. <b>${escapeTelegramHTML(srcTextSafe)}</b> &rarr; ${escapeTelegramHTML(transTextSafe)}\n`;
   });
 
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
@@ -379,10 +398,15 @@ async function sendToTelegram(srcText, translatedText) {
       })
     });
     if (!response.ok) {
-      console.warn("Telegram send failed:", response.status, await response.text());
+      const responseText = await response.text();
+      console.warn("Telegram send failed:", response.status, responseText);
+      await addLogBg("error", `Telegram send failed (HTTP ${response.status})`, { responseText, chatId });
+    } else {
+      await addLogBg("info", `Daily review list sent to Telegram (${todayItems.length} items)`, { chatId });
     }
   } catch (err) {
     console.warn("Error sending to Telegram:", err);
+    await addLogBg("error", `Error sending to Telegram: ${err.message}`, { stack: err.stack, chatId });
   }
 }
 
