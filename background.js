@@ -37,7 +37,7 @@ chrome.runtime.onInstalled.addListener(() => {
     }
     if (result.richLearningMode === undefined) defaults.richLearningMode = true;
     if (result.systemPromptLearning === undefined) {
-      defaults.systemPromptLearning = `你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（相似詞/同義詞、替換翻譯及關鍵字詞彙）。
+      defaults.systemPromptLearning = `你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。
 請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 \`\`\`json）、前言、後記或解釋：
 
 {
@@ -53,7 +53,7 @@ chrome.runtime.onInstalled.addListener(() => {
       "word": "（從輸入文字中提取的關鍵字，原文字語言）",
       "pos": "（詞性，例如 n. / v. / adj.）",
       "translation": "（該關鍵詞在{target_lang}中的對應翻譯）",
-      "synonyms": ["（相似詞1/同義詞1）", "（相似詞2/同義詞2）"],
+      "synonyms": ["（與原文字同語言的相似詞/同義字，例如若原文字為英文，請提供英文同義字）"],
       "when_to_use": "（說明此字詞的使用時機、搭配語境或使用習慣）",
       "example_sentence_source": "（使用此關鍵字的英文/原語言例句）",
       "example_sentence_target": "（該例句翻譯成{target_lang}的結果）"
