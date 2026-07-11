@@ -172,16 +172,26 @@
       </div>
 
       <div class="form-group">
-        <label for="select-model-type">Translation Model Format</label>
-        <select id="select-model-type">
-          <option value="qwen">OpenAI Compatible (Qwen, GPT, etc.)</option>
+        <label for="select-model">Model Selection</label>
+        <select id="select-model">
+          <option value="qwen">Qwen (OpenAI Compatible)</option>
           <option value="translategemma">TranslateGemma (Structured Format)</option>
+          <option value="custom">Custom...</option>
         </select>
       </div>
 
-      <div class="form-group">
-        <label for="input-model">Model Name</label>
-        <input type="text" id="input-model" placeholder="qwen">
+      <div id="custom-model-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; border-left: 2px solid var(--border-color); padding-left: 10px; margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="input-model">Custom Model Name</label>
+          <input type="text" id="input-model" placeholder="e.g. qwen2.5-coder:7b">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="select-model-type">Custom Model Format</label>
+          <select id="select-model-type">
+            <option value="qwen">OpenAI Compatible (Qwen, GPT, etc.)</option>
+            <option value="translategemma">TranslateGemma (Structured Format)</option>
+          </select>
+        </div>
       </div>
 
       <div class="flex-row gap-12">

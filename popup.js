@@ -620,6 +620,18 @@ function toggleTelegramVisibility() {
 }
 checkEnableTelegram.addEventListener("change", toggleTelegramVisibility);
 
+const selectModel = document.getElementById("select-model");
+const customModelFields = document.getElementById("custom-model-fields");
+
+function toggleCustomModelVisibility() {
+  if (selectModel.value === "custom") {
+    customModelFields.classList.remove("hidden");
+  } else {
+    customModelFields.classList.add("hidden");
+  }
+}
+selectModel.addEventListener("change", toggleCustomModelVisibility);
+
 function updateTextSizeClass(size) {
   document.body.classList.remove("font-size-small", "font-size-medium", "font-size-large");
   document.body.classList.add(`font-size-${size}`);
@@ -645,8 +657,20 @@ async function loadSettingsToUI() {
   ]);
   
   document.getElementById("input-api-endpoint").value = res.apiEndpoint ?? "http://192.168.3.202:4090";
-  document.getElementById("select-model-type").value = res.modelType ?? "qwen";
-  document.getElementById("input-model").value = res.model ?? "qwen";
+  
+  const savedModel = res.model ?? "qwen";
+  const savedModelType = res.modelType ?? "qwen";
+  if (savedModel === "qwen" && savedModelType === "qwen") {
+    selectModel.value = "qwen";
+  } else if (savedModel === "translategemma" && savedModelType === "translategemma") {
+    selectModel.value = "translategemma";
+  } else {
+    selectModel.value = "custom";
+  }
+  toggleCustomModelVisibility();
+
+  document.getElementById("input-model").value = savedModel;
+  document.getElementById("select-model-type").value = savedModelType;
   document.getElementById("input-temperature").value = res.temperature ?? 0.1;
   document.getElementById("val-temperature").textContent = res.temperature ?? 0.1;
   document.getElementById("input-max-history").value = res.maxHistory ?? 100;
@@ -679,8 +703,19 @@ document.getElementById("input-temperature").addEventListener("input", (e) => {
 
 btnSaveSettings.addEventListener("click", async () => {
   const apiEndpoint = document.getElementById("input-api-endpoint").value.trim();
-  const model = document.getElementById("input-model").value.trim();
-  const modelType = document.getElementById("select-model-type").value;
+  
+  let model;
+  let modelType;
+  if (selectModel.value === "qwen") {
+    model = "qwen";
+    modelType = "qwen";
+  } else if (selectModel.value === "translategemma") {
+    model = "translategemma";
+    modelType = "translategemma";
+  } else {
+    model = document.getElementById("input-model").value.trim();
+    modelType = document.getElementById("select-model-type").value;
+  }
   const temperature = parseFloat(document.getElementById("input-temperature").value);
   const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
   const autoTranslate = document.getElementById("check-auto-translate").checked;
