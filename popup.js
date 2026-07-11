@@ -16,6 +16,14 @@ const languageNames = {
   "it": "Italiano"
 };
 
+function getGemmaLangCode(lang) {
+  if (!lang) return "en";
+  if (lang === "auto") return "en";
+  if (lang === "zh-TW" || lang === "繁體中文" || lang === "zh-Hant") return "zh_Hant";
+  if (lang === "zh-CN" || lang === "簡體中文" || lang === "zh-Hans") return "zh_Hans";
+  return lang;
+}
+
 // UI Element selections
 const srcTextarea = document.getElementById("src-textarea");
 const targetContent = document.getElementById("target-content");
@@ -48,9 +56,10 @@ let currentUtterance = null;
 let currentTranslationText = "";
 
 // Translation caching utilities
-async function getCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode) {
+async function getCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, contextSentence = "") {
   const normalizedText = srcText.trim().toLowerCase();
-  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}`;
+  const suffix = contextSentence ? `:${contextSentence.trim().toLowerCase()}` : "";
+  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}${suffix}`;
   
   const res = await chrome.storage.local.get("translationCache");
   const cache = res.translationCache || {};
@@ -65,9 +74,10 @@ async function getCachedTranslation(srcText, srcLang, targetLang, model, richLea
   return null;
 }
 
-async function setCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, translationData) {
+async function setCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, translationData, contextSentence = "") {
   const normalizedText = srcText.trim().toLowerCase();
-  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}`;
+  const suffix = contextSentence ? `:${contextSentence.trim().toLowerCase()}` : "";
+  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}${suffix}`;
   
   const res = await chrome.storage.local.get("translationCache");
   const cache = res.translationCache || {};
@@ -300,6 +310,7 @@ async function translate() {
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "model",
+    "modelType",
     "temperature",
     "systemPrompt",
     "systemPromptLearning",
@@ -311,6 +322,7 @@ async function translate() {
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
   const model = config.model || "qwen";
+  const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
   const srcLang = config.sourceLang || "auto";
   const targetLang = config.targetLang || "zh-TW";
@@ -383,13 +395,34 @@ function showLearningLoader() {
   
   const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
 
-  const payload = {
-    model: model,
-    messages: [
+  let messagesPayload;
+  let targetTemp = temp;
+  if (modelType === "translategemma") {
+    targetTemp = 0;
+    messagesPayload = [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            source_lang_code: getGemmaLangCode(srcLang),
+            target_lang_code: getGemmaLangCode(targetLang),
+            text: srcText
+          }
+        ]
+      }
+    ];
+  } else {
+    messagesPayload = [
       { role: "system", content: systemPrompt },
       { role: "user", content: srcText }
-    ],
-    temperature: temp,
+    ];
+  }
+
+  const payload = {
+    model: model,
+    messages: messagesPayload,
+    temperature: targetTemp,
     stream: streamTranslations
   };
 
@@ -596,6 +629,7 @@ async function loadSettingsToUI() {
   const res = await chrome.storage.local.get([
     "apiEndpoint",
     "model",
+    "modelType",
     "temperature",
     "systemPrompt",
     "systemPromptLearning",
@@ -611,6 +645,7 @@ async function loadSettingsToUI() {
   ]);
   
   document.getElementById("input-api-endpoint").value = res.apiEndpoint ?? "http://192.168.3.202:4090";
+  document.getElementById("select-model-type").value = res.modelType ?? "qwen";
   document.getElementById("input-model").value = res.model ?? "qwen";
   document.getElementById("input-temperature").value = res.temperature ?? 0.1;
   document.getElementById("val-temperature").textContent = res.temperature ?? 0.1;
@@ -645,6 +680,7 @@ document.getElementById("input-temperature").addEventListener("input", (e) => {
 btnSaveSettings.addEventListener("click", async () => {
   const apiEndpoint = document.getElementById("input-api-endpoint").value.trim();
   const model = document.getElementById("input-model").value.trim();
+  const modelType = document.getElementById("select-model-type").value;
   const temperature = parseFloat(document.getElementById("input-temperature").value);
   const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
   const autoTranslate = document.getElementById("check-auto-translate").checked;
@@ -661,6 +697,7 @@ btnSaveSettings.addEventListener("click", async () => {
   await chrome.storage.local.set({
     apiEndpoint,
     model,
+    modelType,
     temperature,
     maxHistory,
     autoTranslate,
@@ -690,6 +727,7 @@ btnResetSettings.addEventListener("click", async () => {
     await chrome.storage.local.set({
       apiEndpoint: "http://192.168.3.202:4090",
       model: "qwen",
+      modelType: "qwen",
       temperature: 0.1,
       maxHistory: 100,
       autoTranslate: true,

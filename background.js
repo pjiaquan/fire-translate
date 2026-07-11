@@ -11,6 +11,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get([
     "apiEndpoint",
     "model",
+    "modelType",
     "temperature",
     "systemPrompt",
     "maxHistory",
@@ -72,6 +73,7 @@ chrome.runtime.onInstalled.addListener(() => {
     if (result.enableTelegram === undefined) defaults.enableTelegram = false;
     if (result.telegramBotToken === undefined) defaults.telegramBotToken = "";
     if (result.telegramChatId === undefined) defaults.telegramChatId = "";
+    if (result.modelType === undefined) defaults.modelType = "qwen";
     
     if (Object.keys(defaults).length > 0) {
       chrome.storage.local.set(defaults);
@@ -122,6 +124,14 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
   await chrome.storage.local.set({ translationCache: cache });
 }
 
+function getGemmaLangCode(lang) {
+  if (!lang) return "en";
+  if (lang === "auto") return "en";
+  if (lang === "zh-TW" || lang === "繁體中文" || lang === "zh-Hant") return "zh_Hant";
+  if (lang === "zh-CN" || lang === "簡體中文" || lang === "zh-Hans") return "zh_Hans";
+  return lang;
+}
+
 // Perform fetch translation for inline content scripts (non-streaming)
 async function translateInlineText(srcText, contextSentence = "") {
   if (!srcText || !/\p{L}|\p{N}/u.test(srcText.trim())) {
@@ -131,6 +141,7 @@ async function translateInlineText(srcText, contextSentence = "") {
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "model",
+    "modelType",
     "temperature",
     "systemPrompt",
     "systemPromptLearning",
@@ -141,6 +152,7 @@ async function translateInlineText(srcText, contextSentence = "") {
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
   const model = config.model || "qwen";
+  const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
   const targetLang = config.targetLang || "zh-TW";
   const sourceLang = config.sourceLang || "auto";
@@ -180,16 +192,37 @@ async function translateInlineText(srcText, contextSentence = "") {
     systemPromptAdjusted = `${systemPrompt}\nIMPORTANT: You must only translate the specific word/phrase indicated. Do not translate the entire context sentence. Output the translated result of that specific word/phrase only, matching the style and context of the sentence.`;
   }
 
+  let messagesPayload;
+  let targetTemp = temp;
+  if (modelType === "translategemma") {
+    targetTemp = 0;
+    messagesPayload = [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            source_lang_code: getGemmaLangCode(sourceLang),
+            target_lang_code: getGemmaLangCode(targetLang),
+            text: userContent
+          }
+        ]
+      }
+    ];
+  } else {
+    messagesPayload = [
+      { role: "system", content: systemPromptAdjusted },
+      { role: "user", content: userContent }
+    ];
+  }
+
   const response = await fetch(endpointUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: model,
-      messages: [
-        { role: "system", content: systemPromptAdjusted },
-        { role: "user", content: userContent }
-      ],
-      temperature: temp
+      messages: messagesPayload,
+      temperature: targetTemp
     })
   });
 
@@ -464,15 +497,19 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "model",
+    "modelType",
     "temperature",
     "systemPrompt",
-    "targetLang"
+    "targetLang",
+    "sourceLang"
   ]);
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
   const model = config.model || "qwen";
+  const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
   const targetLang = config.targetLang || "zh-TW";
+  const sourceLang = config.sourceLang || "auto";
 
   const languageNames = {
     "auto": "自動偵測",
@@ -501,13 +538,34 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
     systemPromptAdjusted = `${systemPrompt}\nIMPORTANT: You must only translate the specific word/phrase indicated. Do not translate the entire context sentence. Output the translated result of that specific word/phrase only, matching the style and context of the sentence.`;
   }
 
+  let messagesPayload;
+  let targetTemp = temp;
+  if (modelType === "translategemma") {
+    targetTemp = 0;
+    messagesPayload = [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            source_lang_code: getGemmaLangCode(sourceLang),
+            target_lang_code: getGemmaLangCode(targetLang),
+            text: userContent
+          }
+        ]
+      }
+    ];
+  } else {
+    messagesPayload = [
+      { role: "system", content: systemPromptAdjusted },
+      { role: "user", content: userContent }
+    ];
+  }
+
   const payload = {
     model: model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: srcText }
-    ],
-    temperature: temp,
+    messages: messagesPayload,
+    temperature: targetTemp,
     stream: true
   };
 
