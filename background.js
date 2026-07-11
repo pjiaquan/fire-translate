@@ -132,9 +132,31 @@ function getGemmaLangCode(lang) {
   return lang;
 }
 
+function isUrlLike(text) {
+  const trimmed = text.trim();
+  // 1. Protocol prefix (http://, https://, ftp://, file://, chrome://, etc.)
+  if (/^[a-z]+:\/\//i.test(trimmed)) {
+    return true;
+  }
+  // 2. Starts with www.
+  if (/^www\./i.test(trimmed)) {
+    return true;
+  }
+  // 3. Email addresses
+  if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(trimmed)) {
+    return true;
+  }
+  // 4. Domain names (e.g. google.com, news.ycombinator.com/item)
+  const urlPattern = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}(\/[-a-zA-Z0-9()@:%_\+.~#?&//=]*)?$/i;
+  if (urlPattern.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 // Perform fetch translation for inline content scripts (non-streaming)
 async function translateInlineText(srcText, contextSentence = "") {
-  if (!srcText || !/\p{L}|\p{N}/u.test(srcText.trim())) {
+  if (!srcText || !/\p{L}|\p{N}/u.test(srcText.trim()) || isUrlLike(srcText)) {
     return { rich: false, text: "" };
   }
 
@@ -683,7 +705,7 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "translate-stream") {
     port.onMessage.addListener(async (msg) => {
       if (msg.action === "translateStreamInline" && msg.text) {
-        if (!/\p{L}|\p{N}/u.test(msg.text.trim())) {
+        if (!/\p{L}|\p{N}/u.test(msg.text.trim()) || isUrlLike(msg.text)) {
           try {
             port.postMessage({ type: "chunk", data: "" });
             port.postMessage({ type: "done" });

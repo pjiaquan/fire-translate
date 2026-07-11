@@ -3,12 +3,34 @@
 // Store active translation bubble reference
 let activeBubble = null;
 
+function isUrlLike(text) {
+  const trimmed = text.trim();
+  // 1. Protocol prefix (http://, https://, ftp://, file://, chrome://, etc.)
+  if (/^[a-z]+:\/\//i.test(trimmed)) {
+    return true;
+  }
+  // 2. Starts with www.
+  if (/^www\./i.test(trimmed)) {
+    return true;
+  }
+  // 3. Email addresses
+  if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(trimmed)) {
+    return true;
+  }
+  // 4. Domain names (e.g. google.com, news.ycombinator.com/item)
+  const urlPattern = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}(\/[-a-zA-Z0-9()@:%_\+.~#?&//=]*)?$/i;
+  if (urlPattern.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 // Listen for messages from background context menus
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "showContextBubble") {
     const selection = window.getSelection();
     const text = request.text || selection.toString().trim();
-    if (text && /\p{L}|\p{N}/u.test(text)) {
+    if (text && /\p{L}|\p{N}/u.test(text) && !isUrlLike(text)) {
       removeBubble();
       if (selection.rangeCount > 0) {
         showBubble(text, selection);
@@ -29,8 +51,8 @@ document.addEventListener("dblclick", async (e) => {
   const selection = window.getSelection();
   const text = selection.toString().trim();
   
-  // Translate if text selection is between 1 and 1000 characters and contains letters/numbers
-  if (text.length > 0 && text.length < 1000 && /\p{L}|\p{N}/u.test(text)) {
+  // Translate if text selection is between 1 and 1000 characters, contains letters/numbers and not a URL
+  if (text.length > 0 && text.length < 1000 && /\p{L}|\p{N}/u.test(text) && !isUrlLike(text)) {
     removeBubble();
     showBubble(text, selection);
   }

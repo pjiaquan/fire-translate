@@ -193,12 +193,33 @@ async function executeTestSuite() {
     vm.runInContext(contentCode, sandbox);
   });
 
-  // Test 6: Background routing setups
+  // Test 6: Background script should evaluate and execute successfully
   await runTest("Background script should evaluate and execute successfully", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
     // Should compile and run without runtime exceptions
     vm.runInContext(bgCode, sandbox);
+  });
+
+  // Test 7: URL and link detection utility
+  await runTest("URL detection helper should identify URLs and links correctly", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+    
+    // Check that isUrlLike matches URLs
+    assert.strictEqual(sandbox.isUrlLike("http://example.com"), true);
+    assert.strictEqual(sandbox.isUrlLike("https://www.google.com/search?q=gemma"), true);
+    assert.strictEqual(sandbox.isUrlLike("ftp://files.org"), true);
+    assert.strictEqual(sandbox.isUrlLike("www.yahoo.com"), true);
+    assert.strictEqual(sandbox.isUrlLike("test@example.com"), true);
+    assert.strictEqual(sandbox.isUrlLike("news.ycombinator.com/item"), true);
+    assert.strictEqual(sandbox.isUrlLike("github.io"), true);
+    
+    // Check that isUrlLike does not match plain words/sentences
+    assert.strictEqual(sandbox.isUrlLike("hello"), false);
+    assert.strictEqual(sandbox.isUrlLike("This is a sentence. And another."), false);
+    assert.strictEqual(sandbox.isUrlLike("e.g."), false);
   });
 
   // Summary reporting

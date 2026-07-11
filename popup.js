@@ -24,6 +24,28 @@ function getGemmaLangCode(lang) {
   return lang;
 }
 
+function isUrlLike(text) {
+  const trimmed = text.trim();
+  // 1. Protocol prefix (http://, https://, ftp://, file://, chrome://, etc.)
+  if (/^[a-z]+:\/\//i.test(trimmed)) {
+    return true;
+  }
+  // 2. Starts with www.
+  if (/^www\./i.test(trimmed)) {
+    return true;
+  }
+  // 3. Email addresses
+  if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(trimmed)) {
+    return true;
+  }
+  // 4. Domain names (e.g. google.com, news.ycombinator.com/item)
+  const urlPattern = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}(\/[-a-zA-Z0-9()@:%_\+.~#?&//=]*)?$/i;
+  if (urlPattern.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 // UI Element selections
 const srcTextarea = document.getElementById("src-textarea");
 const targetContent = document.getElementById("target-content");
@@ -310,8 +332,8 @@ async function translate() {
   const srcText = srcTextarea.value.trim();
   if (!srcText) return;
 
-  if (!/\p{L}|\p{N}/u.test(srcText)) {
-    statusMessage.textContent = "Ignored (Symbols only)";
+  if (!/\p{L}|\p{N}/u.test(srcText) || isUrlLike(srcText)) {
+    statusMessage.textContent = "Ignored (Symbols or Link)";
     loader.classList.add("hidden");
     btnTranslate.disabled = false;
     return;
