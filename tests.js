@@ -223,7 +223,7 @@ async function executeTestSuite() {
   });
 
   // Test 8: Punctuation removal and trimming utility
-  await runTest("cleanTranslateText should strip edge punctuation and trim correctly", () => {
+  await runTest("cleanTranslateText should strip edge punctuation, HTML tags, control chars and trim correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
     vm.runInContext(bgCode, sandbox);
@@ -235,6 +235,9 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.cleanTranslateText("「中文」"), "中文");
     assert.strictEqual(sandbox.cleanTranslateText("   trimmed   "), "trimmed");
     assert.strictEqual(sandbox.cleanTranslateText(""), "");
+    assert.strictEqual(sandbox.cleanTranslateText("<b>throughput</b>"), "throughput");
+    assert.strictEqual(sandbox.cleanTranslateText("<script>alert(1)</script>hello"), "alert(1)hello");
+    assert.strictEqual(sandbox.cleanTranslateText("hello\u0000world"), "helloworld");
   });
 
   // Summary reporting
