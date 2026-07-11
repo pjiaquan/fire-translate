@@ -80,9 +80,10 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Translation caching utilities
-async function getCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode) {
+async function getCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, contextSentence = "") {
   const normalizedText = srcText.trim().toLowerCase();
-  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}`;
+  const suffix = contextSentence ? `:${contextSentence.trim().toLowerCase()}` : "";
+  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}${suffix}`;
   
   const res = await chrome.storage.local.get("translationCache");
   const cache = res.translationCache || {};
@@ -97,9 +98,10 @@ async function getCachedTranslation(srcText, srcLang, targetLang, model, richLea
   return null;
 }
 
-async function setCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, translationData) {
+async function setCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, translationData, contextSentence = "") {
   const normalizedText = srcText.trim().toLowerCase();
-  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}`;
+  const suffix = contextSentence ? `:${contextSentence.trim().toLowerCase()}` : "";
+  const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}${suffix}`;
   
   const res = await chrome.storage.local.get("translationCache");
   const cache = res.translationCache || {};
@@ -121,7 +123,7 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
 }
 
 // Perform fetch translation for inline content scripts (non-streaming)
-async function translateInlineText(srcText) {
+async function translateInlineText(srcText, contextSentence = "") {
   if (!srcText || !/\p{L}|\p{N}/u.test(srcText.trim())) {
     return { rich: false, text: "" };
   }
@@ -145,7 +147,7 @@ async function translateInlineText(srcText) {
   const richLearningMode = config.richLearningMode !== false;
 
   // Check cache first
-  const cached = await getCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode);
+  const cached = await getCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode, contextSentence);
   if (cached) {
     return cached;
   }
@@ -171,14 +173,21 @@ async function translateInlineText(srcText) {
   const systemPrompt = rawSystemPrompt.replace(/{target_lang}/g, targetLangName);
   const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
 
+  let userContent = srcText;
+  let systemPromptAdjusted = systemPrompt;
+  if (contextSentence && contextSentence.trim() !== srcText.trim()) {
+    userContent = `Word to translate: "${srcText}"\nContext sentence: "${contextSentence}"`;
+    systemPromptAdjusted = `${systemPrompt}\nIMPORTANT: You must only translate the specific word/phrase indicated. Do not translate the entire context sentence. Output the translated result of that specific word/phrase only, matching the style and context of the sentence.`;
+  }
+
   const response = await fetch(endpointUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: model,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: srcText }
+        { role: "system", content: systemPromptAdjusted },
+        { role: "user", content: userContent }
       ],
       temperature: temp
     })
@@ -209,17 +218,17 @@ async function translateInlineText(srcText) {
             vocabulary: insights.vocabulary || []
           }
         };
-        await setCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode, resultData);
+        await setCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode, resultData, contextSentence);
         return resultData;
       } catch (err2) {
         console.warn("Inline non-stream Phase 2 failed", err2);
         const resultData = { rich: false, text: translatedText };
-        await setCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode, resultData);
+        await setCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode, resultData, contextSentence);
         return resultData;
       }
     } else {
       const resultData = { rich: false, text: translatedText };
-      await setCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode, resultData);
+      await setCachedTranslation(srcText, sourceLang, targetLang, model, richLearningMode, resultData, contextSentence);
       return resultData;
     }
   } else {
@@ -241,7 +250,7 @@ async function updateHistoryItemWithRich(srcText, parsedData, srcLang, targetLan
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "translateInline") {
-    translateInlineText(message.text)
+    translateInlineText(message.text, message.contextSentence)
       .then(result => sendResponse({ success: true, data: result }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true; // Keep message channel open for async response
@@ -451,7 +460,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 // Run Phase 1 translation fetch stream
-async function runStreamTranslationPhase1(srcText, onChunk) {
+async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = "") {
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "model",
@@ -484,6 +493,13 @@ async function runStreamTranslationPhase1(srcText, onChunk) {
   const targetLangName = languageNames[targetLang] || targetLang;
   const systemPrompt = rawSystemPrompt.replace(/{target_lang}/g, targetLangName);
   const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
+
+  let userContent = srcText;
+  let systemPromptAdjusted = systemPrompt;
+  if (contextSentence && contextSentence.trim() !== srcText.trim()) {
+    userContent = `Word to translate: "${srcText}"\nContext sentence: "${contextSentence}"`;
+    systemPromptAdjusted = `${systemPrompt}\nIMPORTANT: You must only translate the specific word/phrase indicated. Do not translate the entire context sentence. Output the translated result of that specific word/phrase only, matching the style and context of the sentence.`;
+  }
 
   const payload = {
     model: model,
@@ -624,7 +640,7 @@ chrome.runtime.onConnect.addListener((port) => {
           const richLearningMode = config.richLearningMode !== false;
           const model = config.model || "qwen";
           
-          const cached = await getCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode);
+          const cached = await getCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, msg.contextSentence);
           if (cached) {
             const rawText = cached.rich ? JSON.stringify(cached.parsed) : cached.text;
             port.postMessage({ type: "chunk", data: rawText });
@@ -641,7 +657,7 @@ chrome.runtime.onConnect.addListener((port) => {
                 port.postMessage({ type: "chunk", data: data });
               } catch (e) {}
             }
-          });
+          }, msg.contextSentence);
 
           // Send done translation signal
           try {
@@ -675,7 +691,7 @@ chrome.runtime.onConnect.addListener((port) => {
                   vocabulary: insights.vocabulary || []
                 }
               };
-              await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData);
+              await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
             } catch (err2) {
               console.warn("Inline Phase 2 insights failed", err2);
               try {
@@ -683,7 +699,7 @@ chrome.runtime.onConnect.addListener((port) => {
               } catch (e) {}
               
               const cacheData = { rich: false, text: translationText };
-              await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData);
+              await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
             }
           } else {
             try {
@@ -691,7 +707,7 @@ chrome.runtime.onConnect.addListener((port) => {
             } catch (e) {}
             
             const cacheData = { rich: false, text: translationText };
-            await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData);
+            await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
           }
         } catch (err) {
           try {

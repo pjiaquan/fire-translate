@@ -64,10 +64,41 @@ function removeBubble() {
   activeBubble = null;
 }
 
+function getSentenceForSelection(selection) {
+  if (!selection || selection.rangeCount === 0) return "";
+  const selectedWord = selection.toString().trim();
+  if (!selectedWord) return "";
+  
+  const range = selection.getRangeAt(0);
+  const container = range.startContainer;
+  
+  // 1. Traverse up to block container
+  let parent = container.parentNode;
+  while (parent && !/^(P|DIV|LI|H[1-6]|TD|BLOCKQUOTE|SECTION|ARTICLE|ASIDE|NAV|HEADER|FOOTER)$/i.test(parent.tagName) && parent.tagName !== "BODY") {
+    parent = parent.parentNode;
+  }
+  
+  const blockText = parent ? parent.textContent.trim() : "";
+  if (!blockText) return selectedWord;
+  
+  // 2. Split blockText into sentences
+  const sentences = blockText.split(/(?<=[.!?。？！;；\n\r])\s+/u);
+  
+  // 3. Find the sentence containing the selected word
+  for (const sentence of sentences) {
+    if (sentence.includes(selectedWord)) {
+      return sentence.trim();
+    }
+  }
+  
+  return selectedWord;
+}
+
 async function showBubble(text, selection) {
   if (!selection.rangeCount) return;
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
+  const contextSentence = getSentenceForSelection(selection);
 
   const settings = await chrome.storage.local.get("textSize");
   const textSize = settings.textSize || "medium";
@@ -326,7 +357,8 @@ async function showBubble(text, selection) {
       
       port.postMessage({
         action: "translateStreamInline",
-        text: text
+        text: text,
+        contextSentence: contextSentence
       });
       
       let accumulatedText = "";
@@ -401,7 +433,8 @@ async function showBubble(text, selection) {
       // Fallback: standard sendMessage for non-streaming fetches
       chrome.runtime.sendMessage({
         action: "translateInline",
-        text: text
+        text: text,
+        contextSentence: contextSentence
       }, (response) => {
         if (!activeBubble || document.getElementById("fire-translate-shadow-host") === null) return;
         
