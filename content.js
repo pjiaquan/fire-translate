@@ -8,7 +8,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "showContextBubble") {
     const selection = window.getSelection();
     const text = request.text || selection.toString().trim();
-    if (text) {
+    if (text && /\p{L}|\p{N}/u.test(text)) {
       removeBubble();
       if (selection.rangeCount > 0) {
         showBubble(text, selection);
@@ -29,8 +29,8 @@ document.addEventListener("dblclick", async (e) => {
   const selection = window.getSelection();
   const text = selection.toString().trim();
   
-  // Translate if text selection is between 1 and 1000 characters
-  if (text.length > 0 && text.length < 1000) {
+  // Translate if text selection is between 1 and 1000 characters and contains letters/numbers
+  if (text.length > 0 && text.length < 1000 && /\p{L}|\p{N}/u.test(text)) {
     removeBubble();
     showBubble(text, selection);
   }

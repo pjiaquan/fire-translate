@@ -290,6 +290,13 @@ async function translate() {
   const srcText = srcTextarea.value.trim();
   if (!srcText) return;
 
+  if (!/\p{L}|\p{N}/u.test(srcText)) {
+    statusMessage.textContent = "Ignored (Symbols only)";
+    loader.classList.add("hidden");
+    btnTranslate.disabled = false;
+    return;
+  }
+
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "model",

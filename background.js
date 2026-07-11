@@ -122,6 +122,10 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
 
 // Perform fetch translation for inline content scripts (non-streaming)
 async function translateInlineText(srcText) {
+  if (!srcText || !/\p{L}|\p{N}/u.test(srcText.trim())) {
+    return { rich: false, text: "" };
+  }
+
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "model",
@@ -605,6 +609,13 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "translate-stream") {
     port.onMessage.addListener(async (msg) => {
       if (msg.action === "translateStreamInline" && msg.text) {
+        if (!/\p{L}|\p{N}/u.test(msg.text.trim())) {
+          try {
+            port.postMessage({ type: "chunk", data: "" });
+            port.postMessage({ type: "done" });
+          } catch (e) {}
+          return;
+        }
         try {
           // Check cache first in streaming listener
           const config = await chrome.storage.local.get(["targetLang", "richLearningMode", "model", "sourceLang"]);
