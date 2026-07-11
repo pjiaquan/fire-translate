@@ -132,6 +132,11 @@ function getGemmaLangCode(lang) {
   return lang;
 }
 
+function cleanTranslateText(text) {
+  if (!text) return "";
+  return text.replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}]+$/u, '').trim();
+}
+
 function isUrlLike(text) {
   const trimmed = text.trim();
   // 1. Protocol prefix (http://, https://, ftp://, file://, chrome://, etc.)
@@ -156,7 +161,8 @@ function isUrlLike(text) {
 
 // Perform fetch translation for inline content scripts (non-streaming)
 async function translateInlineText(srcText, contextSentence = "") {
-  if (!srcText || !/\p{L}|\p{N}/u.test(srcText.trim()) || isUrlLike(srcText)) {
+  srcText = cleanTranslateText(srcText);
+  if (!srcText || !/\p{L}|\p{N}/u.test(srcText) || isUrlLike(srcText)) {
     return { rich: false, text: "" };
   }
 
@@ -412,6 +418,10 @@ async function addLogBg(type, message, details = null) {
 }
 
 async function sendToTelegram(srcText, translatedText) {
+  const cleanSrc = cleanTranslateText(srcText);
+  const cleanTarget = (translatedText || "").trim();
+  if (!cleanSrc || !cleanTarget) return;
+
   const config = await chrome.storage.local.get([
     "enableTelegram",
     "telegramBotToken",
@@ -430,11 +440,11 @@ async function sendToTelegram(srcText, translatedText) {
   let history = config.history || [];
   let todayItems = history.filter(item => isToday(item.timestamp));
 
-  const currentInHistory = todayItems.some(item => item.srcText === srcText);
-  if (!currentInHistory && srcText && translatedText) {
+  const currentInHistory = todayItems.some(item => cleanTranslateText(item.srcText) === cleanSrc);
+  if (!currentInHistory) {
     todayItems.unshift({
-      srcText,
-      translatedText,
+      srcText: cleanSrc,
+      translatedText: cleanTarget,
       timestamp: new Date().toISOString()
     });
   }
@@ -705,7 +715,8 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "translate-stream") {
     port.onMessage.addListener(async (msg) => {
       if (msg.action === "translateStreamInline" && msg.text) {
-        if (!/\p{L}|\p{N}/u.test(msg.text.trim()) || isUrlLike(msg.text)) {
+        const cleanedText = cleanTranslateText(msg.text);
+        if (!/\p{L}|\p{N}/u.test(cleanedText) || isUrlLike(cleanedText)) {
           try {
             port.postMessage({ type: "chunk", data: "" });
             port.postMessage({ type: "done" });
@@ -720,7 +731,7 @@ chrome.runtime.onConnect.addListener((port) => {
           const richLearningMode = config.richLearningMode !== false;
           const model = config.model || "qwen";
           
-          const cached = await getCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, msg.contextSentence);
+          const cached = await getCachedTranslation(cleanedText, sourceLang, targetLang, model, richLearningMode, msg.contextSentence);
           if (cached) {
             const rawText = cached.rich ? JSON.stringify(cached.parsed) : cached.text;
             port.postMessage({ type: "chunk", data: rawText });
@@ -730,7 +741,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
           // Phase 1: Translate & Stream
           let translationText = "";
-          await runStreamTranslationPhase1(msg.text, (type, data) => {
+          await runStreamTranslationPhase1(cleanedText, (type, data) => {
             if (type === "chunk") {
               translationText += data;
               try {
@@ -747,15 +758,15 @@ chrome.runtime.onConnect.addListener((port) => {
           }
 
           // Save to history log
-          await addHistoryItemBg(msg.text, translationText, sourceLang, targetLang);
+          await addHistoryItemBg(cleanedText, translationText, sourceLang, targetLang);
 
           // Send to Telegram (if enabled)
-          sendToTelegram(msg.text, translationText).catch(() => {});
+          sendToTelegram(cleanedText, translationText).catch(() => {});
 
           // Phase 2: Learning Insights
           if (richLearningMode) {
             try {
-              const insights = await fetchLearningInsights(msg.text, translationText, targetLang, model);
+              const insights = await fetchLearningInsights(cleanedText, translationText, targetLang, model);
               try {
                 port.postMessage({ type: "done-learning", parsed: insights });
               } catch (e) {
@@ -771,7 +782,7 @@ chrome.runtime.onConnect.addListener((port) => {
                   vocabulary: insights.vocabulary || []
                 }
               };
-              await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
+              await setCachedTranslation(cleanedText, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
             } catch (err2) {
               console.warn("Inline Phase 2 insights failed", err2);
               try {
@@ -779,7 +790,7 @@ chrome.runtime.onConnect.addListener((port) => {
               } catch (e) {}
               
               const cacheData = { rich: false, text: translationText };
-              await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
+              await setCachedTranslation(cleanedText, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
             }
           } else {
             try {
@@ -787,7 +798,7 @@ chrome.runtime.onConnect.addListener((port) => {
             } catch (e) {}
             
             const cacheData = { rich: false, text: translationText };
-            await setCachedTranslation(msg.text, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
+            await setCachedTranslation(cleanedText, sourceLang, targetLang, model, richLearningMode, cacheData, msg.contextSentence);
           }
         } catch (err) {
           try {

@@ -3,6 +3,11 @@
 // Store active translation bubble reference
 let activeBubble = null;
 
+function cleanTranslateText(text) {
+  if (!text) return "";
+  return text.replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}]+$/u, '').trim();
+}
+
 function isUrlLike(text) {
   const trimmed = text.trim();
   // 1. Protocol prefix (http://, https://, ftp://, file://, chrome://, etc.)
@@ -29,7 +34,8 @@ function isUrlLike(text) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "showContextBubble") {
     const selection = window.getSelection();
-    const text = request.text || selection.toString().trim();
+    const textRaw = request.text || selection.toString();
+    const text = cleanTranslateText(textRaw);
     if (text && /\p{L}|\p{N}/u.test(text) && !isUrlLike(text)) {
       removeBubble();
       if (selection.rangeCount > 0) {
@@ -49,7 +55,8 @@ document.addEventListener("dblclick", async (e) => {
   }
 
   const selection = window.getSelection();
-  const text = selection.toString().trim();
+  const textRaw = selection.toString();
+  const text = cleanTranslateText(textRaw);
   
   // Translate if text selection is between 1 and 1000 characters, contains letters/numbers and not a URL
   if (text.length > 0 && text.length < 1000 && /\p{L}|\p{N}/u.test(text) && !isUrlLike(text)) {

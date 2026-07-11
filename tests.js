@@ -222,6 +222,21 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.isUrlLike("e.g."), false);
   });
 
+  // Test 8: Punctuation removal and trimming utility
+  await runTest("cleanTranslateText should strip edge punctuation and trim correctly", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+    
+    assert.strictEqual(sandbox.cleanTranslateText(" (hello) "), "hello");
+    assert.strictEqual(sandbox.cleanTranslateText(".world!"), "world");
+    assert.strictEqual(sandbox.cleanTranslateText("hello-world"), "hello-world");
+    assert.strictEqual(sandbox.cleanTranslateText("throughput."), "throughput");
+    assert.strictEqual(sandbox.cleanTranslateText("「中文」"), "中文");
+    assert.strictEqual(sandbox.cleanTranslateText("   trimmed   "), "trimmed");
+    assert.strictEqual(sandbox.cleanTranslateText(""), "");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);

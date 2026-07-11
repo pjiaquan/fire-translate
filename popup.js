@@ -329,8 +329,10 @@ function renderRichTranslation(data) {
 
 // Translation Engine Core
 async function translate() {
-  const srcText = srcTextarea.value.trim();
+  let srcText = srcTextarea.value;
+  srcText = cleanTranslateText(srcText);
   if (!srcText) return;
+  srcTextarea.value = srcText;
 
   if (!/\p{L}|\p{N}/u.test(srcText) || isUrlLike(srcText)) {
     statusMessage.textContent = "Ignored (Symbols or Link)";
