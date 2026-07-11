@@ -7,6 +7,9 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ["selection"]
   });
   
+  // Clear translation cache on install/update to ensure new prompts take effect immediately
+  chrome.storage.local.remove("translationCache");
+  
   // Set default settings if not already present
   chrome.storage.local.get([
     "apiEndpoint",
@@ -36,7 +39,8 @@ chrome.runtime.onInstalled.addListener(() => {
       defaults.systemPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
     }
     if (result.richLearningMode === undefined) defaults.richLearningMode = true;
-    if (result.systemPromptLearning === undefined) {
+    const isOldPrompt = result.systemPromptLearning && !result.systemPromptLearning.includes("並且在括號內附帶對應翻譯");
+    if (result.systemPromptLearning === undefined || isOldPrompt) {
       defaults.systemPromptLearning = `你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。
 請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 \`\`\`json）、前言、後記或解釋：
 
@@ -53,7 +57,7 @@ chrome.runtime.onInstalled.addListener(() => {
       "word": "（從輸入文字中提取的關鍵字，原文字語言）",
       "pos": "（詞性，例如 n. / v. / adj.）",
       "translation": "（該關鍵詞在{target_lang}中的對應翻譯）",
-      "synonyms": ["（與原文字同語言的相似詞/同義字，例如若原文字為英文，請提供英文同義字）"],
+      "synonyms": ["（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）"],
       "when_to_use": "（說明此字詞的使用時機、搭配語境或使用習慣）",
       "example_sentence_source": "（使用此關鍵字的英文/原語言例句）",
       "example_sentence_target": "（該例句翻譯成{target_lang}的結果）"
@@ -94,7 +98,16 @@ async function getCachedTranslation(srcText, srcLang, targetLang, model, richLea
     const cacheAge = Date.now() - cache[cacheKey].timestamp;
     const TTL = 7 * 24 * 60 * 60 * 1000; // 7 days TTL
     if (cacheAge < TTL) {
-      return cache[cacheKey].data;
+      const cachedData = cache[cacheKey].data;
+      if (cachedData) {
+        const transText = cachedData.rich ? cachedData.parsed?.translation : cachedData.text;
+        const isShortSrc = srcText.trim().split(/\s+/).length <= 3;
+        // If source text is short, but cached translation is long conversational English, bypass it
+        if (isShortSrc && transText && transText.length > 50 && /[a-zA-Z]{4,}/.test(transText)) {
+          return null;
+        }
+      }
+      return cachedData;
     }
   }
   return null;
@@ -122,6 +135,26 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
     }
   }
   await chrome.storage.local.set({ translationCache: cache });
+}
+
+function getBilingualLangName(lang) {
+  const mapping = {
+    "auto": "自動偵測 / Auto Detect",
+    "zh-TW": "繁體中文 / Traditional Chinese",
+    "zh-CN": "簡體中文 / Simplified Chinese",
+    "en": "English",
+    "ja": "日本語 / Japanese",
+    "ko": "韓國語 / Korean",
+    "es": "Español / Spanish",
+    "fr": "Français / French",
+    "de": "Deutsch / German",
+    "ru": "Русский / Russian",
+    "pt": "Português / Portuguese",
+    "it": "Italiano / Italian"
+  };
+  if (lang === "繁體中文" || lang === "zh-TW" || lang === "zh-Hant") return "繁體中文 / Traditional Chinese";
+  if (lang === "簡體中文" || lang === "zh-CN" || lang === "zh-Hans") return "簡體中文 / Simplified Chinese";
+  return mapping[lang] || lang;
 }
 
 function getGemmaLangCode(lang) {
@@ -221,9 +254,27 @@ async function translateInlineText(srcText, contextSentence = "") {
 
   let userContent = srcText;
   let systemPromptAdjusted = systemPrompt;
-  if (contextSentence && contextSentence.trim() !== srcText.trim()) {
-    userContent = `Word to translate: "${srcText}"\nContext sentence: "${contextSentence}"`;
-    systemPromptAdjusted = `${systemPrompt}\nIMPORTANT: You must only translate the specific word/phrase indicated. Do not translate the entire context sentence. Output the translated result of that specific word/phrase only, matching the style and context of the sentence.`;
+  if (modelType !== "translategemma") {
+    if (contextSentence && contextSentence.trim() !== srcText.trim()) {
+      userContent = `請將單字/片語「${srcText}」翻譯成${targetLangName}。
+（該單字/片語在原文中的上下文句子為：「${contextSentence}」，請依據此上下文來理解意思並進行翻譯。你只需翻譯「${srcText}」本身，絕對不要翻譯整個句子，也不要輸出引號、任何解釋、說明或英文原文。）`;
+      systemPromptAdjusted = `${systemPrompt}
+目前該單字/片語所屬的上下文句子為：「${contextSentence}」。
+請特別注意：你必須只翻譯使用者輸入的單字/片語本身（即「${srcText}」），並使其符合上下文句子的語境與詞性。
+請直接輸出翻譯後的結果，絕對不要包含上下文句子、原文單字、引號、任何解釋、前言、後記、選項或問候語。`;
+    } else {
+      const isWord = srcText.trim().split(/\s+/).length === 1;
+      if (isWord) {
+        userContent = `請將單字「${srcText}」翻譯成${targetLangName}。
+如果該單字有多個常用翻譯，請「僅」以無前言後記的 Markdown 無序列表（bullet list）形式輸出這些翻譯，例如：
+* 渲染
+* 呈現
+* 描繪
+絕對不要包含原文字、任何解釋、例句、引言、問候語、前言或後續說明。`;
+      } else {
+        userContent = `請將以下文字直接翻譯成${targetLangName}。只輸出翻譯後的結果，絕對不要包含任何解釋、說明、引號、前言、後記、選項或問候語：\n\n${srcText}`;
+      }
+    }
   }
 
   let messagesPayload;
@@ -233,14 +284,7 @@ async function translateInlineText(srcText, contextSentence = "") {
     messagesPayload = [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            source_lang_code: getGemmaLangCode(sourceLang),
-            target_lang_code: getGemmaLangCode(targetLang),
-            text: userContent
-          }
-        ]
+        content: `Translate this to ${getGemmaLangCode(targetLang)}:\n${srcText}`
       }
     ];
   } else {
@@ -571,9 +615,27 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
 
   let userContent = srcText;
   let systemPromptAdjusted = systemPrompt;
-  if (contextSentence && contextSentence.trim() !== srcText.trim()) {
-    userContent = `Word to translate: "${srcText}"\nContext sentence: "${contextSentence}"`;
-    systemPromptAdjusted = `${systemPrompt}\nIMPORTANT: You must only translate the specific word/phrase indicated. Do not translate the entire context sentence. Output the translated result of that specific word/phrase only, matching the style and context of the sentence.`;
+  if (modelType !== "translategemma") {
+    if (contextSentence && contextSentence.trim() !== srcText.trim()) {
+      userContent = `請將單字/片語「${srcText}」翻譯成${targetLangName}。
+（該單字/片語在原文中的上下文句子為：「${contextSentence}」，請依據此上下文來理解意思並進行翻譯。你只需翻譯「${srcText}」本身，絕對不要翻譯整個句子，也不要輸出引號、任何解釋、說明或英文原文。）`;
+      systemPromptAdjusted = `${systemPrompt}
+目前該單字/片語所屬的上下文句子為：「${contextSentence}」。
+請特別注意：你必須只翻譯使用者輸入的單字/片語本身（即「${srcText}」），並使其符合上下文句子的語境與詞性。
+請直接輸出翻譯後的結果，絕對不要包含上下文句子、原文單字、引號、任何解釋、前言、後記、選項或問候語。`;
+    } else {
+      const isWord = srcText.trim().split(/\s+/).length === 1;
+      if (isWord) {
+        userContent = `請將單字「${srcText}」翻譯成${targetLangName}。
+如果該單字有多個常用翻譯，請「僅」以無前言後記的 Markdown 無序列表（bullet list）形式輸出這些翻譯，例如：
+* 渲染
+* 呈現
+* 描繪
+絕對不要包含原文字、任何解釋、例句、引言、問候語、前言或後續說明。`;
+      } else {
+        userContent = `請將以下文字直接翻譯成${targetLangName}。只輸出翻譯後的結果，絕對不要包含任何解釋、說明、引號、前言、後記、選項或問候語：\n\n${srcText}`;
+      }
+    }
   }
 
   let messagesPayload;
@@ -583,14 +645,7 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
     messagesPayload = [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            source_lang_code: getGemmaLangCode(sourceLang),
-            target_lang_code: getGemmaLangCode(targetLang),
-            text: userContent
-          }
-        ]
+        content: `Translate this to ${getGemmaLangCode(targetLang)}:\n${srcText}`
       }
     ];
   } else {

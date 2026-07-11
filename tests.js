@@ -240,6 +240,93 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.cleanTranslateText("hello\u0000world"), "helloworld");
   });
 
+  // Test 9: getSentenceForSelection selection parsing logic
+  await runTest("getSentenceForSelection should correctly locate the surrounding sentence for selection", () => {
+    const sandbox = createSandbox();
+    sandbox.NodeFilter = { SHOW_TEXT: 4 };
+    
+    class MockNode {
+      constructor(text, tagName = "DIV") {
+        this.nodeValue = text;
+        this.textContent = text;
+        this.tagName = tagName;
+        this.parentNode = null;
+      }
+    }
+    
+    const textNode = new MockNode("First sentence. If you’ve seen benchmark charts flying around Twitter or Reddit lately, they almost certainly featured one of the models below. Third sentence.");
+    const divNode = new MockNode(textNode.textContent, "DIV");
+    textNode.parentNode = divNode;
+    
+    sandbox.document.createTreeWalker = (parent, showTextFilter) => {
+      let visited = false;
+      return {
+        nextNode: () => {
+          if (!visited) {
+            visited = true;
+            return textNode;
+          }
+          return null;
+        }
+      };
+    };
+    
+    const mockSelection = {
+      rangeCount: 1,
+      toString: () => "benchmark",
+      getRangeAt: () => ({
+        startContainer: textNode,
+        startOffset: textNode.nodeValue.indexOf("benchmark"),
+        endContainer: textNode,
+        endOffset: textNode.nodeValue.indexOf("benchmark") + "benchmark".length
+      })
+    };
+    
+    vm.createContext(sandbox);
+    vm.runInContext(contentCode, sandbox);
+    
+    const sentence = sandbox.getSentenceForSelection(mockSelection);
+    assert.strictEqual(
+      sentence,
+      "If you’ve seen benchmark charts flying around Twitter or Reddit lately, they almost certainly featured one of the models below."
+    );
+
+    // Test Chinese punctuation boundary
+    const textNode2 = new MockNode("這是第一句。當用戶點選benchmark的時候，會顯示這個翻譯！這是第三句。");
+    const divNode2 = new MockNode(textNode2.textContent, "DIV");
+    textNode2.parentNode = divNode2;
+    
+    sandbox.document.createTreeWalker = (parent, showTextFilter) => {
+      let visited = false;
+      return {
+        nextNode: () => {
+          if (!visited) {
+            visited = true;
+            return textNode2;
+          }
+          return null;
+        }
+      };
+    };
+    
+    const mockSelection2 = {
+      rangeCount: 1,
+      toString: () => "benchmark",
+      getRangeAt: () => ({
+        startContainer: textNode2,
+        startOffset: textNode2.nodeValue.indexOf("benchmark"),
+        endContainer: textNode2,
+        endOffset: textNode2.nodeValue.indexOf("benchmark") + "benchmark".length
+      })
+    };
+    
+    const sentence2 = sandbox.getSentenceForSelection(mockSelection2);
+    assert.strictEqual(
+      sentence2,
+      "當用戶點選benchmark的時候，會顯示這個翻譯！"
+    );
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);

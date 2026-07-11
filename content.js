@@ -113,20 +113,63 @@ function getSentenceForSelection(selection) {
     parent = parent.parentNode;
   }
   
-  const blockText = parent ? parent.textContent.trim() : "";
-  if (!blockText) return selectedWord;
+  if (!parent) return selectedWord;
   
-  // 2. Split blockText into sentences
-  const sentences = blockText.split(/(?<=[.!?。？！;；\n\r])\s+/u);
+  // Get all text content and map selection offsets within it
+  let startOffset = -1;
+  let endOffset = -1;
+  let currentLen = 0;
   
-  // 3. Find the sentence containing the selected word
-  for (const sentence of sentences) {
-    if (sentence.includes(selectedWord)) {
-      return sentence.trim();
+  // Walk text nodes to find absolute character offsets
+  const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  while (node = walker.nextNode()) {
+    if (node === range.startContainer) {
+      startOffset = currentLen + range.startOffset;
+    }
+    if (node === range.endContainer) {
+      endOffset = currentLen + range.endOffset;
+    }
+    currentLen += node.nodeValue.length;
+  }
+  
+  const text = parent.textContent;
+  if (startOffset === -1 || endOffset === -1 || !text) {
+    const blockText = text ? text.trim() : "";
+    if (!blockText) return selectedWord;
+    const sentences = blockText.split(/(?<=[.!?。？！;；\n\r])\s+/u);
+    for (const sentence of sentences) {
+      if (sentence.includes(selectedWord)) {
+        return sentence.trim();
+      }
+    }
+    return selectedWord;
+  }
+  
+  // Find sentence boundaries around [startOffset, endOffset]
+  let sentenceStart = 0;
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const char = text[i];
+    if (/[.!?。？！;；\n\r]/.test(char)) {
+      if (/[。？！；\n\r]/.test(char) || (i + 1 < text.length && /\s/.test(text[i + 1]))) {
+        sentenceStart = i + 1;
+        break;
+      }
     }
   }
   
-  return selectedWord;
+  let sentenceEnd = text.length;
+  for (let i = endOffset; i < text.length; i++) {
+    const char = text[i];
+    if (/[.!?。？！;；\n\r]/.test(char)) {
+      if (/[。？！；\n\r]/.test(char) || (i + 1 === text.length || /\s/.test(text[i + 1]))) {
+        sentenceEnd = i + 1;
+        break;
+      }
+    }
+  }
+  
+  return text.substring(sentenceStart, sentenceEnd).trim();
 }
 
 async function showBubble(text, selection) {
@@ -562,42 +605,30 @@ function finalizeInlineTranslation(bubble, translatedText, richLearningMode) {
 }
 
 function renderInlineVocab(content, vocabulary) {
-  if (vocabulary && vocabulary.length > 0) {
-    const vocabContainer = document.createElement("div");
-    vocabContainer.className = "bubble-vocab-section";
-    vocabContainer.innerHTML = `<div class="bubble-vocab-title">Key Vocabulary & Examples</div>`;
-    
-    const vocabList = document.createElement("ul");
-    vocabList.className = "bubble-vocab-list";
-    vocabList.style.paddingLeft = "10px";
-    
-    vocabulary.slice(0, 3).forEach(vocab => {
-      const item = document.createElement("li");
-      item.className = "bubble-vocab-item";
-      item.style.marginBottom = "8px";
-      item.style.listStyleType = "none"; // Hide default disc for custom layout spacing
-      
-      let html = `<div><span class="vocab-hl">${escapeHTML(vocab.word)}</span> (${escapeHTML(vocab.pos || "n.")}): <strong>${escapeHTML(vocab.translation)}</strong></div>`;
-      
-      if (vocab.synonyms && vocab.synonyms.length > 0) {
-        html += `<div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Similar words: ${escapeHTML(vocab.synonyms.join(", "))}</div>`;
-      }
-      if (vocab.when_to_use) {
-        html += `<div style="font-size: 10px; color: #9ca3af; margin-top: 1px;">Usage: ${escapeHTML(vocab.when_to_use)}</div>`;
-      }
-      if (vocab.example_sentence_source) {
-        html += `<div style="font-size: 10.5px; color: #fbbf24; margin-top: 2px; font-style: italic;">“${escapeHTML(vocab.example_sentence_source)}”</div>`;
-        if (vocab.example_sentence_target) {
-          html += `<div style="font-size: 10.5px; color: #a7f3d0; margin-left: 4px;">→ ${escapeHTML(vocab.example_sentence_target)}</div>`;
+  if (!vocabulary || vocabulary.length === 0) return;
+  
+  // Collect all unique synonyms across vocabulary items
+  let allSynonyms = [];
+  vocabulary.forEach(vocab => {
+    if (vocab.synonyms && vocab.synonyms.length > 0) {
+      vocab.synonyms.forEach(syn => {
+        if (!allSynonyms.includes(syn)) {
+          allSynonyms.push(syn);
         }
-      }
-      
-      item.innerHTML = html;
-      vocabList.appendChild(item);
-    });
+      });
+    }
+  });
+
+  if (allSynonyms.length > 0) {
+    const synContainer = document.createElement("div");
+    synContainer.className = "bubble-vocab-section";
+    synContainer.style.cssText = "margin-top: 8px; border-top: 1px dashed #374151; padding-top: 8px;";
     
-    vocabContainer.appendChild(vocabList);
-    content.appendChild(vocabContainer);
+    synContainer.innerHTML = `
+      <div style="font-size: 10px; color: #fbbf24; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Similar Words</div>
+      <div style="font-size: 11px; color: #d1d5db; line-height: 1.4;">${escapeHTML(allSynonyms.join(", "))}</div>
+    `;
+    content.appendChild(synContainer);
   }
 }
 

@@ -233,13 +233,13 @@
       </div>
 
       <div class="form-group" id="group-simple-prompt">
-        <label for="input-system-prompt">Simple Translation Prompt Template</label>
+        <label for="input-system-prompt">Phase 1: Translation System Prompt</label>
         <textarea id="input-system-prompt" class="small-textarea" placeholder="Enter simple translation prompt..."></textarea>
         <small class="form-help">Use <code>{target_lang}</code> which will be replaced dynamically with the destination language name (e.g. 繁體中文, English).</small>
       </div>
 
       <div class="form-group" id="group-learning-prompt">
-        <label for="input-system-prompt-learning">Rich Learning Prompt Template</label>
+        <label for="input-system-prompt-learning">Phase 2: Learning System Prompt</label>
         <textarea id="input-system-prompt-learning" class="small-textarea" placeholder="Enter learning translation prompt..."></textarea>
         <small class="form-help">Must instruct the model to return JSON containing <code>alternatives</code> and <code>vocabulary</code> fields based on original and translated text inputs.</small>
       </div>

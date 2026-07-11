@@ -16,6 +16,26 @@ const languageNames = {
   "it": "Italiano"
 };
 
+function getBilingualLangName(lang) {
+  const mapping = {
+    "auto": "自動偵測 / Auto Detect",
+    "zh-TW": "繁體中文 / Traditional Chinese",
+    "zh-CN": "簡體中文 / Simplified Chinese",
+    "en": "English",
+    "ja": "日本語 / Japanese",
+    "ko": "韓國語 / Korean",
+    "es": "Español / Spanish",
+    "fr": "Français / French",
+    "de": "Deutsch / German",
+    "ru": "Русский / Russian",
+    "pt": "Português / Portuguese",
+    "it": "Italiano / Italian"
+  };
+  if (lang === "繁體中文" || lang === "zh-TW" || lang === "zh-Hant") return "繁體中文 / Traditional Chinese";
+  if (lang === "簡體中文" || lang === "zh-CN" || lang === "zh-Hans") return "簡體中文 / Simplified Chinese";
+  return mapping[lang] || lang;
+}
+
 function getGemmaLangCode(lang) {
   if (!lang) return "en";
   if (lang === "auto") return "en";
@@ -101,7 +121,16 @@ async function getCachedTranslation(srcText, srcLang, targetLang, model, richLea
     const cacheAge = Date.now() - cache[cacheKey].timestamp;
     const TTL = 7 * 24 * 60 * 60 * 1000; // 7 days TTL
     if (cacheAge < TTL) {
-      return cache[cacheKey].data;
+      const cachedData = cache[cacheKey].data;
+      if (cachedData) {
+        const transText = cachedData.rich ? cachedData.parsed?.translation : cachedData.text;
+        const isShortSrc = srcText.trim().split(/\s+/).length <= 3;
+        // If source text is short, but cached translation is long conversational English, bypass it
+        if (isShortSrc && transText && transText.length > 50 && /[a-zA-Z]{4,}/.test(transText)) {
+          return null;
+        }
+      }
+      return cachedData;
     }
   }
   return null;
@@ -447,20 +476,25 @@ function showLearningLoader() {
     messagesPayload = [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            source_lang_code: getGemmaLangCode(srcLang),
-            target_lang_code: getGemmaLangCode(targetLang),
-            text: srcText
-          }
-        ]
+        content: `Translate this to ${getGemmaLangCode(targetLang)}:\n${srcText}`
       }
     ];
   } else {
+    const isWord = srcText.trim().split(/\s+/).length === 1;
+    let userContent;
+    if (isWord) {
+      userContent = `請將單字「${srcText}」翻譯成${targetLangName}。
+如果該單字有多個常用翻譯，請「僅」以無前言後記的 Markdown 無序列表（bullet list）形式輸出這些翻譯，例如：
+* 渲染
+* 呈現
+* 描繪
+絕對不要包含原文字、任何解釋、例句、引言、問候語、前言或後續說明。`;
+    } else {
+      userContent = `請將以下文字直接翻譯成${targetLangName}。只輸出翻譯後的結果，絕對不要包含任何解釋、說明、引號、前言、後記、選項或問候語：\n\n${srcText}`;
+    }
     messagesPayload = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: srcText }
+      { role: "user", content: userContent }
     ];
   }
 
@@ -643,11 +677,13 @@ const groupSimplePrompt = document.getElementById("group-simple-prompt");
 const groupLearningPrompt = document.getElementById("group-learning-prompt");
 
 function togglePromptVisibility() {
+  // Phase 1 translation prompt is always visible
+  groupSimplePrompt.classList.remove("hidden");
+  
+  // Phase 2 learning prompt is visible only when Rich Learning Mode is enabled
   if (checkRichLearning.checked) {
-    groupSimplePrompt.classList.add("hidden");
     groupLearningPrompt.classList.remove("hidden");
   } else {
-    groupSimplePrompt.classList.remove("hidden");
     groupLearningPrompt.classList.add("hidden");
   }
 }
@@ -736,7 +772,7 @@ async function loadSettingsToUI() {
   const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
   document.getElementById("input-system-prompt").value = res.systemPrompt ?? defaultPrompt;
   
-  const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，例如若原文字為英文，請提供英文同義字）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
+  const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
   document.getElementById("input-system-prompt-learning").value = res.systemPromptLearning ?? defaultPromptLearning;
 
   togglePromptVisibility();
@@ -819,7 +855,7 @@ btnResetSettings.addEventListener("click", async () => {
       telegramBotToken: "",
       telegramChatId: "",
       systemPrompt: "你是一個專業的翻譯引擎。請將使用者輸入的 any 文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。",
-      systemPromptLearning: "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，例如若原文字為英文，請提供英文同義字）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}"
+      systemPromptLearning: "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}"
     });
     await loadSettingsToUI();
     await addLog("info", "Settings reset to defaults");
