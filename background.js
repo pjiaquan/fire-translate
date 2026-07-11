@@ -188,6 +188,9 @@ async function translateInlineText(srcText) {
   if (data.choices && data.choices[0] && data.choices[0].message) {
     const translatedText = data.choices[0].message.content.trim();
     
+    // Save to history log
+    await addHistoryItemBg(srcText, translatedText, sourceLang, targetLang);
+
     // Dispatch to Telegram (if enabled)
     sendToTelegram(srcText, translatedText).catch(() => {});
     
@@ -281,11 +284,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+function isToday(isoString) {
+  if (!isoString) return false;
+  const date = new Date(isoString);
+  const today = new Date();
+  return date.getFullYear() === today.getFullYear() &&
+         date.getMonth() === today.getMonth() &&
+         date.getDate() === today.getDate();
+}
+
+function escapeTelegramHTML(str) {
+  if (!str) return "";
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function addHistoryItemBg(src, target, srcLang, targetLang) {
+  const res = await chrome.storage.local.get("history");
+  let history = res.history || [];
+  
+  if (history.length > 0 && history[0].srcText === src && history[0].targetLang === targetLang) {
+    return;
+  }
+  
+  const newItem = {
+    id: Date.now().toString(),
+    srcText: src,
+    translatedText: target,
+    srcLang,
+    targetLang,
+    timestamp: new Date().toISOString()
+  };
+  
+  history.unshift(newItem);
+  
+  const config = await chrome.storage.local.get("maxHistory");
+  const maxHistory = config.maxHistory || 100;
+  if (history.length > maxHistory) {
+    history = history.slice(0, maxHistory);
+  }
+  
+  await chrome.storage.local.set({ history });
+}
+
 async function sendToTelegram(srcText, translatedText) {
   const config = await chrome.storage.local.get([
     "enableTelegram",
     "telegramBotToken",
-    "telegramChatId"
+    "telegramChatId",
+    "history"
   ]);
 
   if (!config.enableTelegram || !config.telegramBotToken || !config.telegramChatId) {
@@ -296,7 +342,30 @@ async function sendToTelegram(srcText, translatedText) {
   const chatId = config.telegramChatId.trim();
   if (!botToken || !chatId) return;
 
-  const text = `*Fire Translate*\n\n*Original:*\n${srcText}\n\n*Translation:*\n${translatedText}`;
+  let history = config.history || [];
+  let todayItems = history.filter(item => isToday(item.timestamp));
+
+  const currentInHistory = todayItems.some(item => item.srcText === srcText);
+  if (!currentInHistory && srcText && translatedText) {
+    todayItems.unshift({
+      srcText,
+      translatedText,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  let htmlMessage = `<b>🔥 Fire Translate - Daily Review (${new Date().toLocaleDateString()})</b>\n\n`;
+  todayItems.forEach((item, idx) => {
+    let cleanTranslation = item.translatedText;
+    if (cleanTranslation.startsWith("{") && cleanTranslation.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(cleanTranslation);
+        cleanTranslation = parsed.translation;
+      } catch (e) {}
+    }
+    htmlMessage += `${idx + 1}. <b>${escapeTelegramHTML(item.srcText)}</b> &rarr; ${escapeTelegramHTML(cleanTranslation)}\n`;
+  });
+
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
   try {
@@ -305,8 +374,8 @@ async function sendToTelegram(srcText, translatedText) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: text,
-        parse_mode: "Markdown"
+        text: htmlMessage,
+        parse_mode: "HTML"
       })
     });
     if (!response.ok) {
@@ -545,6 +614,9 @@ chrome.runtime.onConnect.addListener((port) => {
           } catch (e) {
             return; // Port was closed, abort Phase 2
           }
+
+          // Save to history log
+          await addHistoryItemBg(msg.text, translationText, sourceLang, targetLang);
 
           // Send to Telegram (if enabled)
           sendToTelegram(msg.text, translationText).catch(() => {});
