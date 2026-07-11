@@ -545,7 +545,7 @@ function renderInlineVocab(content, vocabulary) {
       let html = `<div><span class="vocab-hl">${escapeHTML(vocab.word)}</span> (${escapeHTML(vocab.pos || "n.")}): <strong>${escapeHTML(vocab.translation)}</strong></div>`;
       
       if (vocab.synonyms && vocab.synonyms.length > 0) {
-        html += `<div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Synonyms: ${escapeHTML(vocab.synonyms.join(", "))}</div>`;
+        html += `<div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Similar words: ${escapeHTML(vocab.synonyms.join(", "))}</div>`;
       }
       if (vocab.when_to_use) {
         html += `<div style="font-size: 10px; color: #9ca3af; margin-top: 1px;">Usage: ${escapeHTML(vocab.when_to_use)}</div>`;
