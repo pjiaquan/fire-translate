@@ -310,6 +310,22 @@ async function translate() {
   const richLearningMode = config.richLearningMode !== false;
   const streamTranslations = config.streamTranslations !== false;
 
+function showLearningLoader() {
+  const existing = document.getElementById("learning-loader");
+  if (existing) existing.remove();
+
+  const loaderContainer = document.createElement("div");
+  loaderContainer.id = "learning-loader";
+  loaderContainer.style.cssText = "margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--text-muted);";
+  loaderContainer.innerHTML = `
+    <svg class="spinner-svg" style="width: 16px; height: 16px;" viewBox="0 0 50 50">
+      <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+    </svg>
+    <span>Loading vocabulary & suggestions...</span>
+  `;
+  targetContent.appendChild(loaderContainer);
+}
+
   // Check cache first
   const cached = await getCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode);
   if (cached) {
@@ -318,20 +334,37 @@ async function translate() {
     if (cached.rich) {
       renderRichTranslation(cached.parsed);
       currentTranslationText = cached.parsed.translation;
+      btnCopy.disabled = false;
+      btnTts.disabled = false;
+      statusMessage.textContent = "Completed (Loaded from cache)";
+      await addHistoryItem(srcText, JSON.stringify(cached.parsed), srcLang, targetLang);
+      return;
     } else {
       targetContent.textContent = cached.text;
       targetContent.classList.remove("empty");
       currentTranslationText = cached.text;
+      btnCopy.disabled = false;
+      btnTts.disabled = false;
+      statusMessage.textContent = "Translation loaded from cache";
+      
+      if (richLearningMode) {
+        showLearningLoader();
+        chrome.runtime.sendMessage({
+          action: "fetchPhase2Background",
+          srcText,
+          translatedText: cached.text,
+          targetLang,
+          model,
+          sourceLang: srcLang
+        }).catch(() => {});
+      } else {
+        await addHistoryItem(srcText, cached.text, srcLang, targetLang);
+      }
+      return;
     }
-    
-    btnCopy.disabled = false;
-    btnTts.disabled = false;
-    statusMessage.textContent = "Completed (Loaded from cache)";
-    await addHistoryItem(srcText, cached.rich ? JSON.stringify(cached.parsed) : cached.text, srcLang, targetLang);
-    return;
   }
 
-  // Phase 1: Translate
+  // Phase 1: Translate (always simple translation prompt)
   const rawSystemPrompt = config.systemPrompt || "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
   const targetLangName = languageNames[targetLang] || targetLang;
   const systemPrompt = rawSystemPrompt.replace(/{target_lang}/g, targetLangName);
@@ -436,107 +469,23 @@ async function translate() {
     btnTts.disabled = false;
     statusMessage.textContent = `Completed (${new Date().toLocaleTimeString()})`;
 
-    // Phase 2: Learning Insights
-    if (richLearningMode) {
-      // Show mini learning loader
-      const loaderContainer = document.createElement("div");
-      loaderContainer.id = "learning-loader";
-      loaderContainer.style.cssText = "margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--text-muted);";
-      loaderContainer.innerHTML = `
-        <svg class="spinner-svg" style="width: 16px; height: 16px;" viewBox="0 0 50 50">
-          <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
-        </svg>
-        <span>Loading vocabulary & suggestions...</span>
-      `;
-      targetContent.appendChild(loaderContainer);
-
-      const systemPromptLearning = (config.systemPromptLearning || "你是一個專業的語言學習助手。").replace(/{target_lang}/g, targetLangName);
-
-      await addLog("request", `Phase 2 Learning Insights (model: ${model})`, {
-        url: endpointUrl,
-        prompt: systemPromptLearning,
-        user: `Original Text: "${srcText}"\nTranslation: "${translatedText}"`
-      });
-
-      try {
-        const response2 = await fetch(endpointUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              { role: "system", content: systemPromptLearning },
-              { role: "user", content: `Original Text: "${srcText}"\nTranslation: "${translatedText}"` }
-            ],
-            temperature: temp,
-            stream: false
-          })
-        });
-
-        if (!response2.ok) {
-          throw new Error("Phase 2 HTTP error " + response2.status);
-        }
-
-        const data2 = await response2.json();
-        await addLog("response", "Phase 2 completed", data2);
-
-        if (data2.choices && data2.choices[0] && data2.choices[0].message) {
-          const resultText2 = data2.choices[0].message.content.trim();
-          const cleanedText2 = resultText2.replace(/```json/gi, "").replace(/```/g, "").trim();
-          let parsedData2;
-
-          try {
-            parsedData2 = JSON.parse(cleanedText2);
-          } catch (e) {
-            const startIdx = resultText2.indexOf("{");
-            const endIdx = resultText2.lastIndexOf("}");
-            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-              parsedData2 = JSON.parse(resultText2.substring(startIdx, endIdx + 1));
-            } else {
-              throw e;
-            }
-          }
-
-          // Clear learning loader
-          const loader = document.getElementById("learning-loader");
-          if (loader) loader.remove();
-
-          if (parsedData2) {
-            renderRichTranslation({
-              translation: translatedText,
-              alternatives: parsedData2.alternatives || [],
-              vocabulary: parsedData2.vocabulary || []
-            });
-
-            // Cache consolidated rich result
-            const cacheData = {
-              rich: true,
-              parsed: {
-                translation: translatedText,
-                alternatives: parsedData2.alternatives || [],
-                vocabulary: parsedData2.vocabulary || []
-              }
-            };
-            await setCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, cacheData);
-            
-            // Add consolidated result to History
-            await addHistoryItem(srcText, JSON.stringify(cacheData.parsed), srcLang, targetLang);
-            return;
-          }
-        }
-      } catch (err2) {
-        console.warn("Phase 2 loading failed:", err2);
-        const loader = document.getElementById("learning-loader");
-        if (loader) {
-          loader.innerHTML = `<span style="color: var(--danger-color); font-size: 12px;">Could not load vocabulary suggestions: ${err2.message}</span>`;
-        }
-      }
-    }
-
-    // Save simple mode or fallback translation to History and Cache
+    // Save Phase 1 result to Cache and History first
     const cacheData = { rich: false, text: translatedText };
     await setCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, cacheData);
     await addHistoryItem(srcText, translatedText, srcLang, targetLang);
+
+    // Trigger Phase 2 in the background
+    if (richLearningMode) {
+      showLearningLoader();
+      chrome.runtime.sendMessage({
+        action: "fetchPhase2Background",
+        srcText,
+        translatedText,
+        targetLang,
+        model,
+        sourceLang: srcLang
+      }).catch(() => {});
+    }
 
   } catch (err) {
     console.error("Translation Error:", err);
@@ -1155,12 +1104,20 @@ async function initApp() {
   await addLog("info", "App loaded and ready");
 }
 
-// Listen to contextMenu events in real-time
+// Listen to background updates and contextMenu events in real-time
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "translateText" && message.text) {
     srcTextarea.value = message.text;
     charCounter.textContent = `${message.text.length} characters`;
     translate();
+  } else if (message.action === "phase2Completed") {
+    const currentSrc = srcTextarea.value.trim();
+    if (message.srcText === currentSrc) {
+      const loader = document.getElementById("learning-loader");
+      if (loader) loader.remove();
+      renderRichTranslation(message.parsed);
+      currentTranslationText = message.parsed.translation;
+    }
   }
 });
 

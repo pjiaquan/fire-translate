@@ -211,12 +211,62 @@ async function translateInlineText(srcText) {
   }
 }
 
+const activePhase2Fetches = new Map();
+
+async function updateHistoryItemWithRich(srcText, parsedData, srcLang, targetLang) {
+  const res = await chrome.storage.local.get("history");
+  let history = res.history || [];
+  const idx = history.findIndex(item => item.srcText === srcText && item.targetLang === targetLang);
+  if (idx !== -1) {
+    history[idx].translatedText = JSON.stringify(parsedData);
+    await chrome.storage.local.set({ history: history });
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "translateInline") {
     translateInlineText(message.text)
       .then(result => sendResponse({ success: true, data: result }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true; // Keep message channel open for async response
+  } else if (message.action === "fetchPhase2Background") {
+    const { srcText, translatedText, targetLang, model, sourceLang } = message;
+    if (!srcText) return;
+
+    if (activePhase2Fetches.has(srcText)) {
+      return; // Already running
+    }
+
+    const promise = (async () => {
+      try {
+        const insights = await fetchLearningInsights(srcText, translatedText, targetLang, model);
+        const cacheData = {
+          rich: true,
+          parsed: {
+            translation: translatedText,
+            alternatives: insights.alternatives || [],
+            vocabulary: insights.vocabulary || []
+          }
+        };
+        await setCachedTranslation(srcText, sourceLang, targetLang, model, true, cacheData);
+        await updateHistoryItemWithRich(srcText, cacheData.parsed, sourceLang, targetLang);
+        
+        // Broadcast completion to any active popup/sidepanel UI
+        chrome.runtime.sendMessage({
+          action: "phase2Completed",
+          srcText: srcText,
+          parsed: cacheData.parsed
+        }).catch(() => {});
+      } catch (err) {
+        console.warn("Background Phase 2 insights failed:", err);
+        const cacheData = { rich: false, text: translatedText };
+        await setCachedTranslation(srcText, sourceLang, targetLang, model, true, cacheData);
+      } finally {
+        activePhase2Fetches.delete(srcText);
+      }
+    })();
+
+    activePhase2Fetches.set(srcText, promise);
   }
 });
 
