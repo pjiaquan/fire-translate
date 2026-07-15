@@ -77,8 +77,10 @@
 }
 
 body {
-  width: 760px;
-  height: 560px;
+  width: 800px;
+  min-width: 800px;
+  height: 580px;
+  min-height: 580px;
   background-color: var(--bg-app);
   color: var(--text-main);
   font-family: var(--font-text);
@@ -896,8 +898,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* Responsive side-by-side or stacked layout */
 @media (max-width: 550px) {
   body {
-    width: 380px;
-    height: 580px;
+    width: 100%;
+    height: 100%;
   }
   
   .workspace {
@@ -1119,4 +1121,70 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 18px !important;
   line-height: 1.6 !important;
 }
+
+/* Thinking Process Styles */
+.thinking-block {
+  margin: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-input);
+  overflow: hidden;
+  font-family: var(--font-text);
+  font-size: 13px;
+  transition: all 0.2s ease-in-out;
+}
+
+.thinking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background-color: rgba(120, 120, 120, 0.08);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.thinking-header:hover {
+  background-color: rgba(120, 120, 120, 0.15);
+}
+
+.thinking-content {
+  padding: 12px 14px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  border-top: 1px solid var(--border-color);
+  max-height: 200px;
+  overflow-y: auto;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.thinking-block.collapsed .thinking-content {
+  display: none;
+}
+
+/* Text wrapping & Flex row helper */
+.flex-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.gap-12 {
+  gap: 12px;
+}
+
+.drawer, .drawer-body, .form-help, label {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+code {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
 

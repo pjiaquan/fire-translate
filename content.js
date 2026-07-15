@@ -36,13 +36,30 @@ function isUrlLike(text) {
   return false;
 }
 
+function isApiKeyLike(text) {
+  const trimmed = text.trim();
+  // Groq API keys (gsk_...)
+  if (/^gsk_[a-zA-Z0-9]{40,}/.test(trimmed)) return true;
+  // OpenAI API keys (sk-...)
+  if (/^sk-[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
+  // Anthropic/Claude API keys (sk-ant-...)
+  if (/^sk-ant-[a-zA-Z0-9_-]{20,}/.test(trimmed)) return true;
+  // Google/Gemini API keys (AIza...)
+  if (/^AIza[0-9A-Za-z_-]{30,}/.test(trimmed)) return true;
+  // HuggingFace API keys (hf_...)
+  if (/^hf_[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
+  // Generic: long random-looking alphanumeric strings (30+ chars, has digits and letters)
+  if (/^[a-zA-Z0-9_-]{30,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) return true;
+  return false;
+}
+
 // Listen for messages from background context menus
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "showContextBubble") {
     const selection = window.getSelection();
     const textRaw = request.text || selection.toString();
     const text = cleanTranslateText(textRaw);
-    if (text && /\p{L}|\p{N}/u.test(text) && !isUrlLike(text)) {
+    if (text && /\p{L}/u.test(text) && !isUrlLike(text) && !isApiKeyLike(text)) {
       removeBubble();
       if (selection.rangeCount > 0) {
         showBubble(text, selection);
@@ -65,7 +82,7 @@ document.addEventListener("dblclick", async (e) => {
   const text = cleanTranslateText(textRaw);
   
   // Translate if text selection is between 1 and 1000 characters, contains letters/numbers and not a URL
-  if (text.length > 0 && text.length < 1000 && /\p{L}|\p{N}/u.test(text) && !isUrlLike(text)) {
+  if (text.length > 0 && text.length < 1000 && /\p{L}/u.test(text) && !isUrlLike(text) && !isApiKeyLike(text)) {
     removeBubble();
     showBubble(text, selection);
   }

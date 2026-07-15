@@ -13,6 +13,7 @@ chrome.runtime.onInstalled.addListener(() => {
   // Set default settings if not already present
   chrome.storage.local.get([
     "apiEndpoint",
+    "apiKey",
     "model",
     "modelType",
     "temperature",
@@ -33,6 +34,7 @@ chrome.runtime.onInstalled.addListener(() => {
   ], (result) => {
     const defaults = {};
     if (result.apiEndpoint === undefined) defaults.apiEndpoint = "http://192.168.3.202:4090";
+    if (result.apiKey === undefined) defaults.apiKey = "";
     if (result.model === undefined) defaults.model = "qwen";
     if (result.temperature === undefined) defaults.temperature = 0.1;
     if (result.systemPrompt === undefined) {
@@ -198,15 +200,33 @@ function isUrlLike(text) {
   return false;
 }
 
+function isApiKeyLike(text) {
+  const trimmed = text.trim();
+  // Groq API keys (gsk_...)
+  if (/^gsk_[a-zA-Z0-9]{40,}/.test(trimmed)) return true;
+  // OpenAI API keys (sk-...)
+  if (/^sk-[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
+  // Anthropic/Claude API keys (sk-ant-...)
+  if (/^sk-ant-[a-zA-Z0-9_-]{20,}/.test(trimmed)) return true;
+  // Google/Gemini API keys (AIza...)
+  if (/^AIza[0-9A-Za-z_-]{30,}/.test(trimmed)) return true;
+  // HuggingFace API keys (hf_...)
+  if (/^hf_[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
+  // Generic: long random-looking alphanumeric strings (30+ chars, has digits and letters)
+  if (/^[a-zA-Z0-9_-]{30,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) return true;
+  return false;
+}
+
 // Perform fetch translation for inline content scripts (non-streaming)
 async function translateInlineText(srcText, contextSentence = "") {
   srcText = cleanTranslateText(srcText);
-  if (!srcText || !/\p{L}|\p{N}/u.test(srcText) || isUrlLike(srcText)) {
+  if (!srcText || !/\p{L}/u.test(srcText) || isUrlLike(srcText) || isApiKeyLike(srcText)) {
     return { rich: false, text: "" };
   }
 
   const config = await chrome.storage.local.get([
     "apiEndpoint",
+    "apiKey",
     "model",
     "modelType",
     "temperature",
@@ -218,6 +238,7 @@ async function translateInlineText(srcText, contextSentence = "") {
   ]);
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+  const apiKey = config.apiKey || "";
   const model = config.model || "qwen";
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
@@ -294,9 +315,14 @@ async function translateInlineText(srcText, contextSentence = "") {
     ];
   }
 
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
   const response = await fetch(endpointUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: headers,
     body: JSON.stringify({
       model: model,
       messages: messagesPayload,
@@ -578,6 +604,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = "") {
   const config = await chrome.storage.local.get([
     "apiEndpoint",
+    "apiKey",
     "model",
     "modelType",
     "temperature",
@@ -587,6 +614,7 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
   ]);
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+  const apiKey = config.apiKey || "";
   const model = config.model || "qwen";
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
@@ -662,9 +690,14 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
     stream: true
   };
 
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
   const response = await fetch(endpointUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: headers,
     body: JSON.stringify(payload)
   });
 
@@ -708,6 +741,7 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
 async function fetchLearningInsights(srcText, translationText, targetLang, model) {
   const config = await chrome.storage.local.get([
     "apiEndpoint",
+    "apiKey",
     "temperature",
     "systemPromptLearning"
   ]);
@@ -735,9 +769,14 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
   const systemPrompt = rawSystemPrompt.replace(/{target_lang}/g, targetLangName);
   const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
 
+  const headers = { "Content-Type": "application/json" };
+  if (config.apiKey) {
+    headers["Authorization"] = `Bearer ${config.apiKey}`;
+  }
+
   const response = await fetch(endpointUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: headers,
     body: JSON.stringify({
       model: model,
       messages: [
@@ -777,7 +816,7 @@ chrome.runtime.onConnect.addListener((port) => {
     port.onMessage.addListener(async (msg) => {
       if (msg.action === "translateStreamInline" && msg.text) {
         const cleanedText = cleanTranslateText(msg.text);
-        if (!/\p{L}|\p{N}/u.test(cleanedText) || isUrlLike(cleanedText)) {
+        if (!/\p{L}/u.test(cleanedText) || isUrlLike(cleanedText) || isApiKeyLike(cleanedText)) {
           try {
             port.postMessage({ type: "chunk", data: "" });
             port.postMessage({ type: "done" });

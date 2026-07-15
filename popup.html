@@ -171,19 +171,44 @@
         <small class="form-help">OpenAI-compatible Chat Completion endpoint.</small>
       </div>
 
+      <div class="form-group hidden" id="api-key-group">
+        <label for="input-api-key">API Key</label>
+        <input type="password" id="input-api-key" placeholder="Enter API Key">
+        <small class="form-help">Required for Groq, optional for custom endpoints.</small>
+      </div>
+
       <div class="form-group">
         <label for="select-model">Model Selection</label>
         <select id="select-model">
           <option value="qwen">Qwen (OpenAI Compatible)</option>
           <option value="translategemma">TranslateGemma (Structured Format)</option>
+          <option value="groq">Groq (Cloud API)</option>
           <option value="custom">Custom...</option>
         </select>
+      </div>
+
+      <div id="groq-model-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; border-left: 2px solid var(--border-color); padding-left: 10px; margin-bottom: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="input-groq-model">Groq Model Name</label>
+          <input type="text" id="input-groq-model" list="groq-model-list" placeholder="e.g. llama-3.3-70b-versatile">
+          <datalist id="groq-model-list">
+            <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
+            <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+            <option value="mixtral-8x7b-32768">Mixtral 8x7b 32k</option>
+            <option value="gemma2-9b-it">Gemma 2 9B</option>
+          </datalist>
+          <small class="form-help">Select from popular models or type any other valid Groq model ID.</small>
+        </div>
       </div>
 
       <div id="custom-model-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; border-left: 2px solid var(--border-color); padding-left: 10px; margin-bottom: 12px;">
         <div class="form-group" style="margin-bottom: 0;">
           <label for="input-model">Custom Model Name</label>
-          <input type="text" id="input-model" placeholder="e.g. qwen2.5-coder:7b">
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="input-model" list="model-list" placeholder="e.g. qwen2.5-coder:7b" style="flex: 1;">
+            <button id="btn-detect-model" class="secondary-btn" style="padding: 0 12px; height: 38px; font-size: 12px; white-space: nowrap;">Detect</button>
+          </div>
+          <datalist id="model-list"></datalist>
         </div>
         <div class="form-group" style="margin-bottom: 0;">
           <label for="select-model-type">Custom Model Format</label>
@@ -226,9 +251,13 @@
           <input type="checkbox" id="check-dblclick-translate">
           <label for="check-dblclick-translate">Double-click on webpage text to translate</label>
         </div>
-        <div class="checkbox-row">
+        <div class="checkbox-row" style="margin-bottom: 8px;">
           <input type="checkbox" id="check-stream-translations">
           <label for="check-stream-translations">Enable streaming results (word-by-word)</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="check-show-thinking">
+          <label for="check-show-thinking">Show Thinking Process (Reasoning/Thinking models)</label>
         </div>
       </div>
 

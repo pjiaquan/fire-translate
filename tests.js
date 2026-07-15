@@ -222,6 +222,24 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.isUrlLike("e.g."), false);
   });
 
+  // Test 7b: API key detection utility
+  await runTest("API key detection helper should identify API keys correctly", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+    
+    // Check that isApiKeyLike matches various API keys
+    assert.strictEqual(sandbox.isApiKeyLike("gsk_JDHnjApZID6ISWJg5JNCWGdyb3FYYNzhZqCwF1P2McOB4oVq0Zasd"), true);
+    assert.strictEqual(sandbox.isApiKeyLike("sk-proj-1234567890abcdef1234567890abcdef"), true);
+    assert.strictEqual(sandbox.isApiKeyLike("AIzaSyD-1234567890abcdef-1234567890abc"), true);
+    
+    // Check that isApiKeyLike does not match plain words/sentences
+    assert.strictEqual(sandbox.isApiKeyLike("hello"), false);
+    assert.strictEqual(sandbox.isApiKeyLike("This is a sentence containing some words."), false);
+    assert.strictEqual(sandbox.isApiKeyLike("gsk_key"), false);
+    assert.strictEqual(sandbox.isApiKeyLike("sk-short"), false);
+  });
+
   // Test 8: Punctuation removal and trimming utility
   await runTest("cleanTranslateText should strip edge punctuation, HTML tags, control chars and trim correctly", () => {
     const sandbox = createSandbox();
@@ -325,6 +343,28 @@ async function executeTestSuite() {
       sentence2,
       "當用戶點選benchmark的時候，會顯示這個翻譯！"
     );
+  });
+
+  // Test 10: Numeric filter ignore logic
+  await runTest("Translation filter should ignore pure numbers and pure symbols but allow mixed text", () => {
+    // Helper regex checks
+    const hasLetters = (text) => /\p{L}/u.test(text);
+
+    // Pure numbers
+    assert.strictEqual(hasLetters("123"), false);
+    assert.strictEqual(hasLetters("12.34"), false);
+    assert.strictEqual(hasLetters("$100.50"), false);
+    assert.strictEqual(hasLetters("2026/07/13"), false);
+
+    // Pure symbols
+    assert.strictEqual(hasLetters("!!!"), false);
+    assert.strictEqual(hasLetters("+-="), false);
+
+    // Mixed text
+    assert.strictEqual(hasLetters("Qwen 2.5"), true);
+    assert.strictEqual(hasLetters("1 apple"), true);
+    assert.strictEqual(hasLetters("3年"), true);
+    assert.strictEqual(hasLetters("hello"), true);
   });
 
   // Summary reporting

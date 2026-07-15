@@ -66,6 +66,23 @@ function isUrlLike(text) {
   return false;
 }
 
+function isApiKeyLike(text) {
+  const trimmed = text.trim();
+  // Groq API keys (gsk_...)
+  if (/^gsk_[a-zA-Z0-9]{40,}/.test(trimmed)) return true;
+  // OpenAI API keys (sk-...)
+  if (/^sk-[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
+  // Anthropic/Claude API keys (sk-ant-...)
+  if (/^sk-ant-[a-zA-Z0-9_-]{20,}/.test(trimmed)) return true;
+  // Google/Gemini API keys (AIza...)
+  if (/^AIza[0-9A-Za-z_-]{30,}/.test(trimmed)) return true;
+  // HuggingFace API keys (hf_...)
+  if (/^hf_[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
+  // Generic: long random-looking alphanumeric strings (30+ chars, has digits and letters)
+  if (/^[a-zA-Z0-9_-]{30,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) return true;
+  return false;
+}
+
 function cleanTranslateText(text) {
   if (!text) return "";
   // 1. Strip HTML tags
@@ -107,6 +124,85 @@ let debounceTimer = null;
 let currentUtterance = null;
 // Current primary translation text (for copying/TTS)
 let currentTranslationText = "";
+
+function splitThinkingText(text) {
+  let thinking = "";
+  let translation = text;
+  
+  const thinkStart = text.indexOf("<think>");
+  if (thinkStart !== -1) {
+    const thinkEnd = text.indexOf("</think>", thinkStart + 7);
+    if (thinkEnd !== -1) {
+      thinking = text.substring(thinkStart + 7, thinkEnd).trim();
+      translation = text.substring(thinkEnd + 8).trim();
+    } else {
+      thinking = text.substring(thinkStart + 7).trim();
+      translation = "";
+    }
+  }
+  return { thinking, translation };
+}
+
+function renderThinkingAndTranslation(translationText, thinkingText) {
+  let thinkBlock = document.getElementById("thinking-block");
+  let thinkContent = document.getElementById("thinking-content");
+  let transBlock = document.getElementById("translation-text");
+  
+  if (!thinkBlock) {
+    targetContent.innerHTML = "";
+    targetContent.classList.remove("empty");
+    
+    thinkBlock = document.createElement("div");
+    thinkBlock.id = "thinking-block";
+    thinkBlock.className = "thinking-block";
+    
+    const isCollapsed = localStorage.getItem("thinking-collapsed") === "true";
+    if (isCollapsed) {
+      thinkBlock.classList.add("collapsed");
+    }
+    
+    const thinkHeader = document.createElement("div");
+    thinkHeader.className = "thinking-header";
+    thinkHeader.innerHTML = `
+      <span style="display: flex; align-items: center; gap: 6px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        Thinking Process
+      </span>
+      <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: ${isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)'}; transition: transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    `;
+    
+    thinkContent = document.createElement("div");
+    thinkContent.id = "thinking-content";
+    thinkContent.className = "thinking-content";
+    
+    thinkHeader.addEventListener("click", () => {
+      const currentlyCollapsed = thinkBlock.classList.toggle("collapsed");
+      localStorage.setItem("thinking-collapsed", currentlyCollapsed ? "true" : "false");
+      const chevron = thinkHeader.querySelector(".chevron-icon");
+      if (chevron) {
+        chevron.style.transform = currentlyCollapsed ? "rotate(0deg)" : "rotate(180deg)";
+      }
+    });
+    
+    thinkBlock.appendChild(thinkHeader);
+    thinkBlock.appendChild(thinkContent);
+    targetContent.appendChild(thinkBlock);
+  }
+  
+  if (!transBlock) {
+    transBlock = document.createElement("div");
+    transBlock.id = "translation-text";
+    transBlock.style.cssText = "padding: 16px; font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; color: var(--text-main);";
+    targetContent.appendChild(transBlock);
+  }
+  
+  if (thinkContent) {
+    thinkContent.textContent = thinkingText;
+  }
+  if (transBlock) {
+    transBlock.textContent = translationText || "...";
+  }
+}
 
 // Translation caching utilities
 async function getCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode, contextSentence = "") {
@@ -244,14 +340,63 @@ btnTheme.addEventListener("click", async () => {
 });
 
 // Render rich educational cards for learning mode
-function renderRichTranslation(data) {
+async function renderRichTranslation(data) {
   targetContent.innerHTML = "";
   targetContent.classList.remove("empty");
+
+  const config = await chrome.storage.local.get("showThinking");
+  const showThinking = config.showThinking !== false;
+
+  let finalThinking = "";
+  let finalTranslation = data.translation || "";
+  
+  if (data.translation && data.translation.includes("<think>")) {
+    const parsed = splitThinkingText(data.translation);
+    finalThinking = parsed.thinking;
+    finalTranslation = parsed.translation;
+  }
+
+  if (showThinking && finalThinking) {
+    const thinkBlock = document.createElement("div");
+    thinkBlock.className = "thinking-block";
+    
+    const isCollapsed = localStorage.getItem("thinking-collapsed") === "true";
+    if (isCollapsed) {
+      thinkBlock.classList.add("collapsed");
+    }
+    
+    const thinkHeader = document.createElement("div");
+    thinkHeader.className = "thinking-header";
+    thinkHeader.innerHTML = `
+      <span style="display: flex; align-items: center; gap: 6px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        Thinking Process
+      </span>
+      <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: ${isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)'}; transition: transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    `;
+    
+    const thinkContent = document.createElement("div");
+    thinkContent.className = "thinking-content";
+    thinkContent.textContent = finalThinking;
+    
+    thinkHeader.addEventListener("click", () => {
+      const currentlyCollapsed = thinkBlock.classList.toggle("collapsed");
+      localStorage.setItem("thinking-collapsed", currentlyCollapsed ? "true" : "false");
+      const chevron = thinkHeader.querySelector(".chevron-icon");
+      if (chevron) {
+        chevron.style.transform = currentlyCollapsed ? "rotate(0deg)" : "rotate(180deg)";
+      }
+    });
+    
+    thinkBlock.appendChild(thinkHeader);
+    thinkBlock.appendChild(thinkContent);
+    targetContent.appendChild(thinkBlock);
+  }
 
   // 1. Primary Translation Result
   const primaryCard = document.createElement("div");
   primaryCard.className = "translation-result-card";
-  primaryCard.textContent = data.translation;
+  primaryCard.textContent = finalTranslation;
   targetContent.appendChild(primaryCard);
 
   // 2. Alternative Translations / Tones
@@ -374,8 +519,8 @@ async function translate() {
   if (!srcText) return;
   srcTextarea.value = srcText;
 
-  if (!/\p{L}|\p{N}/u.test(srcText) || isUrlLike(srcText)) {
-    statusMessage.textContent = "Ignored (Symbols or Link)";
+  if (!/\p{L}/u.test(srcText) || isUrlLike(srcText) || isApiKeyLike(srcText)) {
+    statusMessage.textContent = "Ignored (Symbols, Numbers, Link, or Key)";
     loader.classList.add("hidden");
     btnTranslate.disabled = false;
     return;
@@ -383,6 +528,7 @@ async function translate() {
 
   const config = await chrome.storage.local.get([
     "apiEndpoint",
+    "apiKey",
     "model",
     "modelType",
     "temperature",
@@ -391,10 +537,12 @@ async function translate() {
     "targetLang",
     "sourceLang",
     "richLearningMode",
-    "streamTranslations"
+    "streamTranslations",
+    "showThinking"
   ]);
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+  const apiKey = config.apiKey || "";
   const model = config.model || "qwen";
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
@@ -402,6 +550,7 @@ async function translate() {
   const targetLang = config.targetLang || "zh-TW";
   const richLearningMode = config.richLearningMode !== false;
   const streamTranslations = config.streamTranslations !== false;
+  const showThinking = config.showThinking !== false;
 
 function showLearningLoader() {
   const existing = document.getElementById("learning-loader");
@@ -425,17 +574,36 @@ function showLearningLoader() {
     await addLog("info", "Translation loaded from cache", { text: srcText });
     
     if (cached.rich) {
-      renderRichTranslation(cached.parsed);
+      await renderRichTranslation(cached.parsed);
       currentTranslationText = cached.parsed.translation;
+      
+      // If we need to strip thinking from currentTranslationText for copying/TTS
+      if (currentTranslationText.includes("<think>")) {
+        const parsed = splitThinkingText(currentTranslationText);
+        currentTranslationText = parsed.translation;
+      }
+      
       btnCopy.disabled = false;
       btnTts.disabled = false;
       statusMessage.textContent = "Completed (Loaded from cache)";
       await addHistoryItem(srcText, JSON.stringify(cached.parsed), srcLang, targetLang);
       return;
     } else {
-      targetContent.textContent = cached.text;
-      targetContent.classList.remove("empty");
-      currentTranslationText = cached.text;
+      let finalThinking = "";
+      let finalTranslation = cached.text;
+      if (cached.text.includes("<think>")) {
+        const parsed = splitThinkingText(cached.text);
+        finalThinking = parsed.thinking;
+        finalTranslation = parsed.translation;
+      }
+      
+      if (showThinking && finalThinking) {
+        renderThinkingAndTranslation(finalTranslation.trim(), finalThinking.trim());
+      } else {
+        targetContent.textContent = finalTranslation.trim();
+        targetContent.classList.remove("empty");
+      }
+      currentTranslationText = finalTranslation.trim();
       btnCopy.disabled = false;
       btnTts.disabled = false;
       statusMessage.textContent = "Translation loaded from cache";
@@ -445,7 +613,7 @@ function showLearningLoader() {
         chrome.runtime.sendMessage({
           action: "fetchPhase2Background",
           srcText,
-          translatedText: cached.text,
+          translatedText: finalTranslation.trim(),
           targetLang,
           model,
           sourceLang: srcLang
@@ -505,9 +673,19 @@ function showLearningLoader() {
     stream: streamTranslations
   };
 
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  const logHeaders = { "Content-Type": "application/json" };
+  if (apiKey) {
+    logHeaders["Authorization"] = `Bearer ${apiKey.substring(0, 8)}...`;
+  }
+
   await addLog("request", `Phase 1 Translation (model: ${model}, stream: ${streamTranslations})`, {
     url: endpointUrl,
-    headers: { "Content-Type": "application/json" },
+    headers: logHeaders,
     body: payload
   });
 
@@ -517,9 +695,7 @@ function showLearningLoader() {
 
     const response = await fetch(endpointUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: headers,
       body: JSON.stringify(payload),
       signal: controller.signal
     });
@@ -531,6 +707,8 @@ function showLearningLoader() {
     }
 
     let translatedText = "";
+    let contentText = "";
+    let reasoningText = "";
 
     if (streamTranslations) {
       targetContent.classList.remove("empty");
@@ -557,11 +735,31 @@ function showLearningLoader() {
             try {
               const parsedLine = JSON.parse(cleanedLine.substring(6));
               if (parsedLine.choices && parsedLine.choices[0] && parsedLine.choices[0].delta) {
-                const deltaContent = parsedLine.choices[0].delta.content || "";
-                translatedText += deltaContent;
-                
-                targetContent.textContent = translatedText;
-                currentTranslationText = translatedText;
+                const delta = parsedLine.choices[0].delta;
+                if (delta.reasoning_content) {
+                  reasoningText += delta.reasoning_content;
+                }
+                if (delta.content) {
+                  contentText += delta.content;
+                }
+
+                translatedText = (reasoningText ? `<think>${reasoningText}</think>\n` : "") + contentText;
+
+                let displayThinking = reasoningText;
+                let displayTranslation = contentText;
+
+                if (!displayThinking && contentText.includes("<think>")) {
+                  const parsed = splitThinkingText(contentText);
+                  displayThinking = parsed.thinking;
+                  displayTranslation = parsed.translation;
+                }
+
+                if (showThinking && displayThinking) {
+                  renderThinkingAndTranslation(displayTranslation, displayThinking);
+                } else {
+                  targetContent.textContent = displayTranslation;
+                }
+                currentTranslationText = displayTranslation;
                 targetContent.scrollTop = targetContent.scrollHeight;
               }
             } catch (err) {
@@ -573,10 +771,28 @@ function showLearningLoader() {
     } else {
       const data = await response.json();
       if (data.choices && data.choices[0] && data.choices[0].message) {
-        translatedText = data.choices[0].message.content.trim();
-        targetContent.textContent = translatedText;
-        targetContent.classList.remove("empty");
-        currentTranslationText = translatedText;
+        const msg = data.choices[0].message;
+        const rawContent = msg.content || "";
+        const reasoning = msg.reasoning_content || "";
+
+        translatedText = (reasoning ? `<think>${reasoning}</think>\n` : "") + rawContent;
+
+        let displayThinking = reasoning;
+        let displayTranslation = rawContent;
+
+        if (!displayThinking && rawContent.includes("<think>")) {
+          const parsed = splitThinkingText(rawContent);
+          displayThinking = parsed.thinking;
+          displayTranslation = parsed.translation;
+        }
+
+        if (showThinking && displayThinking) {
+          renderThinkingAndTranslation(displayTranslation.trim(), displayThinking.trim());
+        } else {
+          targetContent.textContent = displayTranslation.trim();
+          targetContent.classList.remove("empty");
+        }
+        currentTranslationText = displayTranslation.trim();
       } else {
         throw new Error("Invalid API response JSON structure (choices[0].message.content not found)");
       }
@@ -703,15 +919,154 @@ checkEnableTelegram.addEventListener("change", toggleTelegramVisibility);
 
 const selectModel = document.getElementById("select-model");
 const customModelFields = document.getElementById("custom-model-fields");
+const groqModelFields = document.getElementById("groq-model-fields");
+const apiKeyGroup = document.getElementById("api-key-group");
 
 function toggleCustomModelVisibility() {
-  if (selectModel.value === "custom") {
+  const val = selectModel.value;
+  if (val === "custom") {
     customModelFields.classList.remove("hidden");
+    groqModelFields.classList.add("hidden");
+    if (apiKeyGroup) apiKeyGroup.classList.remove("hidden");
+  } else if (val === "groq") {
+    customModelFields.classList.add("hidden");
+    groqModelFields.classList.remove("hidden");
+    if (apiKeyGroup) apiKeyGroup.classList.remove("hidden");
   } else {
     customModelFields.classList.add("hidden");
+    groqModelFields.classList.add("hidden");
+    if (apiKeyGroup) apiKeyGroup.classList.add("hidden");
   }
 }
-selectModel.addEventListener("change", toggleCustomModelVisibility);
+
+selectModel.addEventListener("change", () => {
+  toggleCustomModelVisibility();
+  const endpointInput = document.getElementById("input-api-endpoint");
+  const currentEndpoint = endpointInput.value.trim();
+  if (selectModel.value === "groq") {
+    if (!currentEndpoint || currentEndpoint === "http://192.168.3.202:4090") {
+      endpointInput.value = "https://api.groq.com/openai";
+    }
+  } else if (selectModel.value === "qwen" || selectModel.value === "translategemma") {
+    if (!currentEndpoint || currentEndpoint === "https://api.groq.com/openai") {
+      endpointInput.value = "http://192.168.3.202:4090";
+    }
+  }
+});
+
+const btnDetectModel = document.getElementById("btn-detect-model");
+const inputModel = document.getElementById("input-model");
+const modelList = document.getElementById("model-list");
+
+if (btnDetectModel) {
+  btnDetectModel.addEventListener("click", async () => {
+    const apiEndpoint = document.getElementById("input-api-endpoint").value.trim();
+    if (!apiEndpoint) {
+      alert("Please enter a Server API Endpoint first.");
+      return;
+    }
+
+    btnDetectModel.disabled = true;
+    const originalText = btnDetectModel.textContent;
+    btnDetectModel.textContent = "Detecting...";
+    await addLog("info", `Attempting to detect models from: ${apiEndpoint}`);
+
+    try {
+      const cleanEndpoint = apiEndpoint.replace(/\/$/, "");
+      let detectedModels = [];
+
+      // 1. Try standard OpenAI-compatible /v1/models
+      try {
+        const response = await fetch(`${cleanEndpoint}/v1/models`, { method: "GET" });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && Array.isArray(data.data)) {
+            detectedModels = data.data.map(m => m.id);
+          }
+        }
+      } catch (err) {
+        await addLog("debug", `/v1/models check failed: ${err.message}`);
+      }
+
+      // 2. Try Ollama `/api/tags` if no models found yet
+      if (detectedModels.length === 0) {
+        try {
+          const response = await fetch(`${cleanEndpoint}/api/tags`, { method: "GET" });
+          if (response.ok) {
+            const data = await response.json();
+            if (data && Array.isArray(data.models)) {
+              detectedModels = data.models.map(m => m.name);
+            }
+          }
+        } catch (err) {
+          await addLog("debug", `/api/tags check failed: ${err.message}`);
+        }
+      }
+
+      // 3. Try Llama.cpp custom `/models` endpoint
+      if (detectedModels.length === 0) {
+        try {
+          const response = await fetch(`${cleanEndpoint}/models`, { method: "GET" });
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data)) {
+              detectedModels = data.map(m => m.id || m.name).filter(Boolean);
+            } else if (data && Array.isArray(data.data)) {
+              detectedModels = data.data.map(m => m.id || m.name).filter(Boolean);
+            }
+          }
+        } catch (err) {
+          await addLog("debug", `/models check failed: ${err.message}`);
+        }
+      }
+
+      // 4. Try Llama.cpp /props endpoint
+      if (detectedModels.length === 0) {
+        try {
+          const response = await fetch(`${cleanEndpoint}/props`, { method: "GET" });
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.default_generation_settings && data.default_generation_settings.model) {
+              detectedModels = [data.default_generation_settings.model];
+            } else if (data && data.model_path) {
+              const filename = data.model_path.split("/").pop();
+              detectedModels = [filename];
+            }
+          }
+        } catch (err) {
+          await addLog("debug", `/props check failed: ${err.message}`);
+        }
+      }
+
+      if (detectedModels.length > 0) {
+        // Clear datalist
+        modelList.innerHTML = "";
+        detectedModels.forEach(m => {
+          const option = document.createElement("option");
+          option.value = m;
+          modelList.appendChild(option);
+        });
+
+        // Set input to the first model if it's currently empty or not in the list
+        if (!inputModel.value.trim() || !detectedModels.includes(inputModel.value.trim())) {
+          inputModel.value = detectedModels[0];
+        }
+
+        await addLog("info", `Successfully detected ${detectedModels.length} model(s): ${detectedModels.join(", ")}`);
+        alert(`Detected ${detectedModels.length} model(s)!\nFirst model "${detectedModels[0]}" selected.\nCheck custom model list for options.`);
+      } else {
+        await addLog("warn", `No active models detected. Ensure model is loaded on the server.`);
+        alert(`No active models could be detected. Please check if your server at ${apiEndpoint} is running and has a model loaded.`);
+      }
+    } catch (err) {
+      await addLog("error", `Failed to connect to LLM server: ${err.message}`);
+      alert(`Connection failed: Could not connect to the server at ${apiEndpoint}. Make sure the server is running and accessible.`);
+    } finally {
+      btnDetectModel.disabled = false;
+      btnDetectModel.textContent = originalText;
+    }
+  });
+}
 
 function updateTextSizeClass(size) {
   document.body.classList.remove("font-size-small", "font-size-medium", "font-size-large");
@@ -721,6 +1076,7 @@ function updateTextSizeClass(size) {
 async function loadSettingsToUI() {
   const res = await chrome.storage.local.get([
     "apiEndpoint",
+    "apiKey",
     "model",
     "modelType",
     "temperature",
@@ -731,6 +1087,7 @@ async function loadSettingsToUI() {
     "richLearningMode",
     "doubleClickTranslate",
     "streamTranslations",
+    "showThinking",
     "textSize",
     "enableTelegram",
     "telegramBotToken",
@@ -738,10 +1095,15 @@ async function loadSettingsToUI() {
   ]);
   
   document.getElementById("input-api-endpoint").value = res.apiEndpoint ?? "http://192.168.3.202:4090";
+  document.getElementById("input-api-key").value = res.apiKey ?? "";
   
   const savedModel = res.model ?? "qwen";
   const savedModelType = res.modelType ?? "qwen";
-  if (savedModel === "qwen" && savedModelType === "qwen") {
+  if (savedModelType === "groq") {
+    selectModel.value = "groq";
+    const groqModelInput = document.getElementById("input-groq-model");
+    if (groqModelInput) groqModelInput.value = savedModel;
+  } else if (savedModel === "qwen" && savedModelType === "qwen") {
     selectModel.value = "qwen";
   } else if (savedModel === "translategemma" && savedModelType === "translategemma") {
     selectModel.value = "translategemma";
@@ -759,6 +1121,7 @@ async function loadSettingsToUI() {
   checkRichLearning.checked = res.richLearningMode !== false;
   document.getElementById("check-dblclick-translate").checked = res.doubleClickTranslate !== false;
   document.getElementById("check-stream-translations").checked = res.streamTranslations !== false;
+  document.getElementById("check-show-thinking").checked = res.showThinking !== false;
   
   checkEnableTelegram.checked = res.enableTelegram === true;
   document.getElementById("input-telegram-token").value = res.telegramBotToken || "";
@@ -784,6 +1147,7 @@ document.getElementById("input-temperature").addEventListener("input", (e) => {
 
 btnSaveSettings.addEventListener("click", async () => {
   const apiEndpoint = document.getElementById("input-api-endpoint").value.trim();
+  const apiKey = document.getElementById("input-api-key").value.trim();
   
   let model;
   let modelType;
@@ -793,6 +1157,9 @@ btnSaveSettings.addEventListener("click", async () => {
   } else if (selectModel.value === "translategemma") {
     model = "translategemma";
     modelType = "translategemma";
+  } else if (selectModel.value === "groq") {
+    model = document.getElementById("input-groq-model").value.trim() || "llama-3.3-70b-versatile";
+    modelType = "groq";
   } else {
     model = document.getElementById("input-model").value.trim();
     modelType = document.getElementById("select-model-type").value;
@@ -803,6 +1170,7 @@ btnSaveSettings.addEventListener("click", async () => {
   const richLearningMode = checkRichLearning.checked;
   const doubleClickTranslate = document.getElementById("check-dblclick-translate").checked;
   const streamTranslations = document.getElementById("check-stream-translations").checked;
+  const showThinking = document.getElementById("check-show-thinking").checked;
   const systemPrompt = document.getElementById("input-system-prompt").value.trim();
   const systemPromptLearning = document.getElementById("input-system-prompt-learning").value.trim();
   const textSize = document.getElementById("select-text-size").value;
@@ -812,6 +1180,7 @@ btnSaveSettings.addEventListener("click", async () => {
 
   await chrome.storage.local.set({
     apiEndpoint,
+    apiKey,
     model,
     modelType,
     temperature,
@@ -820,6 +1189,7 @@ btnSaveSettings.addEventListener("click", async () => {
     richLearningMode,
     doubleClickTranslate,
     streamTranslations,
+    showThinking,
     systemPrompt,
     systemPromptLearning,
     textSize,
@@ -842,6 +1212,7 @@ btnResetSettings.addEventListener("click", async () => {
   if (confirm("Reset settings to default values?")) {
     await chrome.storage.local.set({
       apiEndpoint: "http://192.168.3.202:4090",
+      apiKey: "",
       model: "qwen",
       modelType: "qwen",
       temperature: 0.1,
@@ -850,6 +1221,7 @@ btnResetSettings.addEventListener("click", async () => {
       richLearningMode: true,
       doubleClickTranslate: true,
       streamTranslations: true,
+      showThinking: true,
       textSize: "medium",
       enableTelegram: false,
       telegramBotToken: "",
@@ -986,13 +1358,22 @@ async function loadHistoryItem(item) {
   srcTextarea.value = item.srcText;
   charCounter.textContent = `${item.srcText.length} characters`;
   
+  const config = await chrome.storage.local.get("showThinking");
+  const showThinking = config.showThinking !== false;
+
   let parsedSuccessfully = false;
   try {
     const cleanedText = item.targetText.replace(/```json/gi, "").replace(/```/g, "").trim();
     const parsedData = JSON.parse(cleanedText);
     if (parsedData && parsedData.translation) {
-      renderRichTranslation(parsedData);
-      currentTranslationText = parsedData.translation;
+      await renderRichTranslation(parsedData);
+      
+      let currentTrans = parsedData.translation;
+      if (currentTrans.includes("<think>")) {
+        const parsed = splitThinkingText(currentTrans);
+        currentTrans = parsed.translation;
+      }
+      currentTranslationText = currentTrans;
       parsedSuccessfully = true;
     }
   } catch (e) {
@@ -1003,8 +1384,14 @@ async function loadHistoryItem(item) {
         const jsonSub = item.targetText.substring(startIdx, endIdx + 1);
         const parsedData = JSON.parse(jsonSub);
         if (parsedData && parsedData.translation) {
-          renderRichTranslation(parsedData);
-          currentTranslationText = parsedData.translation;
+          await renderRichTranslation(parsedData);
+          
+          let currentTrans = parsedData.translation;
+          if (currentTrans.includes("<think>")) {
+            const parsed = splitThinkingText(currentTrans);
+            currentTrans = parsed.translation;
+          }
+          currentTranslationText = currentTrans;
           parsedSuccessfully = true;
         }
       } catch (e2) {
@@ -1014,9 +1401,21 @@ async function loadHistoryItem(item) {
   }
 
   if (!parsedSuccessfully) {
-    targetContent.textContent = item.targetText;
-    targetContent.classList.remove("empty");
-    currentTranslationText = item.targetText;
+    let finalThinking = "";
+    let finalTranslation = item.targetText;
+    if (item.targetText.includes("<think>")) {
+      const parsed = splitThinkingText(item.targetText);
+      finalThinking = parsed.thinking;
+      finalTranslation = parsed.translation;
+    }
+    
+    if (showThinking && finalThinking) {
+      renderThinkingAndTranslation(finalTranslation.trim(), finalThinking.trim());
+    } else {
+      targetContent.textContent = finalTranslation.trim();
+      targetContent.classList.remove("empty");
+    }
+    currentTranslationText = finalTranslation.trim();
   }
 
   btnCopy.disabled = false;
@@ -1302,7 +1701,7 @@ async function initApp() {
 }
 
 // Listen to background updates and contextMenu events in real-time
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "translateText" && message.text) {
     srcTextarea.value = message.text;
     charCounter.textContent = `${message.text.length} characters`;
@@ -1312,8 +1711,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.srcText === currentSrc) {
       const loader = document.getElementById("learning-loader");
       if (loader) loader.remove();
-      renderRichTranslation(message.parsed);
-      currentTranslationText = message.parsed.translation;
+      await renderRichTranslation(message.parsed);
+      
+      let currentTrans = message.parsed.translation || "";
+      if (currentTrans.includes("<think>")) {
+        const parsed = splitThinkingText(currentTrans);
+        currentTrans = parsed.translation;
+      }
+      currentTranslationText = currentTrans;
     }
   }
 });
