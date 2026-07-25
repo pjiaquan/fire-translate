@@ -62,18 +62,18 @@ jobs:
           path: dist
 
       - name: Upload & Publish to Chrome Web Store
-        uses: chrome-stats/chrome-extension-upload-action@v2
+        uses: mobilefirstllc/cws-publish@v1.4.0
         if: env.CHROME_CLIENT_ID != '' && env.CHROME_EXTENSION_ID != ''
         env:
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
         with:
-          client-id: ${{ secrets.CHROME_CLIENT_ID }}
-          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          action: 'publish'
+          client_id: ${{ secrets.CHROME_CLIENT_ID }}
+          client_secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
-          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          file-path: dist/fire-translate-extension.zip
-          publish: true
+          extension_id: ${{ secrets.CHROME_EXTENSION_ID }}
+          zip_file: dist/fire-translate-extension.zip
 
   publish-firefox:
     name: Publish & Sign for Firefox Add-ons (AMO)
