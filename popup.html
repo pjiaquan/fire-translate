@@ -369,6 +369,22 @@
         </div>
       </div>
 
+      <!-- Website Exclusions / Disabled Sites Card -->
+      <div class="disabled-sites-card" style="margin-bottom: 14px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-family: var(--font-title); font-size: 13px; font-weight: 700; color: var(--text-main);">🌐 Website Exclusions</span>
+          <button id="btn-toggle-current-site" type="button" class="secondary-btn" style="font-size: 11px; padding: 4px 10px;">
+            Toggle Current Site
+          </button>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px;">
+          Excluded websites bypass double-click & selection translations. Right-click the toolbar icon or webpage anytime to toggle translation for any site.
+        </p>
+        <div id="disabled-sites-chips" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px;">
+          <span style="font-size: 11px; color: var(--text-muted); font-style: italic;">No websites excluded</span>
+        </div>
+      </div>
+
       <div class="form-group" id="group-simple-prompt">
         <label for="input-system-prompt">Phase 1: Translation System Prompt</label>
         <textarea id="input-system-prompt" class="small-textarea" placeholder="Enter simple translation prompt..."></textarea>

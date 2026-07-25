@@ -1661,4 +1661,32 @@ code {
   font-weight: 500;
 }
 
+/* Disabled Sites Chip Styles */
+.site-chip {
+  font-size: 11px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: hsl(0, 84%, 65%);
+  padding: 3px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.site-chip .remove-site-btn {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+.site-chip .remove-site-btn:hover {
+  opacity: 1;
+  color: #ef4444;
+}
+
 

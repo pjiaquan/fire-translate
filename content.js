@@ -49,7 +49,7 @@ function isApiKeyLike(text) {
   return false;
 }
 
-// Listen for messages from background context menus
+// Listen for messages from background context menus & site exclusion updates
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "showContextBubble") {
     const selection = window.getSelection();
@@ -62,15 +62,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     }
     sendResponse({ success: true });
+  } else if (request.action === "updateDisabledSiteState") {
+    if (request.isDisabled && request.domain === window.location.hostname) {
+      removeBubble();
+    }
   }
 });
 
 // Double click event listener on the document
 document.addEventListener("dblclick", async (e) => {
-  // Check if double-click translation is enabled in storage
-  const settings = await chrome.storage.local.get("doubleClickTranslate");
+  // Check if double-click translation or site exclusion is configured in storage
+  const settings = await chrome.storage.local.get(["doubleClickTranslate", "disabledDomains"]);
   if (settings.doubleClickTranslate === false) {
-    return; // Switched off
+    return; // Switched off globally
+  }
+
+  const disabledDomains = settings.disabledDomains || [];
+  if (disabledDomains.includes(window.location.hostname)) {
+    return; // Switched off for this specific website domain
   }
 
   const selection = window.getSelection();

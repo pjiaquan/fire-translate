@@ -1290,6 +1290,95 @@ if (inputGoogleClientId) {
   });
 }
 
+// Disabled Websites Manager Elements & Logic
+const btnToggleCurrentSite = document.getElementById("btn-toggle-current-site");
+const disabledSitesChips = document.getElementById("disabled-sites-chips");
+
+async function renderDisabledSitesList() {
+  if (!disabledSitesChips) return;
+  const res = await chrome.storage.local.get("disabledDomains");
+  const disabledDomains = res.disabledDomains || [];
+
+  let currentDomain = "";
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs && tabs[0] && tabs[0].url && tabs[0].url.startsWith("http")) {
+      currentDomain = new URL(tabs[0].url).hostname;
+    }
+  } catch (e) {}
+
+  if (btnToggleCurrentSite) {
+    if (currentDomain) {
+      const isDisabled = disabledDomains.includes(currentDomain);
+      btnToggleCurrentSite.textContent = isDisabled
+        ? `✅ Enable on ${currentDomain}`
+        : `🚫 Disable on ${currentDomain}`;
+    } else {
+      btnToggleCurrentSite.textContent = "Toggle Current Site";
+    }
+  }
+
+  disabledSitesChips.innerHTML = "";
+  if (disabledDomains.length === 0) {
+    disabledSitesChips.innerHTML = `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">No websites excluded (translating everywhere)</span>`;
+    return;
+  }
+
+  disabledDomains.forEach(domain => {
+    const chip = document.createElement("div");
+    chip.className = "site-chip";
+    chip.innerHTML = `
+      <span>🚫 ${escapeHTML(domain)}</span>
+      <span class="remove-site-btn" title="Remove exclusion">✕</span>
+    `;
+
+    chip.querySelector(".remove-site-btn").addEventListener("click", async () => {
+      const updateRes = await chrome.storage.local.get("disabledDomains");
+      let list = updateRes.disabledDomains || [];
+      list = list.filter(d => d !== domain);
+      await chrome.storage.local.set({ disabledDomains: list });
+      renderDisabledSitesList();
+      await addLog("info", `Removed website exclusion for ${domain}`);
+    });
+
+    disabledSitesChips.appendChild(chip);
+  });
+}
+
+if (btnToggleCurrentSite) {
+  btnToggleCurrentSite.addEventListener("click", async () => {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs && tabs[0] && tabs[0].url && tabs[0].url.startsWith("http")) {
+        const domain = new URL(tabs[0].url).hostname;
+        const res = await chrome.storage.local.get("disabledDomains");
+        let list = res.disabledDomains || [];
+        
+        if (list.includes(domain)) {
+          list = list.filter(d => d !== domain);
+          await addLog("info", `Enabled translation on ${domain}`);
+        } else {
+          list.push(domain);
+          await addLog("info", `Disabled translation on ${domain}`);
+        }
+
+        await chrome.storage.local.set({ disabledDomains: list });
+        renderDisabledSitesList();
+
+        if (tabs[0] && tabs[0].id) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: "updateDisabledSiteState",
+            domain: domain,
+            isDisabled: list.includes(domain)
+          }).catch(() => {});
+        }
+      } else {
+        alert("Please open a valid webpage (HTTP/HTTPS) to toggle website translation.");
+      }
+    } catch (e) {}
+  });
+}
+
 let loadedRecipes = JSON.parse(JSON.stringify(DEFAULT_RECIPES));
 let activeProviderKey = "vllm";
 
@@ -1931,6 +2020,7 @@ async function loadSettingsToUI() {
   const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
   document.getElementById("input-system-prompt-learning").value = res.systemPromptLearning ?? defaultPromptLearning;
 
+  renderDisabledSitesList();
   togglePromptVisibility();
 }
 

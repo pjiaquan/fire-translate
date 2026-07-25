@@ -73,7 +73,14 @@ function createSandbox() {
     },
     contextMenus: {
       create: () => {},
+      update: () => {},
       onClicked: { addListener: () => {} }
+    },
+    tabs: {
+      onActivated: { addListener: () => {} },
+      onUpdated: { addListener: () => {} },
+      get: () => Promise.resolve({ id: 1, url: "https://example.com" }),
+      sendMessage: () => Promise.resolve()
     }
   };
 
@@ -442,6 +449,18 @@ async function executeTestSuite() {
     assert.strictEqual(cleanOpenAi.includes("sk-pro...***"), true);
   });
 
+  // Test 16: Website domain exclusion check
+  await runTest("Website domain exclusion should mute translation when domain is disabled", () => {
+    function isDomainDisabled(hostname, disabledDomains) {
+      return (disabledDomains || []).includes(hostname);
+    }
+
+    const disabledList = ["github.com", "docs.google.com"];
+    assert.strictEqual(isDomainDisabled("github.com", disabledList), true);
+    assert.strictEqual(isDomainDisabled("docs.google.com", disabledList), true);
+    assert.strictEqual(isDomainDisabled("wikipedia.org", disabledList), false);
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
@@ -450,6 +469,7 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
+
 
 
 

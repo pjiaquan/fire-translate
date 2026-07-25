@@ -6,6 +6,12 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Translate with Fire Translate",
     contexts: ["selection"]
   });
+
+  chrome.contextMenus.create({
+    id: "toggle-site-translation",
+    title: "🚫 Disable Translation on this Site",
+    contexts: ["action", "page"]
+  });
   
   // Clear translation cache on install/update to ensure new prompts take effect immediately
   chrome.storage.local.remove("translationCache");
@@ -598,6 +604,44 @@ async function sendToTelegram(srcText, translatedText) {
   }
 }
 
+// Dynamic context menu title for site exclusion toggle
+async function updateSiteContextMenu(tabId, url) {
+  if (!url || !url.startsWith("http")) return;
+  try {
+    const domain = new URL(url).hostname;
+    const res = await chrome.storage.local.get("disabledDomains");
+    const disabledDomains = res.disabledDomains || [];
+    const isDisabled = disabledDomains.includes(domain);
+
+    const title = isDisabled
+      ? `✅ Enable Translation on ${domain}`
+      : `🚫 Disable Translation on ${domain}`;
+
+    chrome.contextMenus.update("toggle-site-translation", { title });
+  } catch (e) {}
+}
+
+if (chrome.tabs && chrome.tabs.onActivated && typeof chrome.tabs.onActivated.addListener === "function") {
+  chrome.tabs.onActivated.addListener(async (activeInfo) => {
+    try {
+      const tab = await chrome.tabs.get(activeInfo.tabId);
+      if (tab && tab.url) {
+        await updateSiteContextMenu(activeInfo.tabId, tab.url);
+      }
+    } catch (e) {}
+  });
+}
+
+if (chrome.tabs && chrome.tabs.onUpdated && typeof chrome.tabs.onUpdated.addListener === "function") {
+  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    if (changeInfo.url || changeInfo.status === "complete") {
+      if (tab && tab.url) {
+        await updateSiteContextMenu(tabId, tab.url);
+      }
+    }
+  });
+}
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "translate-selection" && info.selectionText) {
     const text = info.selectionText;
@@ -631,6 +675,34 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         console.warn("Could not send context message to webpage:", err);
       });
     }
+  } else if (info.menuItemId === "toggle-site-translation" && tab && tab.url) {
+    try {
+      const domain = new URL(tab.url).hostname;
+      const res = await chrome.storage.local.get("disabledDomains");
+      let disabledDomains = res.disabledDomains || [];
+
+      let isDisabled = false;
+      if (disabledDomains.includes(domain)) {
+        disabledDomains = disabledDomains.filter(d => d !== domain);
+        isDisabled = false;
+        await addLogBg("info", `Enabled translation on ${domain}`);
+      } else {
+        disabledDomains.push(domain);
+        isDisabled = true;
+        await addLogBg("info", `Disabled translation on ${domain}`);
+      }
+
+      await chrome.storage.local.set({ disabledDomains });
+      await updateSiteContextMenu(tab.id, tab.url);
+
+      if (tab && tab.id) {
+        chrome.tabs.sendMessage(tab.id, {
+          action: "updateDisabledSiteState",
+          domain: domain,
+          isDisabled: isDisabled
+        }).catch(() => {});
+      }
+    } catch (e) {}
   }
 });
 
