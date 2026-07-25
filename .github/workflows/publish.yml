@@ -1,4 +1,4 @@
-name: Fire Translate CD - Build, Test & Store Publishing
+name: Fire Translate CD - Store Publishing
 
 on:
   push:
@@ -63,7 +63,10 @@ jobs:
 
       - name: Upload & Publish to Chrome Web Store
         uses: chrome-stats/chrome-extension-upload-action@v2
-        if: ${{ secrets.CHROME_CLIENT_ID != '' && secrets.CHROME_EXTENSION_ID != '' }}
+        if: env.CHROME_CLIENT_ID != '' && env.CHROME_EXTENSION_ID != ''
+        env:
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
         with:
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
@@ -91,8 +94,10 @@ jobs:
         run: npm install -g web-ext
 
       - name: Build & Submit to Firefox Add-ons (AMO)
-        if: ${{ secrets.AMO_ISSUER != '' && secrets.AMO_SECRET != '' }}
+        if: env.AMO_ISSUER != '' && env.AMO_SECRET != ''
         env:
+          AMO_ISSUER: ${{ secrets.AMO_ISSUER }}
+          AMO_SECRET: ${{ secrets.AMO_SECRET }}
           WEB_EXT_API_KEY: ${{ secrets.AMO_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_SECRET }}
         run: |
