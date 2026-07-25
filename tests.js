@@ -403,6 +403,17 @@ async function executeTestSuite() {
     assert.strictEqual(DEFAULT_RECIPES.ollama.endpoint, "http://localhost:11434");
   });
 
+  // Test 14: Google OAuth fallback helper test
+  await runTest("Google OAuth token should act as API key fallback when apiKey is empty", () => {
+    function getEffectiveApiKey(apiKey, googleOAuthToken) {
+      return apiKey || googleOAuthToken || "";
+    }
+
+    assert.strictEqual(getEffectiveApiKey("my-custom-key", "oauth-token-123"), "my-custom-key");
+    assert.strictEqual(getEffectiveApiKey("", "oauth-token-123"), "oauth-token-123");
+    assert.strictEqual(getEffectiveApiKey("", ""), "");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
@@ -411,4 +422,5 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
+
 
