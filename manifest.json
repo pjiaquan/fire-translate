@@ -37,5 +37,11 @@
   ],
   "side_panel": {
     "default_path": "popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "fire-translate@local.extension",
+      "strict_min_version": "109.0"
+    }
   }
 }

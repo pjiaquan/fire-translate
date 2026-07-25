@@ -93,6 +93,31 @@ document.addEventListener("dblclick", async (e) => {
   }
 });
 
+// Mobile Phone Touch & Selection event listener
+let touchDebounceTimer = null;
+document.addEventListener("touchend", (e) => {
+  const host = document.getElementById("fire-translate-shadow-host");
+  if (host && e.composedPath().includes(host)) return;
+
+  if (touchDebounceTimer) clearTimeout(touchDebounceTimer);
+  touchDebounceTimer = setTimeout(async () => {
+    const settings = await chrome.storage.local.get(["doubleClickTranslate", "disabledDomains"]);
+    if (settings.doubleClickTranslate === false) return;
+    const disabledDomains = settings.disabledDomains || [];
+    if (disabledDomains.includes(window.location.hostname)) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    const textRaw = selection.toString();
+    const text = cleanTranslateText(textRaw);
+
+    if (text.length > 0 && text.length < 1000 && /\p{L}/u.test(text) && !isUrlLike(text) && !isApiKeyLike(text)) {
+      removeBubble();
+      showBubble(text, selection);
+    }
+  }, 300);
+});
+
 // Remove bubble on click outside
 document.addEventListener("mousedown", (e) => {
   if (activeBubble) {
