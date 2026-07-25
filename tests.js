@@ -464,7 +464,7 @@ async function executeTestSuite() {
   // Test 17: Mobile Phone Viewport & CSS Media Query Verification
   await runTest("popup.css should contain mobile phone responsive media queries and fluid viewport rules", () => {
     const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
-    assert.strictEqual(cssContent.includes("@media screen and (max-width: 768px)"), true);
+    assert.strictEqual(cssContent.includes("@media screen and (max-width: 480px) and (pointer: coarse)"), true);
     assert.strictEqual(cssContent.includes("width: 100vw !important"), true);
     assert.strictEqual(cssContent.includes("grid-template-columns: 1fr !important"), true);
 

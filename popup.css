@@ -1690,7 +1690,8 @@ code {
 }
 
 /* Mobile Phone Responsive Media Queries (Firefox Android, Kiwi, Lemur, Orion, Yandex) */
-@media screen and (max-width: 768px) {
+body.mobile-mode,
+@media screen and (max-width: 480px) and (pointer: coarse) {
   body {
     width: 100vw !important;
     min-width: 100vw !important;

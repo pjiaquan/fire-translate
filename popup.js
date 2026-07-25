@@ -36,6 +36,22 @@ function getBilingualLangName(lang) {
   return mapping[lang] || lang;
 }
 
+// Mobile Viewport & Touch Mode Handler
+function checkViewportMode() {
+  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isMobileWidth = window.innerWidth <= 480;
+
+  if (isTouchDevice && isMobileWidth) {
+    document.body.classList.add("mobile-mode");
+  } else {
+    document.body.classList.remove("mobile-mode");
+  }
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", checkViewportMode);
+  checkViewportMode();
+}
+
 function getGemmaLangCode(lang) {
   if (!lang) return "en";
   if (lang === "auto") return "en";
