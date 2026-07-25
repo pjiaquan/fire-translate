@@ -1,0 +1,126 @@
+name: Fire Translate CD - Build, Test & Store Publishing
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-test-package:
+    name: Build, Test & Package Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Extension Unit Tests
+        run: npm test
+
+      - name: Create Extension Package (.zip)
+        run: |
+          mkdir -p dist
+          zip -r dist/fire-translate-extension.zip \
+            manifest.json \
+            background.js \
+            content.js \
+            popup.html \
+            popup.css \
+            popup.js \
+            icons/ \
+            README.md \
+            package.json \
+            -x "*.git*" "*node_modules*" "*.github*" "tests.js" "test-api.js"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fire-translate-extension-zip
+          path: dist/fire-translate-extension.zip
+
+  publish-chrome:
+    name: Publish to Chrome Web Store
+    needs: build-test-package
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Extension Package
+        uses: actions/download-artifact@v4
+        with:
+          name: fire-translate-extension-zip
+          path: dist
+
+      - name: Upload & Publish to Chrome Web Store
+        uses: chrome-stats/chrome-extension-upload-action@v2
+        if: ${{ secrets.CHROME_CLIENT_ID != '' && secrets.CHROME_EXTENSION_ID != '' }}
+        with:
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          file-path: dist/fire-translate-extension.zip
+          publish: true
+
+  publish-firefox:
+    name: Publish & Sign for Firefox Add-ons (AMO)
+    needs: build-test-package
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install web-ext
+        run: npm install -g web-ext
+
+      - name: Build & Submit to Firefox Add-ons (AMO)
+        if: ${{ secrets.AMO_ISSUER != '' && secrets.AMO_SECRET != '' }}
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_SECRET }}
+        run: |
+          npx web-ext submit \
+            --source-dir ./ \
+            --api-key "$WEB_EXT_API_KEY" \
+            --api-secret "$WEB_EXT_API_SECRET" \
+            --artifacts-dir ./dist-firefox \
+            --ignore-files "tests.js" "test-api.js" ".github" ".git"
+
+  create-github-release:
+    name: Create GitHub Release
+    needs: build-test-package
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Extension Package
+        uses: actions/download-artifact@v4
+        with:
+          name: fire-translate-extension-zip
+          path: dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/fire-translate-extension.zip
+          generate_release_notes: true
