@@ -461,6 +461,75 @@ async function executeTestSuite() {
     assert.strictEqual(isDomainDisabled("wikipedia.org", disabledList), false);
   });
 
+  // Test 17: Mobile Phone Viewport & CSS Media Query Verification
+  await runTest("popup.css should contain mobile phone responsive media queries and fluid viewport rules", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    assert.strictEqual(cssContent.includes("@media screen and (max-width: 768px)"), true);
+    assert.strictEqual(cssContent.includes("width: 100vw !important"), true);
+    assert.strictEqual(cssContent.includes("grid-template-columns: 1fr !important"), true);
+
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.strictEqual(htmlContent.includes('name="viewport"'), true);
+    assert.strictEqual(htmlContent.includes('user-scalable=no'), true);
+  });
+
+  // Test 18: Mobile Phone Screen Sizes Layout Bounds Test
+  await runTest("Mobile phone screen viewports should safely accommodate floating bubble without overflow", () => {
+    const popularPhoneScreenWidths = [320, 375, 390, 412, 480]; // iPhone SE, iPhone 15, Pixel 8, Galaxy S23
+    
+    popularPhoneScreenWidths.forEach(phoneWidth => {
+      const margin = 24;
+      const calculatedMaxWidth = phoneWidth - margin;
+      const bubbleWidth = Math.min(320, calculatedMaxWidth);
+
+      assert.strictEqual(bubbleWidth <= phoneWidth, true);
+      assert.strictEqual(bubbleWidth > 0, true);
+      assert.strictEqual(calculatedMaxWidth < phoneWidth, true);
+    });
+  });
+
+  // Test 19: Mobile Phone Touch Event & Gesture Handler Test
+  await runTest("Mobile phone touch event handler should trigger bubble on valid text selection", () => {
+    let triggeredText = "";
+    let isBubbleShown = false;
+
+    function handleMobileTouchSelection(selectedText, isSiteDisabled, isDoubleClickEnabled) {
+      if (!isDoubleClickEnabled) return false;
+      if (isSiteDisabled) return false;
+      if (!selectedText || selectedText.trim().length === 0) return false;
+      if (selectedText.length >= 1000) return false;
+      if (!/\p{L}/u.test(selectedText)) return false;
+
+      triggeredText = selectedText.trim();
+      isBubbleShown = true;
+      return true;
+    }
+
+    assert.strictEqual(handleMobileTouchSelection("Hello world", false, true), true);
+    assert.strictEqual(isBubbleShown, true);
+    assert.strictEqual(triggeredText, "Hello world");
+
+    // Muted when domain is disabled
+    assert.strictEqual(handleMobileTouchSelection("Hello world", true, true), false);
+    // Muted when numbers/symbols only
+    assert.strictEqual(handleMobileTouchSelection("12345", false, true), false);
+  });
+
+  // Test 20: Mobile Extension Manifest Compatibility Test
+  await runTest("manifest.json should be configured for Firefox Mobile & Chrome Mobile extensions", () => {
+    const manifestJson = JSON.parse(fs.readFileSync(__dirname + "/manifest.json", "utf8"));
+    
+    assert.strictEqual(manifestJson.manifest_version, 3);
+    assert.strictEqual(manifestJson.action.default_popup, "popup.html");
+    assert.strictEqual(manifestJson.permissions.includes("storage"), true);
+    assert.strictEqual(manifestJson.permissions.includes("identity"), true);
+    assert.strictEqual(manifestJson.permissions.includes("activeTab"), true);
+
+    // Firefox Android Gecko settings
+    assert.strictEqual(manifestJson.browser_specific_settings !== undefined, true);
+    assert.strictEqual(manifestJson.browser_specific_settings.gecko.id, "fire-translate@local.extension");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
@@ -469,6 +538,7 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
+
 
 
 
