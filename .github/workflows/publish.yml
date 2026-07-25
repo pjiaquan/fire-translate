@@ -55,6 +55,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Download Extension Package
         uses: actions/download-artifact@v4
         with:
@@ -62,18 +67,20 @@ jobs:
           path: dist
 
       - name: Upload & Publish to Chrome Web Store
-        uses: mobilefirstllc/cws-publish@v1.4.0
         if: env.CHROME_CLIENT_ID != '' && env.CHROME_EXTENSION_ID != ''
         env:
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-        with:
-          action: 'publish'
-          client_id: ${{ secrets.CHROME_CLIENT_ID }}
-          client_secret: ${{ secrets.CHROME_CLIENT_SECRET }}
-          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
-          extension_id: ${{ secrets.CHROME_EXTENSION_ID }}
-          zip_file: dist/fire-translate-extension.zip
+        run: |
+          npx chrome-webstore-upload-cli upload \
+            --source dist/fire-translate-extension.zip \
+            --extension-id "$CHROME_EXTENSION_ID" \
+            --client-id "$CHROME_CLIENT_ID" \
+            --client-secret "$CHROME_CLIENT_SECRET" \
+            --refresh-token "$CHROME_REFRESH_TOKEN" \
+            --auto-publish
 
   publish-firefox:
     name: Publish & Sign for Firefox Add-ons (AMO)
