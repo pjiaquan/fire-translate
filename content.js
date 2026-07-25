@@ -641,9 +641,11 @@ function renderInlineVocab(content, vocabulary) {
     synContainer.className = "bubble-vocab-section";
     synContainer.style.cssText = "margin-top: 8px; border-top: 1px dashed #374151; padding-top: 8px;";
     
+    const bulletsHtml = allSynonyms.map(syn => `<li style="margin-bottom: 3px; line-height: 1.4;">${escapeHTML(syn)}</li>`).join("");
+
     synContainer.innerHTML = `
       <div style="font-size: 10px; color: #fbbf24; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Similar Words</div>
-      <div style="font-size: 11px; color: #d1d5db; line-height: 1.4;">${escapeHTML(allSynonyms.join(", "))}</div>
+      <ul style="font-size: 11px; color: #d1d5db; margin: 0; padding-left: 18px; list-style-type: disc; text-align: left;">${bulletsHtml}</ul>
     `;
     content.appendChild(synContainer);
   }

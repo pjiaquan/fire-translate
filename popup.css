@@ -1187,4 +1187,337 @@ code {
   white-space: normal;
 }
 
+/* AI Provider Settings & Recipe Card Modern Styles */
+.provider-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.25s var(--transition-bezier);
+}
+
+.provider-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border-color);
+  margin-bottom: 4px;
+}
+
+.provider-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-card-icon {
+  font-size: 16px;
+}
+
+.provider-card-title {
+  font-family: var(--font-title);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.recipe-save-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.recipe-save-btn:hover {
+  background: var(--accent-gradient);
+  color: var(--text-inverse);
+  border-color: transparent;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.label-with-badge, .label-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.margin-bottom-10 {
+  margin-bottom: 10px;
+}
+
+.margin-bottom-0 {
+  margin-bottom: 0;
+}
+
+.status-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.tag-saved {
+  background: rgba(34, 197, 94, 0.15);
+  color: hsl(142, 71%, 45%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.btn-fix-url {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--accent-color-1);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-fix-url:hover {
+  background: var(--accent-color-1);
+  color: white;
+}
+
+.btn-text-link {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 2px;
+}
+
+.btn-text-link:hover {
+  color: var(--text-main);
+}
+
+.provider-select {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-input);
+  color: var(--text-main);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.provider-actions-bar {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-test-conn {
+  flex: 1.2;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.btn-refresh-models {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+/* Diagnostic Test Panel */
+.test-panel {
+  background: var(--bg-app);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.test-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+
+.test-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.test-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.pill-pending {
+  background: rgba(234, 179, 8, 0.2);
+  color: hsl(45, 93%, 47%);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.pill-success {
+  background: rgba(34, 197, 94, 0.2);
+  color: hsl(142, 71%, 45%);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.pill-failed {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--danger-color);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.latency-badge {
+  font-size: 11px;
+  font-family: monospace;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.close-mini-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close-mini-btn:hover {
+  color: var(--text-main);
+}
+
+.test-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.test-step-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.test-step-item.success {
+  color: var(--text-main);
+}
+
+.test-step-item.failed {
+  color: var(--danger-color);
+}
+
+.test-detail-msg {
+  font-size: 11px;
+  background-color: var(--bg-input);
+  border-radius: 6px;
+  padding: 8px;
+  color: var(--text-muted);
+  border-left: 3px solid var(--accent-color-1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.model-count-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.model-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.model-input-row input {
+  flex: 1;
+}
+
+.quick-models-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.model-chip {
+  font-size: 11px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.model-chip:hover {
+  border-color: var(--accent-color-1);
+  color: var(--accent-color-1);
+  transform: translateY(-1px);
+}
+
+.model-chip.active {
+  background: var(--accent-gradient);
+  color: var(--text-inverse);
+  border-color: transparent;
+  font-weight: 600;
+  box-shadow: 0 2px 6px var(--accent-glow);
+}
+
+.model-chip .chip-tag {
+  font-size: 9px;
+  opacity: 0.85;
+  margin-left: 3px;
+  font-weight: 400;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 

@@ -217,6 +217,18 @@ function isApiKeyLike(text) {
   return false;
 }
 
+function formatChatEndpointUrl(apiEndpoint) {
+  if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
+  let clean = apiEndpoint.trim().replace(/\/$/, "");
+  if (clean.endsWith("/chat/completions")) {
+    return clean;
+  }
+  if (clean.endsWith("/v1")) {
+    return `${clean}/chat/completions`;
+  }
+  return `${clean}/v1/chat/completions`;
+}
+
 // Perform fetch translation for inline content scripts (non-streaming)
 async function translateInlineText(srcText, contextSentence = "") {
   srcText = cleanTranslateText(srcText);
@@ -271,7 +283,7 @@ async function translateInlineText(srcText, contextSentence = "") {
   const rawSystemPrompt = config.systemPrompt || "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
   const targetLangName = languageNames[targetLang] || targetLang;
   const systemPrompt = rawSystemPrompt.replace(/{target_lang}/g, targetLangName);
-  const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
+  const endpointUrl = formatChatEndpointUrl(apiEndpoint);
 
   let userContent = srcText;
   let systemPromptAdjusted = systemPrompt;
@@ -639,7 +651,7 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
   const rawSystemPrompt = config.systemPrompt || "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
   const targetLangName = languageNames[targetLang] || targetLang;
   const systemPrompt = rawSystemPrompt.replace(/{target_lang}/g, targetLangName);
-  const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
+  const endpointUrl = formatChatEndpointUrl(apiEndpoint);
 
   let userContent = srcText;
   let systemPromptAdjusted = systemPrompt;
@@ -767,7 +779,7 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
 
   const targetLangName = languageNames[targetLang] || targetLang;
   const systemPrompt = rawSystemPrompt.replace(/{target_lang}/g, targetLangName);
-  const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
+  const endpointUrl = formatChatEndpointUrl(apiEndpoint);
 
   const headers = { "Content-Type": "application/json" };
   if (config.apiKey) {

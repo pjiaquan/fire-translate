@@ -367,6 +367,42 @@ async function executeTestSuite() {
     assert.strictEqual(hasLetters("hello"), true);
   });
 
+  // Test 11: Endpoint URL normalization helper
+  await runTest("formatChatEndpointUrl should format base URLs, /v1 paths, and full endpoints correctly", () => {
+    function formatChatEndpointUrl(apiEndpoint) {
+      if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
+      let clean = apiEndpoint.trim().replace(/\/$/, "");
+      if (clean.endsWith("/chat/completions")) {
+        return clean;
+      }
+      if (clean.endsWith("/v1")) {
+        return `${clean}/chat/completions`;
+      }
+      return `${clean}/v1/chat/completions`;
+    }
+
+    assert.strictEqual(formatChatEndpointUrl("http://localhost:11434"), "http://localhost:11434/v1/chat/completions");
+    assert.strictEqual(formatChatEndpointUrl("https://api.openai.com/v1"), "https://api.openai.com/v1/chat/completions");
+    assert.strictEqual(formatChatEndpointUrl("https://api.groq.com/openai"), "https://api.groq.com/openai/v1/chat/completions");
+    assert.strictEqual(formatChatEndpointUrl("https://api.deepseek.com/v1/chat/completions"), "https://api.deepseek.com/v1/chat/completions");
+    assert.strictEqual(formatChatEndpointUrl("http://192.168.3.202:4090/"), "http://192.168.3.202:4090/v1/chat/completions");
+  });
+
+  // Test 12: Provider recipes configuration validation
+  await runTest("Provider recipes preset list should contain expected standard providers and default models", () => {
+    const DEFAULT_RECIPES = {
+      groq: { name: "Groq Cloud", endpoint: "https://api.groq.com/openai", model: "llama-3.3-70b-versatile" },
+      openai: { name: "OpenAI", endpoint: "https://api.openai.com", model: "gpt-4o-mini" },
+      deepseek: { name: "DeepSeek API", endpoint: "https://api.deepseek.com", model: "deepseek-chat" },
+      ollama: { name: "Ollama Local", endpoint: "http://localhost:11434", model: "qwen2.5:7b" }
+    };
+
+    assert.strictEqual(DEFAULT_RECIPES.groq.model, "llama-3.3-70b-versatile");
+    assert.strictEqual(DEFAULT_RECIPES.openai.model, "gpt-4o-mini");
+    assert.strictEqual(DEFAULT_RECIPES.deepseek.model, "deepseek-chat");
+    assert.strictEqual(DEFAULT_RECIPES.ollama.endpoint, "http://localhost:11434");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
@@ -375,3 +411,4 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
+

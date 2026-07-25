@@ -165,55 +165,109 @@
       </button>
     </div>
     <div class="drawer-body">
-      <div class="form-group">
-        <label for="input-api-endpoint">Server API Endpoint</label>
-        <input type="text" id="input-api-endpoint" placeholder="http://192.168.3.202:4090">
-        <small class="form-help">OpenAI-compatible Chat Completion endpoint.</small>
-      </div>
-
-      <div class="form-group hidden" id="api-key-group">
-        <label for="input-api-key">API Key</label>
-        <input type="password" id="input-api-key" placeholder="Enter API Key">
-        <small class="form-help">Required for Groq, optional for custom endpoints.</small>
-      </div>
-
-      <div class="form-group">
-        <label for="select-model">Model Selection</label>
-        <select id="select-model">
-          <option value="qwen">Qwen (OpenAI Compatible)</option>
-          <option value="translategemma">TranslateGemma (Structured Format)</option>
-          <option value="groq">Groq (Cloud API)</option>
-          <option value="custom">Custom...</option>
-        </select>
-      </div>
-
-      <div id="groq-model-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; border-left: 2px solid var(--border-color); padding-left: 10px; margin-bottom: 12px;">
-        <div class="form-group" style="margin-bottom: 0;">
-          <label for="input-groq-model">Groq Model Name</label>
-          <input type="text" id="input-groq-model" list="groq-model-list" placeholder="e.g. llama-3.3-70b-versatile">
-          <datalist id="groq-model-list">
-            <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
-            <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-            <option value="mixtral-8x7b-32768">Mixtral 8x7b 32k</option>
-            <option value="gemma2-9b-it">Gemma 2 9B</option>
-          </datalist>
-          <small class="form-help">Select from popular models or type any other valid Groq model ID.</small>
-        </div>
-      </div>
-
-      <div id="custom-model-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; border-left: 2px solid var(--border-color); padding-left: 10px; margin-bottom: 12px;">
-        <div class="form-group" style="margin-bottom: 0;">
-          <label for="input-model">Custom Model Name</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="input-model" list="model-list" placeholder="e.g. qwen2.5-coder:7b" style="flex: 1;">
-            <button id="btn-detect-model" class="secondary-btn" style="padding: 0 12px; height: 38px; font-size: 12px; white-space: nowrap;">Detect</button>
+      <!-- AI Provider & Recipe Settings Container Card -->
+      <div class="provider-card">
+        <div class="provider-card-header">
+          <div class="provider-title-wrapper">
+            <span class="provider-card-icon">⚡</span>
+            <span class="provider-card-title">AI Provider & Recipe</span>
           </div>
-          <datalist id="model-list"></datalist>
+          <button id="btn-save-recipe" class="recipe-save-btn" type="button" title="Save current parameters to selected provider recipe">
+            <span>💾</span> Save Recipe
+          </button>
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-          <label for="select-model-type">Custom Model Format</label>
+
+        <!-- Provider Preset Dropdown -->
+        <div class="form-group margin-bottom-10">
+          <div class="label-with-badge">
+            <label for="select-provider">AI Provider Preset</label>
+            <span id="recipe-status-tag" class="status-tag tag-saved">Recipe Active</span>
+          </div>
+          <select id="select-provider" class="provider-select">
+            <optgroup label="Cloud Providers">
+              <option value="groq">⚡ Groq Cloud (Ultra Fast)</option>
+              <option value="openai">🤖 OpenAI (GPT-4o / o3-mini)</option>
+              <option value="deepseek">🔮 DeepSeek API (Chat & Reasoner)</option>
+              <option value="openrouter">🌐 OpenRouter (Multi-LLM Gateway)</option>
+              <option value="gemini">✨ Google Gemini (OpenAI Endpoint)</option>
+            </optgroup>
+            <optgroup label="Local Servers">
+              <option value="ollama">🦙 Ollama (Local LLM)</option>
+              <option value="lmstudio">💻 LM Studio (Local Endpoint)</option>
+              <option value="vllm">🖥️ Local Gateway / vLLM / Qwen Server</option>
+            </optgroup>
+            <optgroup label="Custom & Saved Recipes">
+              <option value="custom">🛠️ Custom Recipe...</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Server API Endpoint Input with Auto Fix -->
+        <div class="form-group margin-bottom-10">
+          <div class="label-with-action">
+            <label for="input-api-endpoint">Server API Endpoint</label>
+            <button id="btn-fix-url" class="btn-fix-url hidden" type="button" title="Click to fix URL with standard base endpoint">
+              Auto Fix URL
+            </button>
+          </div>
+          <input type="text" id="input-api-endpoint" placeholder="http://192.168.3.202:4090">
+          <small id="url-recommendation-help" class="form-help">OpenAI-compatible Chat Completion endpoint.</small>
+        </div>
+
+        <!-- API Key Input -->
+        <div class="form-group margin-bottom-10" id="api-key-group">
+          <div class="label-with-action">
+            <label for="input-api-key">API Key</label>
+            <button id="btn-toggle-key-vis" class="btn-text-link" type="button">Show</button>
+          </div>
+          <input type="password" id="input-api-key" placeholder="Enter API Key (sk-...)">
+          <small id="api-key-help" class="form-help">Required for cloud providers, optional for local endpoints.</small>
+        </div>
+
+        <!-- Test Connection & Fetch Models Control Bar -->
+        <div class="provider-actions-bar margin-bottom-10">
+          <button id="btn-test-connection" class="primary-btn btn-test-conn" type="button">
+            <span class="btn-icon">⚡</span>
+            <span id="test-btn-text">Test Connection</span>
+          </button>
+          <button id="btn-fetch-models" class="secondary-btn btn-refresh-models" type="button" title="Fetch active & latest models from provider">
+            <span class="btn-icon">🔄</span>
+            <span>Fetch Models</span>
+          </button>
+        </div>
+
+        <!-- Diagnostic Panel (Collapsible / Dynamic) -->
+        <div id="test-results-panel" class="test-panel hidden">
+          <div class="test-panel-header">
+            <div class="test-panel-title">
+              <span id="test-status-pill" class="test-pill pill-pending">Testing...</span>
+              <span id="test-latency-badge" class="latency-badge hidden">-- ms</span>
+            </div>
+            <button id="btn-close-test-panel" class="close-mini-btn" type="button" title="Dismiss diagnostic info">&times;</button>
+          </div>
+          <div id="test-steps-list" class="test-steps-list"></div>
+          <div id="test-detail-msg" class="test-detail-msg"></div>
+        </div>
+
+        <!-- Active Model Selection & Quick Chips -->
+        <div class="form-group margin-bottom-10">
+          <div class="label-with-badge">
+            <label for="input-model">Active Model</label>
+            <span id="model-count-tag" class="model-count-tag">-- models</span>
+          </div>
+          <div class="model-input-row">
+            <input type="text" id="input-model" list="model-list" placeholder="e.g. llama-3.3-70b-versatile">
+            <datalist id="model-list"></datalist>
+          </div>
+          <div id="quick-models-container" class="quick-models-container"></div>
+          <small class="form-help">Type model ID or click chip to select.</small>
+        </div>
+
+        <!-- Model Format / Prompt Mode Selector -->
+        <div class="form-group margin-bottom-0">
+          <label for="select-model-type">Model Format / Prompt Mode</label>
           <select id="select-model-type">
-            <option value="qwen">OpenAI Compatible (Qwen, GPT, etc.)</option>
+            <option value="qwen">OpenAI Compatible Chat Completion (Qwen, GPT, DeepSeek, etc.)</option>
             <option value="translategemma">TranslateGemma (Structured Format)</option>
           </select>
         </div>

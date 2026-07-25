@@ -143,6 +143,27 @@ function splitThinkingText(text) {
   return { thinking, translation };
 }
 
+function renderFormattedTranslation(text) {
+  if (!text) return "";
+  const lines = text.trim().split("\n");
+  const hasBullets = lines.some(line => /^[•\-\*]\s+/.test(line.trim()) || /^\d+[\.\)]\s+/.test(line.trim()));
+  
+  if (hasBullets) {
+    let html = "<ul class='translation-bullet-list' style='margin: 4px 0 4px 18px; padding: 0; list-style-type: disc; text-align: left;'>";
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed) {
+        const cleaned = trimmed.replace(/^[•\-\*]\s+/, "").replace(/^\d+[\.\)]\s+/, "");
+        html += `<li style='margin-bottom: 4px; line-height: 1.5;'>${escapeHTML(cleaned)}</li>`;
+      }
+    });
+    html += "</ul>";
+    return html;
+  }
+  
+  return escapeHTML(text);
+}
+
 function renderThinkingAndTranslation(translationText, thinkingText) {
   let thinkBlock = document.getElementById("thinking-block");
   let thinkContent = document.getElementById("thinking-content");
@@ -200,7 +221,11 @@ function renderThinkingAndTranslation(translationText, thinkingText) {
     thinkContent.textContent = thinkingText;
   }
   if (transBlock) {
-    transBlock.textContent = translationText || "...";
+    if (translationText && (/^[•\-\*]\s+/m.test(translationText) || /^\d+[\.\)]\s+/m.test(translationText))) {
+      transBlock.innerHTML = renderFormattedTranslation(translationText);
+    } else {
+      transBlock.textContent = translationText || "...";
+    }
   }
 }
 
@@ -464,26 +489,27 @@ async function renderRichTranslation(data) {
       `;
       vocabCard.appendChild(vocabHeader);
 
-      // Synonyms List
+      // Similar Words List (Bullet List)
       if (vocab.synonyms && vocab.synonyms.length > 0) {
         const synContainer = document.createElement("div");
-        synContainer.style.cssText = "display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px;";
+        synContainer.style.cssText = "margin-top: 6px; display: flex; flex-direction: column; gap: 4px;";
         
-        const synLabel = document.createElement("span");
-        synLabel.style.cssText = "font-size: 11px; color: var(--text-muted); font-weight: 500;";
+        const synLabel = document.createElement("div");
+        synLabel.style.cssText = "font-size: 11px; color: var(--text-muted); font-weight: 600;";
         synLabel.textContent = "Similar words:";
         synContainer.appendChild(synLabel);
 
-        const synList = document.createElement("div");
-        synList.className = "vocab-synonyms";
-        synList.style.marginTop = "0";
+        const synUl = document.createElement("ul");
+        synUl.className = "vocab-synonyms-ul";
+        synUl.style.cssText = "margin: 0; padding-left: 18px; list-style-type: disc; font-size: 12.5px; color: var(--text-main); display: flex; flex-direction: column; gap: 3px;";
+        
         vocab.synonyms.forEach(syn => {
-          const badge = document.createElement("span");
-          badge.className = "synonym-badge";
-          badge.textContent = syn;
-          synList.appendChild(badge);
+          const li = document.createElement("li");
+          li.style.cssText = "line-height: 1.4;";
+          li.textContent = syn;
+          synUl.appendChild(li);
         });
-        synContainer.appendChild(synList);
+        synContainer.appendChild(synUl);
         vocabCard.appendChild(synContainer);
       }
 
@@ -635,7 +661,7 @@ function showLearningLoader() {
   btnTranslate.disabled = true;
   statusMessage.textContent = "Translating...";
   
-  const endpointUrl = `${apiEndpoint.replace(/\/$/, "")}/v1/chat/completions`;
+  const endpointUrl = formatChatEndpointUrl(apiEndpoint);
 
   let messagesPayload;
   let targetTemp = temp;
@@ -917,155 +943,717 @@ function toggleTelegramVisibility() {
 }
 checkEnableTelegram.addEventListener("change", toggleTelegramVisibility);
 
-const selectModel = document.getElementById("select-model");
-const customModelFields = document.getElementById("custom-model-fields");
-const groqModelFields = document.getElementById("groq-model-fields");
-const apiKeyGroup = document.getElementById("api-key-group");
+// URL formatting helpers
+function formatChatEndpointUrl(apiEndpoint) {
+  if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
+  let clean = apiEndpoint.trim().replace(/\/$/, "");
+  if (clean.endsWith("/chat/completions")) {
+    return clean;
+  }
+  if (clean.endsWith("/v1")) {
+    return `${clean}/chat/completions`;
+  }
+  return `${clean}/v1/chat/completions`;
+}
 
-function toggleCustomModelVisibility() {
-  const val = selectModel.value;
-  if (val === "custom") {
-    customModelFields.classList.remove("hidden");
-    groqModelFields.classList.add("hidden");
-    if (apiKeyGroup) apiKeyGroup.classList.remove("hidden");
-  } else if (val === "groq") {
-    customModelFields.classList.add("hidden");
-    groqModelFields.classList.remove("hidden");
-    if (apiKeyGroup) apiKeyGroup.classList.remove("hidden");
+function formatModelsEndpointUrl(apiEndpoint) {
+  if (!apiEndpoint) return "http://192.168.3.202:4090/v1/models";
+  let clean = apiEndpoint.trim().replace(/\/$/, "");
+  if (clean.endsWith("/chat/completions")) {
+    clean = clean.replace(/\/chat\/completions$/, "");
+  }
+  if (clean.endsWith("/v1")) {
+    return `${clean}/models`;
+  }
+  return `${clean}/v1/models`;
+}
+
+// Preset Provider Recipes Definition
+const DEFAULT_RECIPES = {
+  groq: {
+    id: "groq",
+    name: "Groq Cloud",
+    endpoint: "https://api.groq.com/openai",
+    apiKey: "",
+    model: "llama-3.3-70b-versatile",
+    modelType: "groq",
+    stdUrl: "https://api.groq.com/openai",
+    recommendedModels: ["llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b", "llama-3.1-8b-instant", "qwen-2.5-32b", "deepseek-r1-distill-qwen-32b"],
+    keyRequired: true,
+    helpText: "Enter your Groq API Key (starts with gsk_)"
+  },
+  openai: {
+    id: "openai",
+    name: "OpenAI",
+    endpoint: "https://api.openai.com",
+    apiKey: "",
+    model: "gpt-4o-mini",
+    modelType: "qwen",
+    stdUrl: "https://api.openai.com",
+    recommendedModels: ["gpt-4o", "gpt-4o-mini", "o3-mini", "gpt-4-turbo"],
+    keyRequired: true,
+    helpText: "Enter your OpenAI API Key (starts with sk-)"
+  },
+  deepseek: {
+    id: "deepseek",
+    name: "DeepSeek API",
+    endpoint: "https://api.deepseek.com",
+    apiKey: "",
+    model: "deepseek-chat",
+    modelType: "qwen",
+    stdUrl: "https://api.deepseek.com",
+    recommendedModels: ["deepseek-chat", "deepseek-reasoner"],
+    keyRequired: true,
+    helpText: "Enter your DeepSeek API Key (starts with sk-)"
+  },
+  openrouter: {
+    id: "openrouter",
+    name: "OpenRouter",
+    endpoint: "https://openrouter.ai/api",
+    apiKey: "",
+    model: "meta-llama/llama-3.3-70b-instruct",
+    modelType: "qwen",
+    stdUrl: "https://openrouter.ai/api",
+    recommendedModels: ["anthropic/claude-3.5-sonnet", "meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-r1", "google/gemini-2.5-flash"],
+    keyRequired: true,
+    helpText: "Enter your OpenRouter API Key (starts with sk-or-)"
+  },
+  gemini: {
+    id: "gemini",
+    name: "Google Gemini",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai",
+    apiKey: "",
+    model: "gemini-2.5-flash",
+    modelType: "qwen",
+    stdUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    recommendedModels: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"],
+    keyRequired: true,
+    helpText: "Enter your Gemini API Key (starts with AIza)"
+  },
+  ollama: {
+    id: "ollama",
+    name: "Ollama Local",
+    endpoint: "http://localhost:11434",
+    apiKey: "",
+    model: "qwen2.5:7b",
+    modelType: "qwen",
+    stdUrl: "http://localhost:11434",
+    recommendedModels: ["qwen2.5:7b", "llama3.2:3b", "gemma2:9b", "deepseek-r1:7b"],
+    keyRequired: false,
+    helpText: "Optional for local Ollama server"
+  },
+  lmstudio: {
+    id: "lmstudio",
+    name: "LM Studio Local",
+    endpoint: "http://localhost:1234",
+    apiKey: "",
+    model: "qwen2.5-7b-instruct",
+    modelType: "qwen",
+    stdUrl: "http://localhost:1234",
+    recommendedModels: ["qwen2.5-7b-instruct", "gemma-2-9b-it", "llama-3.1-8b-instruct"],
+    keyRequired: false,
+    helpText: "Optional for local LM Studio server"
+  },
+  vllm: {
+    id: "vllm",
+    name: "Local Gateway / vLLM",
+    endpoint: "http://192.168.3.202:4090",
+    apiKey: "",
+    model: "qwen",
+    modelType: "qwen",
+    stdUrl: "http://192.168.3.202:4090",
+    recommendedModels: ["qwen", "translategemma"],
+    keyRequired: false,
+    helpText: "Optional for custom local server"
+  },
+  custom: {
+    id: "custom",
+    name: "Custom Recipe",
+    endpoint: "http://192.168.3.202:4090",
+    apiKey: "",
+    model: "qwen",
+    modelType: "qwen",
+    stdUrl: "",
+    recommendedModels: ["qwen", "translategemma"],
+    keyRequired: false,
+    helpText: "Custom endpoint & API key"
+  }
+};
+
+const selectProvider = document.getElementById("select-provider");
+const selectModel = selectProvider; // Backwards compatibility alias
+const inputApiEndpoint = document.getElementById("input-api-endpoint");
+const inputApiKey = document.getElementById("input-api-key");
+const apiKeyGroup = document.getElementById("api-key-group");
+const btnToggleKeyVis = document.getElementById("btn-toggle-key-vis");
+const btnFixUrl = document.getElementById("btn-fix-url");
+const urlRecommendationHelp = document.getElementById("url-recommendation-help");
+const apiKeyHelp = document.getElementById("api-key-help");
+
+const btnSaveRecipe = document.getElementById("btn-save-recipe");
+const btnTestConnection = document.getElementById("btn-test-connection");
+const btnFetchModels = document.getElementById("btn-fetch-models");
+const btnDetectModel = btnFetchModels; // Backwards compatibility alias
+const btnCloseTestPanel = document.getElementById("btn-close-test-panel");
+
+const testResultsPanel = document.getElementById("test-results-panel");
+const testStatusPill = document.getElementById("test-status-pill");
+const testLatencyBadge = document.getElementById("test-latency-badge");
+const testStepsList = document.getElementById("test-steps-list");
+const testDetailMsg = document.getElementById("test-detail-msg");
+
+const inputModel = document.getElementById("input-model");
+const selectModelType = document.getElementById("select-model-type");
+const modelList = document.getElementById("model-list");
+const quickModelsContainer = document.getElementById("quick-models-container");
+const modelCountTag = document.getElementById("model-count-tag");
+const recipeStatusTag = document.getElementById("recipe-status-tag");
+
+let loadedRecipes = JSON.parse(JSON.stringify(DEFAULT_RECIPES));
+let activeProviderKey = "vllm";
+
+// Toggle API Key password visibility
+if (btnToggleKeyVis) {
+  btnToggleKeyVis.addEventListener("click", () => {
+    if (inputApiKey.type === "password") {
+      inputApiKey.type = "text";
+      btnToggleKeyVis.textContent = "Hide";
+    } else {
+      inputApiKey.type = "password";
+      btnToggleKeyVis.textContent = "Show";
+    }
+  });
+}
+
+let autoSaveTimer = null;
+
+// Auto save active form values to current provider's recipe and chrome storage
+function autoSaveCurrentRecipe() {
+  syncFormToCurrentRecipe();
+  const currentProvider = selectProvider.value;
+
+  if (recipeStatusTag) {
+    recipeStatusTag.textContent = "Saving...";
+    recipeStatusTag.className = "status-tag tag-saved";
+  }
+
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(async () => {
+    await chrome.storage.local.set({
+      currentProvider: currentProvider,
+      providerRecipes: loadedRecipes,
+      apiEndpoint: inputApiEndpoint.value.trim(),
+      apiKey: inputApiKey.value.trim(),
+      model: inputModel.value.trim(),
+      modelType: selectModelType.value
+    });
+
+    if (recipeStatusTag) {
+      recipeStatusTag.textContent = "Auto-saved ✓";
+      setTimeout(() => { if (recipeStatusTag) recipeStatusTag.textContent = "Recipe Active"; }, 2000);
+    }
+  }, 400);
+}
+
+// Auto Fix URL listener
+if (btnFixUrl) {
+  btnFixUrl.addEventListener("click", () => {
+    const currentRec = loadedRecipes[selectProvider.value] || DEFAULT_RECIPES[selectProvider.value];
+    if (currentRec && currentRec.stdUrl) {
+      inputApiEndpoint.value = currentRec.stdUrl;
+      checkUrlFormat();
+      autoSaveCurrentRecipe();
+      addLog("info", `Updated endpoint URL to recommended base: ${currentRec.stdUrl}`);
+    }
+  });
+}
+
+// Check URL vs recommended URL for active provider
+function checkUrlFormat() {
+  const currentProvider = selectProvider.value;
+  const currentRec = loadedRecipes[currentProvider] || DEFAULT_RECIPES[currentProvider];
+  const urlVal = inputApiEndpoint.value.trim();
+
+  if (!urlVal) {
+    if (btnFixUrl) btnFixUrl.classList.add("hidden");
+    if (urlRecommendationHelp) urlRecommendationHelp.textContent = "Base URL for OpenAI-compatible completions API.";
+    return;
+  }
+
+  if (currentRec && currentRec.stdUrl) {
+    const cleanInput = urlVal.replace(/\/$/, "");
+    const cleanStd = currentRec.stdUrl.replace(/\/$/, "");
+    if (cleanInput !== cleanStd && !cleanInput.startsWith(cleanStd)) {
+      if (btnFixUrl) btnFixUrl.classList.remove("hidden");
+      if (urlRecommendationHelp) {
+        urlRecommendationHelp.innerHTML = `💡 Standard URL for ${currentRec.name}: <code style="color:var(--accent-color-1);">${currentRec.stdUrl}</code>`;
+      }
+    } else {
+      if (btnFixUrl) btnFixUrl.classList.add("hidden");
+      if (urlRecommendationHelp) {
+        urlRecommendationHelp.textContent = `✓ Standard base URL for ${currentRec.name}.`;
+      }
+    }
   } else {
-    customModelFields.classList.add("hidden");
-    groqModelFields.classList.add("hidden");
-    if (apiKeyGroup) apiKeyGroup.classList.add("hidden");
+    if (btnFixUrl) btnFixUrl.classList.add("hidden");
+    if (urlRecommendationHelp) urlRecommendationHelp.textContent = "OpenAI-compatible Chat Completion endpoint.";
   }
 }
 
-selectModel.addEventListener("change", () => {
-  toggleCustomModelVisibility();
-  const endpointInput = document.getElementById("input-api-endpoint");
-  const currentEndpoint = endpointInput.value.trim();
-  if (selectModel.value === "groq") {
-    if (!currentEndpoint || currentEndpoint === "http://192.168.3.202:4090") {
-      endpointInput.value = "https://api.groq.com/openai";
-    }
-  } else if (selectModel.value === "qwen" || selectModel.value === "translategemma") {
-    if (!currentEndpoint || currentEndpoint === "https://api.groq.com/openai") {
-      endpointInput.value = "http://192.168.3.202:4090";
-    }
+if (inputApiEndpoint) {
+  inputApiEndpoint.addEventListener("input", () => {
+    checkUrlFormat();
+    autoSaveCurrentRecipe();
+  });
+}
+
+if (inputApiKey) {
+  inputApiKey.addEventListener("input", autoSaveCurrentRecipe);
+}
+
+if (inputModel) {
+  inputModel.addEventListener("input", autoSaveCurrentRecipe);
+}
+
+if (selectModelType) {
+  selectModelType.addEventListener("change", autoSaveCurrentRecipe);
+}
+
+// Render Quick Model Chips
+function renderQuickModelChips(models) {
+  if (!quickModelsContainer) return;
+  quickModelsContainer.innerHTML = "";
+  
+  const currentVal = inputModel.value.trim();
+  const currentRec = loadedRecipes[selectProvider.value] || DEFAULT_RECIPES[selectProvider.value];
+  const recList = currentRec ? (currentRec.recommendedModels || []) : [];
+
+  const combined = Array.from(new Set([...(models || []), ...recList])).filter(Boolean);
+
+  if (modelCountTag) {
+    modelCountTag.textContent = `${combined.length} models`;
   }
-});
 
-const btnDetectModel = document.getElementById("btn-detect-model");
-const inputModel = document.getElementById("input-model");
-const modelList = document.getElementById("model-list");
+  combined.forEach(m => {
+    const chip = document.createElement("div");
+    const isActive = m === currentVal;
+    chip.className = `model-chip ${isActive ? 'active' : ''}`;
+    
+    let tag = "";
+    if (recList.includes(m)) tag = "Preset";
+    if (m.includes("3.3") || m.includes("gpt-4o") || m.includes("reasoner") || m.includes("2.5")) tag = "Latest";
+    
+    chip.innerHTML = `${m}${tag ? ` <span class="chip-tag">${tag}</span>` : ''}`;
+    
+    chip.addEventListener("click", () => {
+      inputModel.value = m;
+      renderQuickModelChips(combined);
+      autoSaveCurrentRecipe();
+    });
+    
+    quickModelsContainer.appendChild(chip);
+  });
+}
 
-if (btnDetectModel) {
-  btnDetectModel.addEventListener("click", async () => {
-    const apiEndpoint = document.getElementById("input-api-endpoint").value.trim();
-    if (!apiEndpoint) {
-      alert("Please enter a Server API Endpoint first.");
-      return;
-    }
+const DEPRECATED_GROQ_MODELS = [
+  "llama3-70b-8192",
+  "llama3-8b-8192",
+  "llama-3.1-70b-versatile",
+  "mixtral-8x7b-32768",
+  "gemma-7b-it",
+  "gemma2-9b-it",
+  "llama2-70b-4096"
+];
 
-    btnDetectModel.disabled = true;
-    const originalText = btnDetectModel.textContent;
-    btnDetectModel.textContent = "Detecting...";
-    await addLog("info", `Attempting to detect models from: ${apiEndpoint}`);
+function cleanGroqModel(modelName) {
+  if (!modelName || DEPRECATED_GROQ_MODELS.includes(modelName.trim())) {
+    return "llama-3.3-70b-versatile";
+  }
+  return modelName.trim();
+}
 
-    try {
-      const cleanEndpoint = apiEndpoint.replace(/\/$/, "");
-      let detectedModels = [];
+// Load recipe for selected provider into form
+function applyRecipeToForm(providerKey) {
+  activeProviderKey = providerKey;
+  const recipe = loadedRecipes[providerKey] || DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
 
-      // 1. Try standard OpenAI-compatible /v1/models
-      try {
-        const response = await fetch(`${cleanEndpoint}/v1/models`, { method: "GET" });
-        if (response.ok) {
-          const data = await response.json();
-          if (data && Array.isArray(data.data)) {
-            detectedModels = data.data.map(m => m.id);
-          }
-        }
-      } catch (err) {
-        await addLog("debug", `/v1/models check failed: ${err.message}`);
-      }
+  if (providerKey === "groq") {
+    recipe.model = cleanGroqModel(recipe.model);
+    recipe.recommendedModels = ["llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b", "llama-3.1-8b-instant", "qwen-2.5-32b", "deepseek-r1-distill-qwen-32b"];
+  }
 
-      // 2. Try Ollama `/api/tags` if no models found yet
-      if (detectedModels.length === 0) {
-        try {
-          const response = await fetch(`${cleanEndpoint}/api/tags`, { method: "GET" });
-          if (response.ok) {
-            const data = await response.json();
-            if (data && Array.isArray(data.models)) {
-              detectedModels = data.models.map(m => m.name);
-            }
-          }
-        } catch (err) {
-          await addLog("debug", `/api/tags check failed: ${err.message}`);
-        }
-      }
+  inputApiEndpoint.value = recipe.endpoint || recipe.stdUrl || "";
+  inputApiKey.value = recipe.apiKey || "";
+  inputModel.value = recipe.model || "";
+  selectModelType.value = recipe.modelType || "qwen";
 
-      // 3. Try Llama.cpp custom `/models` endpoint
-      if (detectedModels.length === 0) {
-        try {
-          const response = await fetch(`${cleanEndpoint}/models`, { method: "GET" });
-          if (response.ok) {
-            const data = await response.json();
-            if (Array.isArray(data)) {
-              detectedModels = data.map(m => m.id || m.name).filter(Boolean);
-            } else if (data && Array.isArray(data.data)) {
-              detectedModels = data.data.map(m => m.id || m.name).filter(Boolean);
-            }
-          }
-        } catch (err) {
-          await addLog("debug", `/models check failed: ${err.message}`);
-        }
-      }
+  if (apiKeyHelp) {
+    apiKeyHelp.textContent = recipe.helpText || "Required for cloud providers, optional for local endpoints.";
+  }
 
-      // 4. Try Llama.cpp /props endpoint
-      if (detectedModels.length === 0) {
-        try {
-          const response = await fetch(`${cleanEndpoint}/props`, { method: "GET" });
-          if (response.ok) {
-            const data = await response.json();
-            if (data && data.default_generation_settings && data.default_generation_settings.model) {
-              detectedModels = [data.default_generation_settings.model];
-            } else if (data && data.model_path) {
-              const filename = data.model_path.split("/").pop();
-              detectedModels = [filename];
-            }
-          }
-        } catch (err) {
-          await addLog("debug", `/props check failed: ${err.message}`);
-        }
-      }
+  checkUrlFormat();
 
-      if (detectedModels.length > 0) {
-        // Clear datalist
-        modelList.innerHTML = "";
-        detectedModels.forEach(m => {
-          const option = document.createElement("option");
-          option.value = m;
-          modelList.appendChild(option);
-        });
+  // Populate datalist
+  if (modelList) {
+    modelList.innerHTML = "";
+    const recs = recipe.recommendedModels || [];
+    recs.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      modelList.appendChild(opt);
+    });
+  }
 
-        // Set input to the first model if it's currently empty or not in the list
-        if (!inputModel.value.trim() || !detectedModels.includes(inputModel.value.trim())) {
-          inputModel.value = detectedModels[0];
-        }
+  renderQuickModelChips(recipe.recommendedModels || []);
+}
 
-        await addLog("info", `Successfully detected ${detectedModels.length} model(s): ${detectedModels.join(", ")}`);
-        alert(`Detected ${detectedModels.length} model(s)!\nFirst model "${detectedModels[0]}" selected.\nCheck custom model list for options.`);
-      } else {
-        await addLog("warn", `No active models detected. Ensure model is loaded on the server.`);
-        alert(`No active models could be detected. Please check if your server at ${apiEndpoint} is running and has a model loaded.`);
-      }
-    } catch (err) {
-      await addLog("error", `Failed to connect to LLM server: ${err.message}`);
-      alert(`Connection failed: Could not connect to the server at ${apiEndpoint}. Make sure the server is running and accessible.`);
-    } finally {
-      btnDetectModel.disabled = false;
-      btnDetectModel.textContent = originalText;
+// Save active form values to current provider's recipe
+function syncFormToCurrentRecipe() {
+  const providerKey = selectProvider.value;
+  if (!loadedRecipes[providerKey]) {
+    loadedRecipes[providerKey] = Object.assign({}, DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom);
+  }
+  
+  loadedRecipes[providerKey].endpoint = inputApiEndpoint.value.trim();
+  loadedRecipes[providerKey].apiKey = inputApiKey.value.trim();
+  loadedRecipes[providerKey].model = inputModel.value.trim();
+  loadedRecipes[providerKey].modelType = selectModelType.value;
+}
+
+// Provider Dropdown Change listener
+if (selectProvider) {
+  selectProvider.addEventListener("change", async () => {
+    // Save current recipe state first
+    syncFormToCurrentRecipe();
+    
+    // Switch to new provider recipe
+    const newProvider = selectProvider.value;
+    applyRecipeToForm(newProvider);
+    
+    // Save updated provider recipes in storage
+    await chrome.storage.local.set({
+      currentProvider: newProvider,
+      providerRecipes: loadedRecipes,
+      apiEndpoint: inputApiEndpoint.value.trim(),
+      apiKey: inputApiKey.value.trim(),
+      model: inputModel.value.trim(),
+      modelType: selectModelType.value
+    });
+
+    if (recipeStatusTag) {
+      recipeStatusTag.textContent = "Recipe Loaded";
+      setTimeout(() => { if (recipeStatusTag) recipeStatusTag.textContent = "Recipe Active"; }, 1500);
     }
   });
+}
+
+// Save Recipe button listener
+if (btnSaveRecipe) {
+  btnSaveRecipe.addEventListener("click", async () => {
+    syncFormToCurrentRecipe();
+    const currentProvider = selectProvider.value;
+    
+    await chrome.storage.local.set({
+      currentProvider: currentProvider,
+      providerRecipes: loadedRecipes,
+      apiEndpoint: inputApiEndpoint.value.trim(),
+      apiKey: inputApiKey.value.trim(),
+      model: inputModel.value.trim(),
+      modelType: selectModelType.value
+    });
+
+    if (recipeStatusTag) {
+      recipeStatusTag.textContent = "Saved! ✓";
+      recipeStatusTag.className = "status-tag tag-saved";
+      setTimeout(() => { if (recipeStatusTag) recipeStatusTag.textContent = "Recipe Active"; }, 2000);
+    }
+    
+    await addLog("info", `Saved recipe for provider: ${currentProvider}`);
+    alert(`Recipe saved successfully for ${loadedRecipes[currentProvider]?.name || currentProvider}!`);
+  });
+}
+
+// Dismiss diagnostic panel
+if (btnCloseTestPanel) {
+  btnCloseTestPanel.addEventListener("click", () => {
+    if (testResultsPanel) testResultsPanel.classList.add("hidden");
+  });
+}
+
+// Diagnostic Connection Tester Engine
+async function runDiagnosticTest() {
+  const apiEndpoint = inputApiEndpoint.value.trim();
+  const apiKey = inputApiKey.value.trim();
+  const model = inputModel.value.trim() || "qwen";
+  const modelType = selectModelType.value;
+
+  if (!apiEndpoint) {
+    alert("Please enter a Server API Endpoint URL first.");
+    return;
+  }
+
+  if (testResultsPanel) testResultsPanel.classList.remove("hidden");
+  if (testStatusPill) {
+    testStatusPill.textContent = "Testing...";
+    testStatusPill.className = "test-pill pill-pending";
+  }
+  if (testLatencyBadge) testLatencyBadge.classList.add("hidden");
+  if (testDetailMsg) testDetailMsg.textContent = "Running 4-step connection diagnostic...";
+  
+  if (testStepsList) {
+    testStepsList.innerHTML = `
+      <div class="test-step-item" id="step-1">⏳ Step 1: Validating API Endpoint URL...</div>
+      <div class="test-step-item" id="step-2">⏳ Step 2: Checking Server Reachability & Auth...</div>
+      <div class="test-step-item" id="step-3">⏳ Step 3: Sending Chat Completion Test Request...</div>
+      <div class="test-step-item" id="step-4">⏳ Step 4: Verifying LLM Response & Latency...</div>
+    `;
+  }
+
+  const chatEndpointUrl = formatChatEndpointUrl(apiEndpoint);
+  const startTime = Date.now();
+
+  try {
+    // Step 1: URL format validation
+    const step1El = document.getElementById("step-1");
+    if (step1El) step1El.innerHTML = `✓ Step 1: Endpoint URL formatted → <code style="color:var(--accent-color-1);">${chatEndpointUrl}</code>`;
+    if (step1El) step1El.className = "test-step-item success";
+
+    // Step 2: Prepare Auth headers
+    const step2El = document.getElementById("step-2");
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+      if (step2El) step2El.innerHTML = `✓ Step 2: Authorization Header set (Bearer ${apiKey.substring(0, 6)}...)`;
+    } else {
+      if (step2El) step2El.innerHTML = `✓ Step 2: No API key provided (Local Server / Anonymous mode)`;
+    }
+    if (step2El) step2El.className = "test-step-item success";
+
+    // Step 3: Send Test Chat Probe Payload
+    const step3El = document.getElementById("step-3");
+    let testPayload;
+    if (modelType === "translategemma") {
+      testPayload = {
+        model: model,
+        messages: [{ role: "user", content: "Translate this to en:\nhello" }],
+        temperature: 0
+      };
+    } else {
+      testPayload = {
+        model: model,
+        messages: [{ role: "user", content: "Respond with single word: OK" }],
+        max_tokens: 5,
+        temperature: 0
+      };
+    }
+
+    const response = await fetch(chatEndpointUrl, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(testPayload)
+    });
+
+    const latency = Date.now() - startTime;
+    const step4El = document.getElementById("step-4");
+
+    if (response.ok) {
+      const data = await response.json();
+      let responseText = "";
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        responseText = data.choices[0].message.content.trim();
+      }
+
+      if (step3El) step3El.innerHTML = `✓ Step 3: Server responded HTTP ${response.status} OK!`;
+      if (step3El) step3El.className = "test-step-item success";
+
+      if (step4El) step4El.innerHTML = `✓ Step 4: Test response received: "${responseText || 'OK'}" (${latency}ms)`;
+      if (step4El) step4El.className = "test-step-item success";
+
+      if (testStatusPill) {
+        testStatusPill.textContent = "🟢 Connection Success";
+        testStatusPill.className = "test-pill pill-success";
+      }
+      if (testLatencyBadge) {
+        testLatencyBadge.textContent = `⚡ ${latency}ms`;
+        testLatencyBadge.classList.remove("hidden");
+      }
+      if (testDetailMsg) {
+        testDetailMsg.innerHTML = `<strong>✔ Connection Test Passed!</strong><br>Provider server is responsive and model <code>${model}</code> answered correctly.`;
+      }
+
+      await addLog("info", `Connection test success for ${chatEndpointUrl} (${latency}ms)`);
+      
+      // Auto refresh models on success
+      fetchLatestModels(true);
+    } else {
+      const errorText = await response.text().catch(() => "");
+      let errorMsg = `HTTP Error ${response.status}: ${response.statusText}`;
+      try {
+        const errJson = JSON.parse(errorText);
+        if (errJson.error && errJson.error.message) {
+          errorMsg = errJson.error.message;
+        }
+      } catch (e) {}
+
+      if (step3El) step3El.innerHTML = `✘ Step 3: Server returned HTTP ${response.status}`;
+      if (step3El) step3El.className = "test-step-item failed";
+
+      if (step4El) step4El.innerHTML = `✘ Step 4: Verification failed (${response.status})`;
+      if (step4El) step4El.className = "test-step-item failed";
+
+      if (testStatusPill) {
+        testStatusPill.textContent = "🔴 Connection Failed";
+        testStatusPill.className = "test-pill pill-failed";
+      }
+      
+      let troubleshooting = "";
+      if (response.status === 401 || response.status === 403) {
+        troubleshooting = "🔑 <strong>Authentication Error:</strong> Invalid or missing API Key. Please verify your API Key.";
+      } else if (response.status === 404) {
+        troubleshooting = "🔍 <strong>404 Not Found:</strong> Check if endpoint URL includes correct path or if server API route exists.";
+      } else {
+        troubleshooting = `⚠️ <strong>Server Response:</strong> ${errorMsg}`;
+      }
+
+      if (testDetailMsg) {
+        testDetailMsg.innerHTML = `<strong>✘ Connection Failed (HTTP ${response.status})</strong><br>${troubleshooting}`;
+      }
+
+      await addLog("error", `Connection test failed for ${chatEndpointUrl}: ${errorMsg}`);
+    }
+  } catch (err) {
+    const latency = Date.now() - startTime;
+    const step3El = document.getElementById("step-3");
+    const step4El = document.getElementById("step-4");
+
+    if (step3El) step3El.innerHTML = `✘ Step 3: Request failed → ${err.message}`;
+    if (step3El) step3El.className = "test-step-item failed";
+
+    if (step4El) step4El.innerHTML = `✘ Step 4: Connection error (${latency}ms)`;
+    if (step4El) step4El.className = "test-step-item failed";
+
+    if (testStatusPill) {
+      testStatusPill.textContent = "🔴 Network Error";
+      testStatusPill.className = "test-pill pill-failed";
+    }
+
+    if (testDetailMsg) {
+      testDetailMsg.innerHTML = `<strong>✘ Network Connection Error</strong><br>Could not connect to server at <code>${apiEndpoint}</code>.<br><small>Troubleshooting: Ensure server is running and CORS is enabled (e.g. for Ollama set <code>OLLAMA_ORIGINS=*</code>).</small>`;
+    }
+
+    await addLog("error", `Connection test error: ${err.message}`);
+  }
+}
+
+if (btnTestConnection) {
+  btnTestConnection.addEventListener("click", runDiagnosticTest);
+}
+
+// Dynamic Model List Fetcher Engine
+async function fetchLatestModels(silent = false) {
+  const apiEndpoint = inputApiEndpoint.value.trim();
+  const apiKey = inputApiKey.value.trim();
+  const currentProvider = selectProvider.value;
+
+  if (!apiEndpoint) {
+    if (!silent) alert("Please enter a Server API Endpoint first.");
+    return;
+  }
+
+  if (btnFetchModels) {
+    btnFetchModels.disabled = true;
+    const labelSpan = btnFetchModels.querySelector("span:last-child");
+    if (labelSpan) labelSpan.textContent = "Fetching...";
+  }
+
+  await addLog("info", `Fetching latest models from: ${apiEndpoint}`);
+
+  try {
+    const cleanEndpoint = apiEndpoint.replace(/\/$/, "");
+    let detectedModels = [];
+
+    const headers = {};
+    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
+    // 1. Standard /v1/models
+    try {
+      const modelsUrl = formatModelsEndpointUrl(apiEndpoint);
+      const res = await fetch(modelsUrl, { headers: headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.data)) {
+          detectedModels = data.data.map(m => m.id);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Ollama /api/tags
+    if (detectedModels.length === 0) {
+      try {
+        const res = await fetch(`${cleanEndpoint}/api/tags`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.models)) {
+            detectedModels = data.models.map(m => m.name);
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. Llama.cpp /models
+    if (detectedModels.length === 0) {
+      try {
+        const res = await fetch(`${cleanEndpoint}/models`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            detectedModels = data.map(m => m.id || m.name).filter(Boolean);
+          } else if (data && Array.isArray(data.data)) {
+            detectedModels = data.data.map(m => m.id || m.name).filter(Boolean);
+          }
+        }
+      } catch (e) {}
+    }
+
+    const currentRec = loadedRecipes[currentProvider] || DEFAULT_RECIPES[currentProvider];
+    const fallbackRecs = currentRec ? (currentRec.recommendedModels || []) : [];
+    const allModels = Array.from(new Set([...detectedModels, ...fallbackRecs])).filter(Boolean);
+
+    if (modelList) {
+      modelList.innerHTML = "";
+      allModels.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        modelList.appendChild(opt);
+      });
+    }
+
+    if (detectedModels.length > 0) {
+      if (!inputModel.value.trim() || !allModels.includes(inputModel.value.trim())) {
+        inputModel.value = detectedModels[0];
+      }
+      renderQuickModelChips(allModels);
+      await addLog("info", `Detected ${detectedModels.length} active models from server.`);
+      if (!silent) alert(`Successfully fetched ${detectedModels.length} live model(s) from server!\nFirst model "${detectedModels[0]}" selected.`);
+    } else {
+      renderQuickModelChips(fallbackRecs);
+      await addLog("warn", `Could not fetch live models from ${apiEndpoint}. Using provider presets.`);
+      if (!silent) alert(`Notice: Could not fetch live models from server. Preset provider models loaded.`);
+    }
+  } catch (err) {
+    await addLog("error", `Model fetch error: ${err.message}`);
+    if (!silent) alert(`Failed to fetch models: ${err.message}`);
+  } finally {
+    if (btnFetchModels) {
+      btnFetchModels.disabled = false;
+      const labelSpan = btnFetchModels.querySelector("span:last-child");
+      if (labelSpan) labelSpan.textContent = "Fetch Models";
+    }
+  }
+}
+
+if (btnFetchModels) {
+  btnFetchModels.addEventListener("click", () => fetchLatestModels(false));
 }
 
 function updateTextSizeClass(size) {
@@ -1079,6 +1667,8 @@ async function loadSettingsToUI() {
     "apiKey",
     "model",
     "modelType",
+    "currentProvider",
+    "providerRecipes",
     "temperature",
     "systemPrompt",
     "systemPromptLearning",
@@ -1094,26 +1684,35 @@ async function loadSettingsToUI() {
     "telegramChatId"
   ]);
   
-  document.getElementById("input-api-endpoint").value = res.apiEndpoint ?? "http://192.168.3.202:4090";
-  document.getElementById("input-api-key").value = res.apiKey ?? "";
-  
-  const savedModel = res.model ?? "qwen";
-  const savedModelType = res.modelType ?? "qwen";
-  if (savedModelType === "groq") {
-    selectModel.value = "groq";
-    const groqModelInput = document.getElementById("input-groq-model");
-    if (groqModelInput) groqModelInput.value = savedModel;
-  } else if (savedModel === "qwen" && savedModelType === "qwen") {
-    selectModel.value = "qwen";
-  } else if (savedModel === "translategemma" && savedModelType === "translategemma") {
-    selectModel.value = "translategemma";
-  } else {
-    selectModel.value = "custom";
+  if (res.providerRecipes) {
+    loadedRecipes = Object.assign({}, DEFAULT_RECIPES, res.providerRecipes);
   }
-  toggleCustomModelVisibility();
 
-  document.getElementById("input-model").value = savedModel;
-  document.getElementById("select-model-type").value = savedModelType;
+  let activeProv = res.currentProvider;
+  if (!activeProv) {
+    const ep = (res.apiEndpoint || "").toLowerCase();
+    if (res.modelType === "groq" || ep.includes("groq.com")) activeProv = "groq";
+    else if (ep.includes("openai.com")) activeProv = "openai";
+    else if (ep.includes("deepseek.com")) activeProv = "deepseek";
+    else if (ep.includes("openrouter.ai")) activeProv = "openrouter";
+    else if (ep.includes("googleapis.com")) activeProv = "gemini";
+    else if (ep.includes("11434")) activeProv = "ollama";
+    else if (ep.includes("1234")) activeProv = "lmstudio";
+    else if (ep.includes("4090")) activeProv = "vllm";
+    else activeProv = "vllm";
+  }
+
+  selectProvider.value = activeProv;
+  applyRecipeToForm(activeProv);
+
+  if (res.apiEndpoint !== undefined) inputApiEndpoint.value = res.apiEndpoint;
+  if (res.apiKey !== undefined) inputApiKey.value = res.apiKey;
+  if (res.model !== undefined) inputModel.value = res.model;
+  if (res.modelType !== undefined) selectModelType.value = res.modelType;
+
+  checkUrlFormat();
+  renderQuickModelChips(loadedRecipes[activeProv]?.recommendedModels || []);
+
   document.getElementById("input-temperature").value = res.temperature ?? 0.1;
   document.getElementById("val-temperature").textContent = res.temperature ?? 0.1;
   document.getElementById("input-max-history").value = res.maxHistory ?? 100;
@@ -1146,24 +1745,14 @@ document.getElementById("input-temperature").addEventListener("input", (e) => {
 });
 
 btnSaveSettings.addEventListener("click", async () => {
-  const apiEndpoint = document.getElementById("input-api-endpoint").value.trim();
-  const apiKey = document.getElementById("input-api-key").value.trim();
-  
-  let model;
-  let modelType;
-  if (selectModel.value === "qwen") {
-    model = "qwen";
-    modelType = "qwen";
-  } else if (selectModel.value === "translategemma") {
-    model = "translategemma";
-    modelType = "translategemma";
-  } else if (selectModel.value === "groq") {
-    model = document.getElementById("input-groq-model").value.trim() || "llama-3.3-70b-versatile";
-    modelType = "groq";
-  } else {
-    model = document.getElementById("input-model").value.trim();
-    modelType = document.getElementById("select-model-type").value;
-  }
+  syncFormToCurrentRecipe();
+  const currentProvider = selectProvider.value;
+
+  const apiEndpoint = inputApiEndpoint.value.trim();
+  const apiKey = inputApiKey.value.trim();
+  const model = inputModel.value.trim();
+  const modelType = selectModelType.value;
+
   const temperature = parseFloat(document.getElementById("input-temperature").value);
   const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
   const autoTranslate = document.getElementById("check-auto-translate").checked;
@@ -1179,6 +1768,8 @@ btnSaveSettings.addEventListener("click", async () => {
   const telegramChatId = document.getElementById("input-telegram-chatid").value.trim();
 
   await chrome.storage.local.set({
+    currentProvider,
+    providerRecipes: loadedRecipes,
     apiEndpoint,
     apiKey,
     model,
