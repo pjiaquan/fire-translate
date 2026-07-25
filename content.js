@@ -38,17 +38,13 @@ function isUrlLike(text) {
 
 function isApiKeyLike(text) {
   const trimmed = text.trim();
-  // Groq API keys (gsk_...)
-  if (/^gsk_[a-zA-Z0-9]{40,}/.test(trimmed)) return true;
-  // OpenAI API keys (sk-...)
-  if (/^sk-[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
-  // Anthropic/Claude API keys (sk-ant-...)
-  if (/^sk-ant-[a-zA-Z0-9_-]{20,}/.test(trimmed)) return true;
-  // Google/Gemini API keys (AIza...)
-  if (/^AIza[0-9A-Za-z_-]{30,}/.test(trimmed)) return true;
-  // HuggingFace API keys (hf_...)
-  if (/^hf_[a-zA-Z0-9]{20,}/.test(trimmed)) return true;
-  // Generic: long random-looking alphanumeric strings (30+ chars, has digits and letters)
+  if (/^gsk_[a-zA-Z0-9_-]{15,}/.test(trimmed)) return true;
+  if (/^sk-(proj-|or-|ant-)?[a-zA-Z0-9_-]{15,}/.test(trimmed)) return true;
+  if (/^AIza[0-9A-Za-z_-]{25,}/.test(trimmed)) return true;
+  if (/^ya29\.[0-9A-Za-z_-]{25,}/.test(trimmed)) return true;
+  if (/^hf_[a-zA-Z0-9]{15,}/.test(trimmed)) return true;
+  if (/^\d{8,10}:[a-zA-Z0-9_-]{30,}/.test(trimmed)) return true;
+  if (/^(ghp_|github_pat_)[a-zA-Z0-9_-]{15,}/.test(trimmed)) return true;
   if (/^[a-zA-Z0-9_-]{30,}$/.test(trimmed) && /[0-9]/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) return true;
   return false;
 }

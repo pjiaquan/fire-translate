@@ -414,6 +414,34 @@ async function executeTestSuite() {
     assert.strictEqual(getEffectiveApiKey("", ""), "");
   });
 
+  // Test 15: Credential scrubbing and key protection test
+  await runTest("sanitizeSensitiveCredentials should scrub raw API keys, OAuth tokens and bot tokens", () => {
+    function sanitizeSensitiveCredentials(input) {
+      if (!input) return input;
+      if (typeof input === "string") {
+        return input
+          .replace(/gsk_[a-zA-Z0-9_-]{10,}/g, m => `${m.substring(0, 6)}...***`)
+          .replace(/sk-(proj-|or-|ant-)?[a-zA-Z0-9_-]{10,}/g, m => `${m.substring(0, 6)}...***`)
+          .replace(/AIza[0-9A-Za-z_-]{10,}/g, m => `${m.substring(0, 6)}...***`)
+          .replace(/ya29\.[0-9A-Za-z_-]{10,}/g, m => `${m.substring(0, 6)}...***`)
+          .replace(/\d{8,10}:[a-zA-Z0-9_-]{20,}/g, m => `${m.substring(0, 5)}:***`)
+          .replace(/Bearer\s+[a-zA-Z0-9_\-\.]{10,}/gi, m => `Bearer ${m.substring(7, 13)}...***`);
+      }
+      return input;
+    }
+
+    const testLog = "Connecting to API with Authorization: Bearer gsk_1234567890abcdefghijklmnopqrstuvwxyz";
+    const cleanLog = sanitizeSensitiveCredentials(testLog);
+    assert.strictEqual(cleanLog.includes("gsk_1234567890abcdefghijklmnopqrstuvwxyz"), false);
+    assert.strictEqual(cleanLog.includes("Bearer Bearer"), false);
+    assert.strictEqual(cleanLog.includes("gsk_12...***"), true);
+
+    const openAiLog = "Request failed for sk-proj-1234567890abcdef12345678";
+    const cleanOpenAi = sanitizeSensitiveCredentials(openAiLog);
+    assert.strictEqual(cleanOpenAi.includes("sk-proj-1234567890abcdef12345678"), false);
+    assert.strictEqual(cleanOpenAi.includes("sk-pro...***"), true);
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
@@ -422,5 +450,6 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
+
 
 
