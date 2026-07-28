@@ -1144,167 +1144,7 @@ const selectModelType = document.getElementById("select-model-type");
 const modelList = document.getElementById("model-list");
 const quickModelsContainer = document.getElementById("quick-models-container");
 const modelCountTag = document.getElementById("model-count-tag");
-// Google OAuth Authentication Elements & Logic
-const btnGoogleLogin = document.getElementById("btn-google-login");
-const btnGoogleLogout = document.getElementById("btn-google-logout");
-const inputGoogleClientId = document.getElementById("input-google-client-id");
-const googleAuthStatusBadge = document.getElementById("google-auth-status-badge");
-const googleAuthSignedOutView = document.getElementById("google-auth-signed-out-view");
-const googleAuthSignedInView = document.getElementById("google-auth-signed-in-view");
-const userAvatarImg = document.getElementById("user-avatar-img");
-const userNameEl = document.getElementById("user-name");
-const userEmailEl = document.getElementById("user-email");
 
-const DEFAULT_GOOGLE_CLIENT_ID = "663198086053-google-translate.apps.googleusercontent.com";
-
-async function loginWithGoogleOAuth() {
-  const customClientId = inputGoogleClientId ? inputGoogleClientId.value.trim() : "";
-  const clientId = customClientId || DEFAULT_GOOGLE_CLIENT_ID;
-
-  if (btnGoogleLogin) btnGoogleLogin.disabled = true;
-
-  try {
-    // 1. Try chrome.identity.getAuthToken if available
-    if (typeof chrome !== "undefined" && chrome.identity && typeof chrome.identity.getAuthToken === "function") {
-      try {
-        const token = await new Promise((resolve, reject) => {
-          chrome.identity.getAuthToken({ interactive: true }, (t) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(t);
-            }
-          });
-        });
-
-        if (token) {
-          await handleGoogleOAuthTokenSuccess(token);
-          return;
-        }
-      } catch (err1) {
-        addLog("debug", `chrome.identity.getAuthToken fallback: ${err1.message}`);
-      }
-    }
-
-    // 2. Fallback to launchWebAuthFlow
-    if (typeof chrome !== "undefined" && chrome.identity && typeof chrome.identity.launchWebAuthFlow === "function") {
-      const redirectUri = chrome.identity.getRedirectURL();
-      const scopes = [
-        "openid",
-        "profile",
-        "email",
-        "https://www.googleapis.com/auth/generative-language"
-      ].join(" ");
-
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(clientId)}&` +
-        `response_type=token&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `scope=${encodeURIComponent(scopes)}`;
-
-      const redirectUrl = await new Promise((resolve, reject) => {
-        chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, (responseUrl) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(responseUrl);
-          }
-        });
-      });
-
-      if (redirectUrl) {
-        const urlParams = new URLSearchParams(redirectUrl.split("#")[1] || redirectUrl.split("?")[1]);
-        const accessToken = urlParams.get("access_token");
-        if (accessToken) {
-          await handleGoogleOAuthTokenSuccess(accessToken);
-          return;
-        }
-      }
-    }
-
-    throw new Error("Could not initiate Google OAuth flow. Please check Client ID.");
-  } catch (err) {
-    await addLog("error", `Google OAuth sign-in notice: ${err.message}`);
-    alert(`Google OAuth Sign-In Notice:\n${err.message}\n\nTip: Enter a valid Client ID under 'OAuth Client ID Settings' if using a custom Google Cloud project.`);
-  } finally {
-    if (btnGoogleLogin) btnGoogleLogin.disabled = false;
-  }
-}
-
-async function handleGoogleOAuthTokenSuccess(accessToken) {
-  try {
-    let profile = { name: "Google Account", email: "Connected", picture: "" };
-    try {
-      const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      if (res.ok) {
-        profile = await res.json();
-      }
-    } catch (e) {}
-
-    await chrome.storage.local.set({
-      googleOAuthToken: accessToken,
-      googleUserProfile: profile
-    });
-
-    renderGoogleAuthState(true, profile);
-    await addLog("info", `Google OAuth sign-in successful for: ${profile.email}`);
-  } catch (err) {
-    await addLog("error", `Failed to handle OAuth token: ${err.message}`);
-  }
-}
-
-async function logoutGoogleOAuth() {
-  const res = await chrome.storage.local.get("googleOAuthToken");
-  const token = res.googleOAuthToken;
-
-  if (token && typeof chrome !== "undefined" && chrome.identity && typeof chrome.identity.removeCachedAuthToken === "function") {
-    try {
-      chrome.identity.removeCachedAuthToken({ token: token }, () => {});
-    } catch (e) {}
-  }
-
-  await chrome.storage.local.remove(["googleOAuthToken", "googleUserProfile"]);
-  renderGoogleAuthState(false, null);
-  await addLog("info", "Signed out of Google OAuth");
-}
-
-function renderGoogleAuthState(isSignedIn, profile) {
-  if (isSignedIn && profile) {
-    if (googleAuthSignedOutView) googleAuthSignedOutView.classList.add("hidden");
-    if (googleAuthSignedInView) googleAuthSignedInView.classList.remove("hidden");
-    if (googleAuthStatusBadge) {
-      googleAuthStatusBadge.textContent = "Signed In";
-      googleAuthStatusBadge.className = "auth-status-pill pill-signed-in";
-    }
-    if (userNameEl) userNameEl.textContent = profile.name || "Google Account";
-    if (userEmailEl) userEmailEl.textContent = profile.email || "user@gmail.com";
-    if (userAvatarImg) {
-      if (profile.picture) {
-        userAvatarImg.src = profile.picture;
-        userAvatarImg.style.display = "block";
-      } else {
-        userAvatarImg.style.display = "none";
-      }
-    }
-  } else {
-    if (googleAuthSignedOutView) googleAuthSignedOutView.classList.remove("hidden");
-    if (googleAuthSignedInView) googleAuthSignedInView.classList.add("hidden");
-    if (googleAuthStatusBadge) {
-      googleAuthStatusBadge.textContent = "Signed Out";
-      googleAuthStatusBadge.className = "auth-status-pill pill-signed-out";
-    }
-  }
-}
-
-if (btnGoogleLogin) btnGoogleLogin.addEventListener("click", loginWithGoogleOAuth);
-if (btnGoogleLogout) btnGoogleLogout.addEventListener("click", logoutGoogleOAuth);
-if (inputGoogleClientId) {
-  inputGoogleClientId.addEventListener("input", async () => {
-    await chrome.storage.local.set({ googleClientId: inputGoogleClientId.value.trim() });
-  });
-}
 
 // Disabled Websites Manager Elements & Logic
 const btnToggleCurrentSite = document.getElementById("btn-toggle-current-site");
@@ -1951,9 +1791,6 @@ async function loadSettingsToUI() {
   const res = await chrome.storage.local.get([
     "apiEndpoint",
     "apiKey",
-    "googleOAuthToken",
-    "googleUserProfile",
-    "googleClientId",
     "model",
     "modelType",
     "currentProvider",
@@ -1972,16 +1809,6 @@ async function loadSettingsToUI() {
     "telegramBotToken",
     "telegramChatId"
   ]);
-  
-  if (res.googleClientId && inputGoogleClientId) {
-    inputGoogleClientId.value = res.googleClientId;
-  }
-
-  if (res.googleOAuthToken && res.googleUserProfile) {
-    renderGoogleAuthState(true, res.googleUserProfile);
-  } else {
-    renderGoogleAuthState(false, null);
-  }
 
   if (res.providerRecipes) {
     loadedRecipes = Object.assign({}, DEFAULT_RECIPES, res.providerRecipes);
@@ -2132,6 +1959,126 @@ btnClearCache.addEventListener("click", async () => {
     alert("Translation cache cleared successfully!");
   }
 });
+
+// Export & Import Settings Logic
+const btnExportSettings = document.getElementById("btn-export-settings");
+const btnImportSettings = document.getElementById("btn-import-settings");
+const inputFileImport = document.getElementById("input-file-import");
+const checkExportIncludeKeys = document.getElementById("check-export-include-keys");
+
+const EXPORTABLE_SETTING_KEYS = [
+  "apiEndpoint",
+  "apiKey",
+  "model",
+  "modelType",
+  "currentProvider",
+  "providerRecipes",
+  "temperature",
+  "systemPrompt",
+  "systemPromptLearning",
+  "maxHistory",
+  "autoTranslate",
+  "richLearningMode",
+  "doubleClickTranslate",
+  "streamTranslations",
+  "showThinking",
+  "textSize",
+  "enableTelegram",
+  "telegramBotToken",
+  "telegramChatId",
+  "disabledDomains"
+];
+
+async function generateExportSettingsPayload(includeKeys = false) {
+  const currentSettings = await chrome.storage.local.get(EXPORTABLE_SETTING_KEYS);
+  const payload = {
+    appName: "Fire Translate",
+    exportVersion: "1.0.0",
+    exportedAt: new Date().toISOString(),
+    settings: { ...currentSettings }
+  };
+
+  if (!includeKeys) {
+    payload.settings.apiKey = "";
+    payload.settings.telegramBotToken = "";
+    payload.settings.telegramChatId = "";
+    if (payload.settings.providerRecipes) {
+      const sanitizedRecipes = {};
+      for (const [key, recipe] of Object.entries(payload.settings.providerRecipes)) {
+        sanitizedRecipes[key] = { ...recipe, apiKey: "" };
+      }
+      payload.settings.providerRecipes = sanitizedRecipes;
+    }
+  }
+
+  return payload;
+}
+
+async function exportSettingsToFile() {
+  const includeKeys = checkExportIncludeKeys ? checkExportIncludeKeys.checked : false;
+  const payload = await generateExportSettingsPayload(includeKeys);
+  const jsonStr = JSON.stringify(payload, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `fire-translate-settings-${includeKeys ? "with-keys" : "safe"}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  await addLog("info", `Exported settings (include keys: ${includeKeys})`);
+}
+
+function processImportSettingsJson(jsonStr) {
+  const data = JSON.parse(jsonStr);
+  let settingsObj = data;
+  if (data && typeof data === "object" && data.settings && typeof data.settings === "object") {
+    settingsObj = data.settings;
+  }
+  
+  if (!settingsObj || typeof settingsObj !== "object" || Array.isArray(settingsObj)) {
+    throw new Error("Invalid settings file format.");
+  }
+
+  const validSettingsToSave = {};
+  for (const key of EXPORTABLE_SETTING_KEYS) {
+    if (settingsObj[key] !== undefined) {
+      validSettingsToSave[key] = settingsObj[key];
+    }
+  }
+
+  if (Object.keys(validSettingsToSave).length === 0) {
+    throw new Error("No valid settings found in file.");
+  }
+
+  return validSettingsToSave;
+}
+
+async function importSettingsFromFile(file) {
+  try {
+    const text = await file.text();
+    const settingsToSave = processImportSettingsJson(text);
+    await chrome.storage.local.set(settingsToSave);
+    await loadSettingsToUI();
+    await addLog("info", `Imported ${Object.keys(settingsToSave).length} settings successfully.`);
+    alert("Settings imported successfully!");
+  } catch (err) {
+    await addLog("error", `Import settings failed: ${err.message}`);
+    alert(`Failed to import settings:\n${err.message}`);
+  }
+}
+
+if (btnExportSettings) btnExportSettings.addEventListener("click", exportSettingsToFile);
+if (btnImportSettings && inputFileImport) {
+  btnImportSettings.addEventListener("click", () => inputFileImport.click());
+  inputFileImport.addEventListener("change", (e) => {
+    if (e.target.files && e.target.files[0]) {
+      importSettingsFromFile(e.target.files[0]);
+      inputFileImport.value = "";
+    }
+  });
+}
 
 // Logs UI Renderer
 async function renderLogs() {

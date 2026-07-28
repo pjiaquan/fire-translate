@@ -29,8 +29,7 @@
     "storage",
     "activeTab",
     "contextMenus",
-    "sidePanel",
-    "identity"
+    "sidePanel"
   ],
   "host_permissions": [
     "<all_urls>"

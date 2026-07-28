@@ -241,7 +241,6 @@ async function translateInlineText(srcText, contextSentence = "") {
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "apiKey",
-    "googleOAuthToken",
     "model",
     "modelType",
     "temperature",
@@ -253,7 +252,7 @@ async function translateInlineText(srcText, contextSentence = "") {
   ]);
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
-  const apiKey = config.apiKey || config.googleOAuthToken || "";
+  const apiKey = config.apiKey || "";
   const model = config.model || "qwen";
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
@@ -711,7 +710,6 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "apiKey",
-    "googleOAuthToken",
     "model",
     "modelType",
     "temperature",
@@ -721,7 +719,7 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
   ]);
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
-  const apiKey = config.apiKey || config.googleOAuthToken || "";
+  const apiKey = config.apiKey || "";
   const model = config.model || "qwen";
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
@@ -849,13 +847,12 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
   const config = await chrome.storage.local.get([
     "apiEndpoint",
     "apiKey",
-    "googleOAuthToken",
     "temperature",
     "systemPromptLearning"
   ]);
 
   const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
-  const apiKey = config.apiKey || config.googleOAuthToken || "";
+  const apiKey = config.apiKey || "";
   const temp = parseFloat(config.temperature ?? 0.1);
   const rawSystemPrompt = config.systemPromptLearning || "你是一個專業的語言學習助手。";
   

@@ -17,7 +17,7 @@ Fire Translate operates with a **privacy-first architecture**:
 ### 2. Local Device Storage (`chrome.storage.local`)
 
 All user preferences and operational data are saved **strictly locally on your device** using the browser's `chrome.storage.local` API. This data includes:
-- **API Keys & Authentication Tokens**: User-entered API keys (e.g. Groq, OpenAI, DeepSeek) and Google OAuth tokens.
+- **API Keys & Credentials**: User-entered API keys (e.g. Groq, OpenAI, DeepSeek, Google Gemini).
 - **Provider Recipes & Settings**: Chosen AI model names, custom endpoint URLs, temperature parameters, and custom system prompts.
 - **Preferences**: Target language selections, dark/light theme options, and text font size choices.
 - **Website Exclusion List**: Domain names added to your website exclusion list.
@@ -43,7 +43,7 @@ When you select text on a webpage or type text into the Fire Translate popup/sid
 ### 4. Credential Security & Masking
 
 Fire Translate includes built-in security features to safeguard your API credentials:
-- **Automatic Log Scrubbing**: All internal debugging logs automatically mask sensitive key formats (such as `gsk_...`, `sk-proj-...`, `AIza...`, and OAuth tokens) before rendering.
+- **Automatic Log Scrubbing**: All internal debugging logs automatically mask sensitive key formats (such as `gsk_...`, `sk-proj-...`, and `AIza...`) before rendering.
 - **Input Masking**: API keys are rendered inside password-type input fields in the user interface.
 
 ---

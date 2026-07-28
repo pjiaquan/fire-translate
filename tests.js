@@ -410,15 +410,14 @@ async function executeTestSuite() {
     assert.strictEqual(DEFAULT_RECIPES.ollama.endpoint, "http://localhost:11434");
   });
 
-  // Test 14: Google OAuth fallback helper test
-  await runTest("Google OAuth token should act as API key fallback when apiKey is empty", () => {
-    function getEffectiveApiKey(apiKey, googleOAuthToken) {
-      return apiKey || googleOAuthToken || "";
+  // Test 14: API key helper test
+  await runTest("getEffectiveApiKey should return configured API key or empty string", () => {
+    function getEffectiveApiKey(apiKey) {
+      return apiKey || "";
     }
 
-    assert.strictEqual(getEffectiveApiKey("my-custom-key", "oauth-token-123"), "my-custom-key");
-    assert.strictEqual(getEffectiveApiKey("", "oauth-token-123"), "oauth-token-123");
-    assert.strictEqual(getEffectiveApiKey("", ""), "");
+    assert.strictEqual(getEffectiveApiKey("my-custom-key"), "my-custom-key");
+    assert.strictEqual(getEffectiveApiKey(""), "");
   });
 
   // Test 15: Credential scrubbing and key protection test
@@ -522,12 +521,82 @@ async function executeTestSuite() {
     assert.strictEqual(manifestJson.manifest_version, 3);
     assert.strictEqual(manifestJson.action.default_popup, "popup.html");
     assert.strictEqual(manifestJson.permissions.includes("storage"), true);
-    assert.strictEqual(manifestJson.permissions.includes("identity"), true);
+    assert.strictEqual(manifestJson.permissions.includes("identity"), false);
     assert.strictEqual(manifestJson.permissions.includes("activeTab"), true);
 
     // Firefox Android Gecko settings
     assert.strictEqual(manifestJson.browser_specific_settings !== undefined, true);
     assert.strictEqual(manifestJson.browser_specific_settings.gecko.id, "fire-translate@local.extension");
+  });
+
+  // Test 21: Export & Import Settings Logic Test
+  await runTest("processImportSettingsJson and export payload filtering should process settings correctly", () => {
+    function processImportSettingsJson(jsonStr, allowedKeys) {
+      const data = JSON.parse(jsonStr);
+      let settingsObj = data;
+      if (data && typeof data === "object" && data.settings && typeof data.settings === "object") {
+        settingsObj = data.settings;
+      }
+      if (!settingsObj || typeof settingsObj !== "object" || Array.isArray(settingsObj)) {
+        throw new Error("Invalid settings file format.");
+      }
+      const validSettingsToSave = {};
+      for (const key of allowedKeys) {
+        if (settingsObj[key] !== undefined) {
+          validSettingsToSave[key] = settingsObj[key];
+        }
+      }
+      if (Object.keys(validSettingsToSave).length === 0) {
+        throw new Error("No valid settings found in file.");
+      }
+      return validSettingsToSave;
+    }
+
+    function filterExportPayload(settings, includeKeys) {
+      const copy = JSON.parse(JSON.stringify(settings));
+      if (!includeKeys) {
+        copy.apiKey = "";
+        copy.telegramBotToken = "";
+        copy.telegramChatId = "";
+        if (copy.providerRecipes) {
+          for (const key of Object.keys(copy.providerRecipes)) {
+            copy.providerRecipes[key].apiKey = "";
+          }
+        }
+      }
+      return copy;
+    }
+
+    const mockSettings = {
+      apiEndpoint: "http://localhost:11434",
+      apiKey: "sk-test-secret-key",
+      model: "llama3",
+      telegramBotToken: "123456:secret-token",
+      providerRecipes: {
+        openai: { apiKey: "sk-openai-key", model: "gpt-4o" }
+      }
+    };
+
+    const keys = ["apiEndpoint", "apiKey", "model", "telegramBotToken", "providerRecipes"];
+
+    // Without API keys
+    const safeExport = filterExportPayload(mockSettings, false);
+    assert.strictEqual(safeExport.apiKey, "");
+    assert.strictEqual(safeExport.telegramBotToken, "");
+    assert.strictEqual(safeExport.providerRecipes.openai.apiKey, "");
+    assert.strictEqual(safeExport.model, "llama3");
+
+    // With API keys
+    const fullExport = filterExportPayload(mockSettings, true);
+    assert.strictEqual(fullExport.apiKey, "sk-test-secret-key");
+    assert.strictEqual(fullExport.telegramBotToken, "123456:secret-token");
+    assert.strictEqual(fullExport.providerRecipes.openai.apiKey, "sk-openai-key");
+
+    // Import testing
+    const jsonToImport = JSON.stringify({ settings: safeExport });
+    const imported = processImportSettingsJson(jsonToImport, keys);
+    assert.strictEqual(imported.model, "llama3");
+    assert.strictEqual(imported.apiEndpoint, "http://localhost:11434");
   });
 
   // Summary reporting
