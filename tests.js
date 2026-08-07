@@ -487,6 +487,48 @@ async function executeTestSuite() {
     assert.strictEqual(cleanGeminiModel("gemini-3.6-flash"), "gemini-3.6-flash");
   });
 
+  // Test 16: Monthly Token Usage tracking & aggregation test
+  await runTest("Monthly Token Usage tracking should group prompt/completion tokens by YYYY-MM and provider", () => {
+    function accumulateMonthlyTokenUsage(usageMap, yearMonth, promptTokens, completionTokens, providerKey) {
+      if (!usageMap[yearMonth]) {
+        usageMap[yearMonth] = { promptTokens: 0, completionTokens: 0, totalTokens: 0, requestCount: 0, byProvider: {} };
+      }
+      const m = usageMap[yearMonth];
+      const p = Math.max(0, Number(promptTokens) || 0);
+      const c = Math.max(0, Number(completionTokens) || 0);
+      const t = p + c;
+
+      m.promptTokens += p;
+      m.completionTokens += c;
+      m.totalTokens += t;
+      m.requestCount += 1;
+
+      if (providerKey) {
+        if (!m.byProvider[providerKey]) {
+          m.byProvider[providerKey] = { promptTokens: 0, completionTokens: 0, totalTokens: 0, requestCount: 0 };
+        }
+        m.byProvider[providerKey].promptTokens += p;
+        m.byProvider[providerKey].completionTokens += c;
+        m.byProvider[providerKey].totalTokens += t;
+        m.byProvider[providerKey].requestCount += 1;
+      }
+      return usageMap;
+    }
+
+    const map = {};
+    accumulateMonthlyTokenUsage(map, "2026-08", 100, 200, "gemini");
+    accumulateMonthlyTokenUsage(map, "2026-08", 50, 150, "openai");
+    accumulateMonthlyTokenUsage(map, "2026-07", 300, 400, "gemini");
+
+    assert.strictEqual(map["2026-08"].totalTokens, 500);
+    assert.strictEqual(map["2026-08"].promptTokens, 150);
+    assert.strictEqual(map["2026-08"].completionTokens, 350);
+    assert.strictEqual(map["2026-08"].requestCount, 2);
+    assert.strictEqual(map["2026-08"].byProvider.gemini.totalTokens, 300);
+    assert.strictEqual(map["2026-08"].byProvider.openai.totalTokens, 200);
+    assert.strictEqual(map["2026-07"].totalTokens, 700);
+  });
+
   // Test 13: Error response payload parsing for Gemini array error format
   await runTest("Error response payload parsing should handle both object and array error structures", () => {
     function parseErrorMessage(errorText) {

@@ -269,7 +269,31 @@
           <select id="select-model-type">
             <option value="qwen">OpenAI Compatible Chat Completion (Qwen, GPT, DeepSeek, etc.)</option>
             <option value="translategemma">TranslateGemma (Structured Format)</option>
+        </div>
+      </div>
+
+      <!-- Monthly Token Spending & Usage Card -->
+      <div class="token-usage-card" style="margin-bottom: 14px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-family: var(--font-title); font-size: 13px; font-weight: 700; color: var(--text-main);">📊 Monthly Token Spending</span>
+          <select id="select-usage-month" style="font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-weight: 600;">
           </select>
+        </div>
+        <div class="token-usage-stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
+          <div style="background: var(--bg-card); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
+            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;">Total Spent</div>
+            <div id="usage-total-tokens" style="font-size: 14px; font-weight: 700; color: var(--accent-color-1);">0</div>
+          </div>
+          <div style="background: var(--bg-card); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
+            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;">Prompt</div>
+            <div id="usage-prompt-tokens" style="font-size: 13px; font-weight: 600; color: var(--text-main);">0</div>
+          </div>
+          <div style="background: var(--bg-card); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
+            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;">Completion</div>
+            <div id="usage-completion-tokens" style="font-size: 13px; font-weight: 600; color: var(--text-main);">0</div>
+          </div>
+        </div>
+        <div id="usage-provider-breakdown" style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
         </div>
       </div>
 

@@ -355,6 +355,19 @@ async function translateInlineText(srcText, contextSentence = "") {
     // Save to history log
     await addHistoryItemBg(srcText, translatedText, sourceLang, targetLang);
 
+    // Track monthly token usage
+    let pTokens = 0, cTokens = 0, tTokens = 0;
+    if (data.usage) {
+      pTokens = data.usage.prompt_tokens || data.usage.promptTokenCount || 0;
+      cTokens = data.usage.completion_tokens || data.usage.candidatesTokenCount || 0;
+      tTokens = data.usage.total_tokens || data.usage.totalTokenCount || (pTokens + cTokens);
+    } else {
+      pTokens = Math.ceil((srcText.length + systemPrompt.length) / 4);
+      cTokens = Math.ceil(translatedText.length / 4);
+      tTokens = pTokens + cTokens;
+    }
+    recordTokenUsageBg(pTokens, cTokens, tTokens, config.currentProvider || "general");
+
     // Dispatch to Telegram (if enabled)
     sendToTelegram(srcText, translatedText).catch(() => {});
     
@@ -488,6 +501,49 @@ async function addHistoryItemBg(src, target, srcLang, targetLang) {
   }
   
   await chrome.storage.local.set({ history });
+}
+
+// Record monthly token usage in background script
+async function recordTokenUsageBg(promptTokens = 0, completionTokens = 0, totalTokens = 0, providerKey = "general") {
+  try {
+    const yearMonth = new Date().toISOString().substring(0, 7);
+    const res = await chrome.storage.local.get("tokenUsageByMonth");
+    const usageMap = res.tokenUsageByMonth || {};
+    
+    if (!usageMap[yearMonth]) {
+      usageMap[yearMonth] = {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        requestCount: 0,
+        byProvider: {}
+      };
+    }
+
+    const mData = usageMap[yearMonth];
+    const pTokens = Math.max(0, Math.round(Number(promptTokens) || 0));
+    const cTokens = Math.max(0, Math.round(Number(completionTokens) || 0));
+    const tTokens = Math.max(0, Math.round(Number(totalTokens) || (pTokens + cTokens)));
+
+    mData.promptTokens += pTokens;
+    mData.completionTokens += cTokens;
+    mData.totalTokens += tTokens;
+    mData.requestCount += 1;
+
+    if (providerKey) {
+      if (!mData.byProvider[providerKey]) {
+        mData.byProvider[providerKey] = { promptTokens: 0, completionTokens: 0, totalTokens: 0, requestCount: 0 };
+      }
+      mData.byProvider[providerKey].promptTokens += pTokens;
+      mData.byProvider[providerKey].completionTokens += cTokens;
+      mData.byProvider[providerKey].totalTokens += tTokens;
+      mData.byProvider[providerKey].requestCount += 1;
+    }
+
+    await chrome.storage.local.set({ tokenUsageByMonth: usageMap });
+  } catch (e) {
+    console.warn("Failed to record token usage in bg:", e);
+  }
 }
 
 function sanitizeSensitiveCredentials(input) {
@@ -955,6 +1011,20 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
   const data = await response.json();
   if (data.choices && data.choices[0] && data.choices[0].message) {
     const resultText = data.choices[0].message.content.trim();
+    
+    // Track monthly token usage
+    let pTokens = 0, cTokens = 0, tTokens = 0;
+    if (data.usage) {
+      pTokens = data.usage.prompt_tokens || data.usage.promptTokenCount || 0;
+      cTokens = data.usage.completion_tokens || data.usage.candidatesTokenCount || 0;
+      tTokens = data.usage.total_tokens || data.usage.totalTokenCount || (pTokens + cTokens);
+    } else {
+      pTokens = Math.ceil((srcText.length + translationText.length + systemPrompt.length) / 4);
+      cTokens = Math.ceil(resultText.length / 4);
+      tTokens = pTokens + cTokens;
+    }
+    recordTokenUsageBg(pTokens, cTokens, tTokens, config.currentProvider || "general");
+
     const cleanedText = resultText.replace(/```json/gi, "").replace(/```/g, "").trim();
     
     try {

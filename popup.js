@@ -293,6 +293,106 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
   await chrome.storage.local.set({ translationCache: cache });
 }
 
+// Record monthly token usage in popup script
+async function recordTokenUsage(promptTokens = 0, completionTokens = 0, totalTokens = 0, providerKey = "general") {
+  try {
+    const yearMonth = new Date().toISOString().substring(0, 7);
+    const res = await chrome.storage.local.get("tokenUsageByMonth");
+    const usageMap = res.tokenUsageByMonth || {};
+    
+    if (!usageMap[yearMonth]) {
+      usageMap[yearMonth] = {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        requestCount: 0,
+        byProvider: {}
+      };
+    }
+
+    const mData = usageMap[yearMonth];
+    const pTokens = Math.max(0, Math.round(Number(promptTokens) || 0));
+    const cTokens = Math.max(0, Math.round(Number(completionTokens) || 0));
+    const tTokens = Math.max(0, Math.round(Number(totalTokens) || (pTokens + cTokens)));
+
+    mData.promptTokens += pTokens;
+    mData.completionTokens += cTokens;
+    mData.totalTokens += tTokens;
+    mData.requestCount += 1;
+
+    if (providerKey) {
+      if (!mData.byProvider[providerKey]) {
+        mData.byProvider[providerKey] = { promptTokens: 0, completionTokens: 0, totalTokens: 0, requestCount: 0 };
+      }
+      mData.byProvider[providerKey].promptTokens += pTokens;
+      mData.byProvider[providerKey].completionTokens += cTokens;
+      mData.byProvider[providerKey].totalTokens += tTokens;
+      mData.byProvider[providerKey].requestCount += 1;
+    }
+
+    await chrome.storage.local.set({ tokenUsageByMonth: usageMap });
+    renderMonthlyTokenUsageUI();
+  } catch (e) {
+    console.warn("Failed to record token usage in popup:", e);
+  }
+}
+
+// Render Monthly Token Usage UI
+async function renderMonthlyTokenUsageUI() {
+  const selectUsageMonth = document.getElementById("select-usage-month");
+  const txtTotalTokens = document.getElementById("usage-total-tokens");
+  const txtPromptTokens = document.getElementById("usage-prompt-tokens");
+  const txtCompletionTokens = document.getElementById("usage-completion-tokens");
+  const containerBreakdown = document.getElementById("usage-provider-breakdown");
+
+  if (!txtTotalTokens) return;
+
+  const res = await chrome.storage.local.get("tokenUsageByMonth");
+  const usageMap = res.tokenUsageByMonth || {};
+  const currentMonth = new Date().toISOString().substring(0, 7);
+
+  const availableMonths = Array.from(new Set([currentMonth, ...Object.keys(usageMap)])).sort().reverse();
+
+  if (selectUsageMonth) {
+    const activeSelectedMonth = selectUsageMonth.value || currentMonth;
+    selectUsageMonth.innerHTML = "";
+    availableMonths.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m === currentMonth ? `${m} (Current)` : m;
+      if (m === activeSelectedMonth) opt.selected = true;
+      selectUsageMonth.appendChild(opt);
+    });
+  }
+
+  const selectedMonthKey = (selectUsageMonth && selectUsageMonth.value) || currentMonth;
+  const monthData = usageMap[selectedMonthKey] || { promptTokens: 0, completionTokens: 0, totalTokens: 0, requestCount: 0, byProvider: {} };
+
+  txtTotalTokens.textContent = Number(monthData.totalTokens || 0).toLocaleString();
+  txtPromptTokens.textContent = Number(monthData.promptTokens || 0).toLocaleString();
+  txtCompletionTokens.textContent = Number(monthData.completionTokens || 0).toLocaleString();
+
+  if (containerBreakdown) {
+    const byProv = monthData.byProvider || {};
+    const provKeys = Object.keys(byProv);
+    if (provKeys.length === 0) {
+      containerBreakdown.innerHTML = `<span style="color:var(--text-muted); font-style:italic;">No AI requests recorded for ${selectedMonthKey}.</span>`;
+    } else {
+      let html = `<div style="display:flex; flex-direction:column; gap:4px; margin-top: 4px;">`;
+      provKeys.forEach(pk => {
+        const pData = byProv[pk];
+        const provName = DEFAULT_RECIPES[pk]?.name || pk.toUpperCase();
+        html += `<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:4px 8px; border-radius:6px; font-size:11px;">
+          <span><strong>${provName}</strong> (${pData.requestCount || 0} reqs)</span>
+          <span style="font-weight:600; color:var(--accent-color-1);">${Number(pData.totalTokens || 0).toLocaleString()} tokens</span>
+        </div>`;
+      });
+      html += `</div>`;
+      containerBreakdown.innerHTML = html;
+    }
+  }
+}
+
 function sanitizeSensitiveCredentials(input) {
   if (!input) return input;
   if (typeof input === "string") {
@@ -855,7 +955,19 @@ function showLearningLoader() {
           targetContent.textContent = displayTranslation.trim();
           targetContent.classList.remove("empty");
         }
-        currentTranslationText = displayTranslation.trim();
+
+        // Track token usage
+        let pTokens = 0, cTokens = 0, tTokens = 0;
+        if (data.usage) {
+          pTokens = data.usage.prompt_tokens || data.usage.promptTokenCount || 0;
+          cTokens = data.usage.completion_tokens || data.usage.candidatesTokenCount || 0;
+          tTokens = data.usage.total_tokens || data.usage.totalTokenCount || (pTokens + cTokens);
+        } else {
+          pTokens = Math.ceil((srcText.length + systemPrompt.length) / 4);
+          cTokens = Math.ceil(displayTranslation.length / 4);
+          tTokens = pTokens + cTokens;
+        }
+        recordTokenUsage(pTokens, cTokens, tTokens, selectProvider.value);
       } else {
         throw new Error("Invalid API response JSON structure (choices[0].message.content not found)");
       }
@@ -1974,10 +2086,12 @@ async function loadSettingsToUI() {
   document.getElementById("check-stream-translations").checked = res.streamTranslations !== false;
   document.getElementById("check-show-thinking").checked = res.showThinking !== false;
   
-  checkEnableTelegram.checked = res.enableTelegram === true;
-  document.getElementById("input-telegram-token").value = res.telegramBotToken || "";
-  document.getElementById("input-telegram-chatid").value = res.telegramChatId || "";
-  toggleTelegramVisibility();
+  renderMonthlyTokenUsageUI();
+
+  const selectUsageMonth = document.getElementById("select-usage-month");
+  if (selectUsageMonth) {
+    selectUsageMonth.addEventListener("change", renderMonthlyTokenUsageUI);
+  }
   
   const textSize = res.textSize || "medium";
   document.getElementById("select-text-size").value = textSize;
