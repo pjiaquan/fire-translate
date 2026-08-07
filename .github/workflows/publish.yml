@@ -49,7 +49,7 @@ jobs:
     name: Publish to Chrome Web Store
     needs: build-test-package
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.CHROME_CLIENT_ID != '' && secrets.CHROME_EXTENSION_ID != ''
 
     steps:
       - name: Checkout Repository
@@ -67,7 +67,6 @@ jobs:
           path: dist
 
       - name: Upload & Publish to Chrome Web Store
-        if: env.CHROME_CLIENT_ID != '' && env.CHROME_EXTENSION_ID != ''
         env:
           CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
@@ -86,7 +85,7 @@ jobs:
     name: Publish & Sign for Firefox Add-ons (AMO)
     needs: build-test-package
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && secrets.AMO_ISSUER != '' && secrets.AMO_SECRET != ''
 
     steps:
       - name: Checkout Repository
@@ -101,7 +100,6 @@ jobs:
         run: npm install -g web-ext
 
       - name: Build & Submit to Firefox Add-ons (AMO)
-        if: env.AMO_ISSUER != '' && env.AMO_SECRET != ''
         env:
           AMO_ISSUER: ${{ secrets.AMO_ISSUER }}
           AMO_SECRET: ${{ secrets.AMO_SECRET }}
@@ -120,6 +118,8 @@ jobs:
     needs: build-test-package
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -133,6 +133,8 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: dist/fire-translate-extension.zip
           generate_release_notes: true
