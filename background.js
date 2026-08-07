@@ -603,18 +603,65 @@ async function sendToTelegram(srcText, translatedText) {
   }
 }
 
+// Extract base domain (e.g., jkaljsd.example.com -> example.com)
+function getBaseDomain(hostname) {
+  if (!hostname || typeof hostname !== "string") return "";
+  const host = hostname.toLowerCase().trim();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || !host.includes(".")) {
+    return host;
+  }
+  const parts = host.split(".");
+  if (parts.length <= 2) {
+    return host;
+  }
+  const multiPartTlds = [
+    "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk",
+    "com.tw", "org.tw", "net.tw", "edu.tw", "gov.tw",
+    "co.jp", "ne.jp", "or.jp", "ac.jp",
+    "com.au", "net.au", "org.au",
+    "com.cn", "net.cn", "org.cn", "gov.cn",
+    "com.br", "net.br", "org.br",
+    "co.nz", "net.nz", "org.nz",
+    "co.za", "web.za", "org.za"
+  ];
+  const lastTwo = parts.slice(-2).join(".");
+  if (multiPartTlds.includes(lastTwo) && parts.length >= 3) {
+    return parts.slice(-3).join(".");
+  }
+  return parts.slice(-2).join(".");
+}
+
+function isDomainDisabled(hostname, disabledDomains) {
+  if (!hostname || !Array.isArray(disabledDomains) || disabledDomains.length === 0) {
+    return false;
+  }
+  const host = hostname.toLowerCase().trim();
+  const base = getBaseDomain(host);
+
+  return disabledDomains.some(entry => {
+    if (!entry) return false;
+    let cleanEntry = entry.toLowerCase().trim();
+    if (cleanEntry.startsWith("*.")) {
+      cleanEntry = cleanEntry.slice(2);
+    }
+    return host === cleanEntry || host.endsWith("." + cleanEntry) || base === cleanEntry || base.endsWith("." + cleanEntry);
+  });
+}
+
 // Dynamic context menu title for site exclusion toggle
 async function updateSiteContextMenu(tabId, url) {
   if (!url || !url.startsWith("http")) return;
   try {
     const domain = new URL(url).hostname;
+    const baseDomain = getBaseDomain(domain);
     const res = await chrome.storage.local.get("disabledDomains");
     const disabledDomains = res.disabledDomains || [];
-    const isDisabled = disabledDomains.includes(domain);
+    const isDisabled = isDomainDisabled(domain, disabledDomains);
 
+    const targetName = (baseDomain && baseDomain !== domain) ? `${baseDomain} (*.${baseDomain})` : domain;
     const title = isDisabled
-      ? `✅ Enable Translation on ${domain}`
-      : `🚫 Disable Translation on ${domain}`;
+      ? `✅ Enable Translation on ${targetName}`
+      : `🚫 Disable Translation on ${targetName}`;
 
     chrome.contextMenus.update("toggle-site-translation", { title });
   } catch (e) {}
@@ -677,18 +724,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } else if (info.menuItemId === "toggle-site-translation" && tab && tab.url) {
     try {
       const domain = new URL(tab.url).hostname;
+      const baseDomain = getBaseDomain(domain);
       const res = await chrome.storage.local.get("disabledDomains");
       let disabledDomains = res.disabledDomains || [];
 
-      let isDisabled = false;
-      if (disabledDomains.includes(domain)) {
-        disabledDomains = disabledDomains.filter(d => d !== domain);
+      let isDisabled = isDomainDisabled(domain, disabledDomains);
+      if (isDisabled) {
+        disabledDomains = disabledDomains.filter(d => {
+          if (!d) return false;
+          let clean = d.toLowerCase().trim();
+          if (clean.startsWith("*.")) clean = clean.slice(2);
+          return clean !== domain && clean !== baseDomain;
+        });
         isDisabled = false;
-        await addLogBg("info", `Enabled translation on ${domain}`);
+        await addLogBg("info", `Enabled translation on ${baseDomain}`);
       } else {
-        disabledDomains.push(domain);
+        disabledDomains.push(baseDomain);
         isDisabled = true;
-        await addLogBg("info", `Disabled translation on ${domain}`);
+        await addLogBg("info", `Disabled translation on ${baseDomain}`);
       }
 
       await chrome.storage.local.set({ disabledDomains });
@@ -698,6 +751,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         chrome.tabs.sendMessage(tab.id, {
           action: "updateDisabledSiteState",
           domain: domain,
+          baseDomain: baseDomain,
           isDisabled: isDisabled
         }).catch(() => {});
       }

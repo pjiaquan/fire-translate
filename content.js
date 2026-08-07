@@ -49,6 +49,50 @@ function isApiKeyLike(text) {
   return false;
 }
 
+function getBaseDomain(hostname) {
+  if (!hostname || typeof hostname !== "string") return "";
+  const host = hostname.toLowerCase().trim();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || !host.includes(".")) {
+    return host;
+  }
+  const parts = host.split(".");
+  if (parts.length <= 2) {
+    return host;
+  }
+  const multiPartTlds = [
+    "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk",
+    "com.tw", "org.tw", "net.tw", "edu.tw", "gov.tw",
+    "co.jp", "ne.jp", "or.jp", "ac.jp",
+    "com.au", "net.au", "org.au",
+    "com.cn", "net.cn", "org.cn", "gov.cn",
+    "com.br", "net.br", "org.br",
+    "co.nz", "net.nz", "org.nz",
+    "co.za", "web.za", "org.za"
+  ];
+  const lastTwo = parts.slice(-2).join(".");
+  if (multiPartTlds.includes(lastTwo) && parts.length >= 3) {
+    return parts.slice(-3).join(".");
+  }
+  return parts.slice(-2).join(".");
+}
+
+function isDomainDisabled(hostname, disabledDomains) {
+  if (!hostname || !Array.isArray(disabledDomains) || disabledDomains.length === 0) {
+    return false;
+  }
+  const host = hostname.toLowerCase().trim();
+  const base = getBaseDomain(host);
+
+  return disabledDomains.some(entry => {
+    if (!entry) return false;
+    let cleanEntry = entry.toLowerCase().trim();
+    if (cleanEntry.startsWith("*.")) {
+      cleanEntry = cleanEntry.slice(2);
+    }
+    return host === cleanEntry || host.endsWith("." + cleanEntry) || base === cleanEntry || base.endsWith("." + cleanEntry);
+  });
+}
+
 // Listen for messages from background context menus & site exclusion updates
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "showContextBubble") {
@@ -63,7 +107,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     sendResponse({ success: true });
   } else if (request.action === "updateDisabledSiteState") {
-    if (request.isDisabled && request.domain === window.location.hostname) {
+    const isTarget = isDomainDisabled(window.location.hostname, [request.domain, request.baseDomain].filter(Boolean));
+    if (request.isDisabled && isTarget) {
       removeBubble();
     }
   }
@@ -78,8 +123,8 @@ document.addEventListener("dblclick", async (e) => {
   }
 
   const disabledDomains = settings.disabledDomains || [];
-  if (disabledDomains.includes(window.location.hostname)) {
-    return; // Switched off for this specific website domain
+  if (isDomainDisabled(window.location.hostname, disabledDomains)) {
+    return; // Switched off for this website or base domain
   }
 
   const selection = window.getSelection();
@@ -104,7 +149,7 @@ document.addEventListener("touchend", (e) => {
     const settings = await chrome.storage.local.get(["doubleClickTranslate", "disabledDomains"]);
     if (settings.doubleClickTranslate === false) return;
     const disabledDomains = settings.disabledDomains || [];
-    if (disabledDomains.includes(window.location.hostname)) return;
+    if (isDomainDisabled(window.location.hostname, disabledDomains)) return;
 
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;

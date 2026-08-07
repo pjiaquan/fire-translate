@@ -1051,7 +1051,7 @@ const DEFAULT_RECIPES = {
     model: "meta-llama/llama-3.3-70b-instruct",
     modelType: "qwen",
     stdUrl: "https://openrouter.ai/api",
-    recommendedModels: ["anthropic/claude-3.5-sonnet", "meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-r1", "google/gemini-2.5-flash"],
+    recommendedModels: ["anthropic/claude-3.5-sonnet", "meta-llama/llama-3.3-70b-instruct", "deepseek/deepseek-r1", "google/gemini-3.6-flash"],
     keyRequired: true,
     helpText: "Enter your OpenRouter API Key (starts with sk-or-)"
   },
@@ -1060,10 +1060,10 @@ const DEFAULT_RECIPES = {
     name: "Google Gemini",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/openai",
     apiKey: "",
-    model: "gemini-2.5-flash",
+    model: "gemini-3.6-flash",
     modelType: "qwen",
     stdUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    recommendedModels: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"],
+    recommendedModels: ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-flash-lite-latest"],
     keyRequired: true,
     helpText: "Enter your Gemini API Key (starts with AIza)"
   },
@@ -1147,6 +1147,50 @@ const modelCountTag = document.getElementById("model-count-tag");
 
 
 // Disabled Websites Manager Elements & Logic
+function getBaseDomain(hostname) {
+  if (!hostname || typeof hostname !== "string") return "";
+  const host = hostname.toLowerCase().trim();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || !host.includes(".")) {
+    return host;
+  }
+  const parts = host.split(".");
+  if (parts.length <= 2) {
+    return host;
+  }
+  const multiPartTlds = [
+    "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk",
+    "com.tw", "org.tw", "net.tw", "edu.tw", "gov.tw",
+    "co.jp", "ne.jp", "or.jp", "ac.jp",
+    "com.au", "net.au", "org.au",
+    "com.cn", "net.cn", "org.cn", "gov.cn",
+    "com.br", "net.br", "org.br",
+    "co.nz", "net.nz", "org.nz",
+    "co.za", "web.za", "org.za"
+  ];
+  const lastTwo = parts.slice(-2).join(".");
+  if (multiPartTlds.includes(lastTwo) && parts.length >= 3) {
+    return parts.slice(-3).join(".");
+  }
+  return parts.slice(-2).join(".");
+}
+
+function isDomainDisabled(hostname, disabledDomains) {
+  if (!hostname || !Array.isArray(disabledDomains) || disabledDomains.length === 0) {
+    return false;
+  }
+  const host = hostname.toLowerCase().trim();
+  const base = getBaseDomain(host);
+
+  return disabledDomains.some(entry => {
+    if (!entry) return false;
+    let cleanEntry = entry.toLowerCase().trim();
+    if (cleanEntry.startsWith("*.")) {
+      cleanEntry = cleanEntry.slice(2);
+    }
+    return host === cleanEntry || host.endsWith("." + cleanEntry) || base === cleanEntry || base.endsWith("." + cleanEntry);
+  });
+}
+
 const btnToggleCurrentSite = document.getElementById("btn-toggle-current-site");
 const disabledSitesChips = document.getElementById("disabled-sites-chips");
 
@@ -1156,19 +1200,22 @@ async function renderDisabledSitesList() {
   const disabledDomains = res.disabledDomains || [];
 
   let currentDomain = "";
+  let baseDomain = "";
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs && tabs[0] && tabs[0].url && tabs[0].url.startsWith("http")) {
       currentDomain = new URL(tabs[0].url).hostname;
+      baseDomain = getBaseDomain(currentDomain);
     }
   } catch (e) {}
 
   if (btnToggleCurrentSite) {
     if (currentDomain) {
-      const isDisabled = disabledDomains.includes(currentDomain);
+      const isDisabled = isDomainDisabled(currentDomain, disabledDomains);
+      const targetName = (baseDomain && baseDomain !== currentDomain) ? `${baseDomain} (*.${baseDomain})` : currentDomain;
       btnToggleCurrentSite.textContent = isDisabled
-        ? `✅ Enable on ${currentDomain}`
-        : `🚫 Disable on ${currentDomain}`;
+        ? `✅ Enable on ${targetName}`
+        : `🚫 Disable on ${targetName}`;
     } else {
       btnToggleCurrentSite.textContent = "Toggle Current Site";
     }
@@ -1207,15 +1254,22 @@ if (btnToggleCurrentSite) {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs && tabs[0] && tabs[0].url && tabs[0].url.startsWith("http")) {
         const domain = new URL(tabs[0].url).hostname;
+        const baseDomain = getBaseDomain(domain);
         const res = await chrome.storage.local.get("disabledDomains");
         let list = res.disabledDomains || [];
         
-        if (list.includes(domain)) {
-          list = list.filter(d => d !== domain);
-          await addLog("info", `Enabled translation on ${domain}`);
+        const isDisabled = isDomainDisabled(domain, list);
+        if (isDisabled) {
+          list = list.filter(d => {
+            if (!d) return false;
+            let clean = d.toLowerCase().trim();
+            if (clean.startsWith("*.")) clean = clean.slice(2);
+            return clean !== domain && clean !== baseDomain;
+          });
+          await addLog("info", `Enabled translation on ${baseDomain}`);
         } else {
-          list.push(domain);
-          await addLog("info", `Disabled translation on ${domain}`);
+          list.push(baseDomain);
+          await addLog("info", `Disabled translation on ${baseDomain}`);
         }
 
         await chrome.storage.local.set({ disabledDomains: list });
@@ -1225,7 +1279,8 @@ if (btnToggleCurrentSite) {
           chrome.tabs.sendMessage(tabs[0].id, {
             action: "updateDisabledSiteState",
             domain: domain,
-            isDisabled: list.includes(domain)
+            baseDomain: baseDomain,
+            isDisabled: !isDisabled
           }).catch(() => {});
         }
       } else {
@@ -1618,6 +1673,8 @@ async function runDiagnosticTest() {
         const errJson = JSON.parse(errorText);
         if (errJson.error && errJson.error.message) {
           errorMsg = errJson.error.message;
+        } else if (Array.isArray(errJson) && errJson[0] && errJson[0].error && errJson[0].error.message) {
+          errorMsg = errJson[0].error.message;
         }
       } catch (e) {}
 
@@ -1634,9 +1691,9 @@ async function runDiagnosticTest() {
       
       let troubleshooting = "";
       if (response.status === 401 || response.status === 403) {
-        troubleshooting = "🔑 <strong>Authentication Error:</strong> Invalid or missing API Key. Please verify your API Key.";
+        troubleshooting = `🔑 <strong>Authentication Error:</strong> ${errorMsg || "Invalid or missing API Key. Please verify your API Key."}`;
       } else if (response.status === 404) {
-        troubleshooting = "🔍 <strong>404 Not Found:</strong> Check if endpoint URL includes correct path or if server API route exists.";
+        troubleshooting = `🔍 <strong>404 Not Found:</strong> ${errorMsg || "Check if endpoint URL includes correct path or if model name exists."}`;
       } else {
         troubleshooting = `⚠️ <strong>Server Response:</strong> ${errorMsg}`;
       }
@@ -1708,7 +1765,7 @@ async function fetchLatestModels(silent = false) {
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.data)) {
-          detectedModels = data.data.map(m => m.id);
+          detectedModels = data.data.map(m => (m.id || "").replace(/^models\//, "")).filter(Boolean);
         }
       }
     } catch (e) {}

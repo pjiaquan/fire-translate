@@ -401,13 +401,37 @@ async function executeTestSuite() {
       groq: { name: "Groq Cloud", endpoint: "https://api.groq.com/openai", model: "llama-3.3-70b-versatile" },
       openai: { name: "OpenAI", endpoint: "https://api.openai.com", model: "gpt-4o-mini" },
       deepseek: { name: "DeepSeek API", endpoint: "https://api.deepseek.com", model: "deepseek-chat" },
+      gemini: { name: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.6-flash" },
       ollama: { name: "Ollama Local", endpoint: "http://localhost:11434", model: "qwen2.5:7b" }
     };
 
     assert.strictEqual(DEFAULT_RECIPES.groq.model, "llama-3.3-70b-versatile");
     assert.strictEqual(DEFAULT_RECIPES.openai.model, "gpt-4o-mini");
     assert.strictEqual(DEFAULT_RECIPES.deepseek.model, "deepseek-chat");
+    assert.strictEqual(DEFAULT_RECIPES.gemini.model, "gemini-3.6-flash");
     assert.strictEqual(DEFAULT_RECIPES.ollama.endpoint, "http://localhost:11434");
+  });
+
+  // Test 13: Error response payload parsing for Gemini array error format
+  await runTest("Error response payload parsing should handle both object and array error structures", () => {
+    function parseErrorMessage(errorText) {
+      let errorMsg = "";
+      try {
+        const errJson = JSON.parse(errorText);
+        if (errJson.error && errJson.error.message) {
+          errorMsg = errJson.error.message;
+        } else if (Array.isArray(errJson) && errJson[0] && errJson[0].error && errJson[0].error.message) {
+          errorMsg = errJson[0].error.message;
+        }
+      } catch (e) {}
+      return errorMsg;
+    }
+
+    const objErr = JSON.stringify({ error: { message: "Invalid API key" } });
+    const arrErr = JSON.stringify([{ error: { message: "Model gemini-2.5-flash is no longer available" } }]);
+
+    assert.strictEqual(parseErrorMessage(objErr), "Invalid API key");
+    assert.strictEqual(parseErrorMessage(arrErr), "Model gemini-2.5-flash is no longer available");
   });
 
   // Test 14: API key helper test
@@ -449,15 +473,85 @@ async function executeTestSuite() {
   });
 
   // Test 16: Website domain exclusion check
-  await runTest("Website domain exclusion should mute translation when domain is disabled", () => {
-    function isDomainDisabled(hostname, disabledDomains) {
-      return (disabledDomains || []).includes(hostname);
+  await runTest("Website domain exclusion should mute translation when domain or base domain (*.example.com) is disabled", () => {
+    function getBaseDomain(hostname) {
+      if (!hostname || typeof hostname !== "string") return "";
+      const host = hostname.toLowerCase().trim();
+      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || !host.includes(".")) {
+        return host;
+      }
+      const parts = host.split(".");
+      if (parts.length <= 2) {
+        return host;
+      }
+      const multiPartTlds = [
+        "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk",
+        "com.tw", "org.tw", "net.tw", "edu.tw", "gov.tw",
+        "co.jp", "ne.jp", "or.jp", "ac.jp",
+        "com.au", "net.au", "org.au",
+        "com.cn", "net.cn", "org.cn", "gov.cn",
+        "com.br", "net.br", "org.br",
+        "co.nz", "net.nz", "org.nz",
+        "co.za", "web.za", "org.za"
+      ];
+      const lastTwo = parts.slice(-2).join(".");
+      if (multiPartTlds.includes(lastTwo) && parts.length >= 3) {
+        return parts.slice(-3).join(".");
+      }
+      return parts.slice(-2).join(".");
     }
 
-    const disabledList = ["github.com", "docs.google.com"];
-    assert.strictEqual(isDomainDisabled("github.com", disabledList), true);
+    function isDomainDisabled(hostname, disabledDomains) {
+      if (!hostname || !Array.isArray(disabledDomains) || disabledDomains.length === 0) {
+        return false;
+      }
+      const host = hostname.toLowerCase().trim();
+      const base = getBaseDomain(host);
+
+      return disabledDomains.some(entry => {
+        if (!entry) return false;
+        let cleanEntry = entry.toLowerCase().trim();
+        if (cleanEntry.startsWith("*.")) {
+          cleanEntry = cleanEntry.slice(2);
+        }
+        return host === cleanEntry || host.endsWith("." + cleanEntry) || base === cleanEntry || base.endsWith("." + cleanEntry);
+      });
+    }
+
+    // 1. Base domain extraction verification
+    assert.strictEqual(getBaseDomain("jkaljsd.example.com"), "example.com");
+    assert.strictEqual(getBaseDomain("jjkhsd.example.com"), "example.com");
+    assert.strictEqual(getBaseDomain("sub.jkaljsd.example.com"), "example.com");
+    assert.strictEqual(getBaseDomain("example.com"), "example.com");
+    assert.strictEqual(getBaseDomain("news.bbc.co.uk"), "bbc.co.uk");
+    assert.strictEqual(getBaseDomain("app.service.com.tw"), "service.com.tw");
+    assert.strictEqual(getBaseDomain("127.0.0.1"), "127.0.0.1");
+    assert.strictEqual(getBaseDomain("localhost"), "localhost");
+
+    // 2. Subdomain exclusion tests for base domain list ["example.com"]
+    const disabledList = ["example.com", "docs.google.com", "bbc.co.uk"];
+    assert.strictEqual(isDomainDisabled("jkaljsd.example.com", disabledList), true);
+    assert.strictEqual(isDomainDisabled("jjkhsd.example.com", disabledList), true);
+    assert.strictEqual(isDomainDisabled("a.b.c.jkaljsd.example.com", disabledList), true);
+    assert.strictEqual(isDomainDisabled("example.com", disabledList), true);
+    assert.strictEqual(isDomainDisabled("news.bbc.co.uk", disabledList), true);
     assert.strictEqual(isDomainDisabled("docs.google.com", disabledList), true);
+
+    // 3. Wildcard prefix domain list tests ["*.example.com"]
+    assert.strictEqual(isDomainDisabled("jkaljsd.example.com", ["*.example.com"]), true);
+    assert.strictEqual(isDomainDisabled("jjkhsd.example.com", ["*.example.com"]), true);
+    assert.strictEqual(isDomainDisabled("example.com", ["*.example.com"]), true);
+
+    // 4. Case-insensitivity and whitespace resilience
+    assert.strictEqual(isDomainDisabled("  JKALJSD.EXAMPLE.COM  ", ["example.com"]), true);
+    assert.strictEqual(isDomainDisabled("jkaljsd.example.com", ["  *.EXAMPLE.COM  "]), true);
+
+    // 5. Non-excluded domain and empty/null safeguards
     assert.strictEqual(isDomainDisabled("wikipedia.org", disabledList), false);
+    assert.strictEqual(isDomainDisabled("notexample.com", disabledList), false);
+    assert.strictEqual(isDomainDisabled("", disabledList), false);
+    assert.strictEqual(isDomainDisabled("jkaljsd.example.com", []), false);
+    assert.strictEqual(isDomainDisabled("jkaljsd.example.com", null), false);
   });
 
   // Test 17: Mobile Phone Viewport & CSS Media Query Verification
