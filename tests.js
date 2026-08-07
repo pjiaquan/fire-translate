@@ -398,11 +398,13 @@ async function executeTestSuite() {
   // Test 12: Provider recipes configuration validation
   await runTest("Provider recipes preset list should contain expected standard providers and default models", () => {
     const DEFAULT_RECIPES = {
-      groq: { name: "Groq Cloud", endpoint: "https://api.groq.com/openai", model: "llama-3.3-70b-versatile" },
-      openai: { name: "OpenAI", endpoint: "https://api.openai.com", model: "gpt-4o-mini" },
-      deepseek: { name: "DeepSeek API", endpoint: "https://api.deepseek.com", model: "deepseek-chat" },
-      gemini: { name: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.6-flash" },
-      ollama: { name: "Ollama Local", endpoint: "http://localhost:11434", model: "qwen2.5:7b" }
+      groq: { name: "Groq Cloud", endpoint: "https://api.groq.com/openai", model: "llama-3.3-70b-versatile", keyRequired: true },
+      openai: { name: "OpenAI", endpoint: "https://api.openai.com", model: "gpt-4o-mini", keyRequired: true },
+      deepseek: { name: "DeepSeek API", endpoint: "https://api.deepseek.com", model: "deepseek-chat", keyRequired: true },
+      gemini: { name: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.6-flash", keyRequired: true },
+      ollama: { name: "Ollama Local", endpoint: "http://localhost:11434", model: "qwen2.5:7b", keyRequired: false },
+      lmstudio: { name: "LM Studio Local", endpoint: "http://localhost:1234", model: "qwen2.5-7b-instruct", keyRequired: false },
+      vllm: { name: "Local Gateway / vLLM", endpoint: "http://192.168.3.202:4090", model: "qwen", keyRequired: false }
     };
 
     assert.strictEqual(DEFAULT_RECIPES.groq.model, "llama-3.3-70b-versatile");
@@ -410,6 +412,10 @@ async function executeTestSuite() {
     assert.strictEqual(DEFAULT_RECIPES.deepseek.model, "deepseek-chat");
     assert.strictEqual(DEFAULT_RECIPES.gemini.model, "gemini-3.6-flash");
     assert.strictEqual(DEFAULT_RECIPES.ollama.endpoint, "http://localhost:11434");
+    assert.strictEqual(DEFAULT_RECIPES.ollama.keyRequired, false);
+    assert.strictEqual(DEFAULT_RECIPES.lmstudio.keyRequired, false);
+    assert.strictEqual(DEFAULT_RECIPES.vllm.keyRequired, false);
+    assert.strictEqual(DEFAULT_RECIPES.openai.keyRequired, true);
   });
 
   // Test 13: Error response payload parsing for Gemini array error format

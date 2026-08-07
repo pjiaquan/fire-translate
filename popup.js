@@ -1472,6 +1472,14 @@ function applyRecipeToForm(providerKey) {
     apiKeyHelp.textContent = recipe.helpText || "Required for cloud providers, optional for local endpoints.";
   }
 
+  if (apiKeyGroup) {
+    if (recipe.keyRequired === false) {
+      apiKeyGroup.classList.add("hidden");
+    } else {
+      apiKeyGroup.classList.remove("hidden");
+    }
+  }
+
   checkUrlFormat();
 
   // Populate datalist
