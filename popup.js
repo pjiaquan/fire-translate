@@ -2119,7 +2119,7 @@ async function generateExportSettingsPayload(includeKeys = false) {
   const currentSettings = await chrome.storage.local.get(EXPORTABLE_SETTING_KEYS);
   const payload = {
     appName: "Fire Translate",
-    exportVersion: "1.0.0",
+    exportVersion: "1.0.1",
     exportedAt: new Date().toISOString(),
     settings: { ...currentSettings }
   };

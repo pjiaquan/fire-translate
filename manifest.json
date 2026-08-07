@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fire Translate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sleek local-LLM translation extension powered by Qwen and other models.",
   "icons": {
     "16": "icons/icon16.png",
