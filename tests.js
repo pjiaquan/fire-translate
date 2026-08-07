@@ -418,6 +418,28 @@ async function executeTestSuite() {
     assert.strictEqual(DEFAULT_RECIPES.openai.keyRequired, true);
   });
 
+  // Test 13: Auto-fix URL logic on provider change
+  await runTest("Provider selection should automatically update endpoint URL to provider standard endpoint", () => {
+    function autoFixProviderUrl(providerKey, loadedRecipes, DEFAULT_RECIPES) {
+      const recipe = loadedRecipes[providerKey] || DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
+      const defaultRecipe = DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
+      const targetStdUrl = recipe.stdUrl || defaultRecipe.stdUrl || defaultRecipe.endpoint || "";
+      if (targetStdUrl) {
+        recipe.endpoint = targetStdUrl;
+      }
+      return recipe.endpoint;
+    }
+
+    const mockDefault = {
+      gemini: { endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", stdUrl: "https://generativelanguage.googleapis.com/v1beta/openai" },
+      ollama: { endpoint: "http://localhost:11434", stdUrl: "http://localhost:11434" }
+    };
+    const mockLoaded = { gemini: { endpoint: "http://outdated-url.com" } };
+
+    assert.strictEqual(autoFixProviderUrl("gemini", mockLoaded, mockDefault), "https://generativelanguage.googleapis.com/v1beta/openai");
+    assert.strictEqual(autoFixProviderUrl("ollama", {}, mockDefault), "http://localhost:11434");
+  });
+
   // Test 13: Error response payload parsing for Gemini array error format
   await runTest("Error response payload parsing should handle both object and array error structures", () => {
     function parseErrorMessage(errorText) {

@@ -1457,13 +1457,20 @@ function cleanGroqModel(modelName) {
 function applyRecipeToForm(providerKey) {
   activeProviderKey = providerKey;
   const recipe = loadedRecipes[providerKey] || DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
+  const defaultRecipe = DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
+
+  // Auto-fix URL to standard base URL for selected provider
+  const targetStdUrl = recipe.stdUrl || defaultRecipe.stdUrl || defaultRecipe.endpoint || "";
+  if (targetStdUrl) {
+    recipe.endpoint = targetStdUrl;
+  }
 
   if (providerKey === "groq") {
     recipe.model = cleanGroqModel(recipe.model);
     recipe.recommendedModels = ["llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b", "llama-3.1-8b-instant", "qwen-2.5-32b", "deepseek-r1-distill-qwen-32b"];
   }
 
-  inputApiEndpoint.value = recipe.endpoint || recipe.stdUrl || "";
+  inputApiEndpoint.value = recipe.endpoint || targetStdUrl || "";
   inputApiKey.value = recipe.apiKey || "";
   inputModel.value = recipe.model || "";
   selectModelType.value = recipe.modelType || "qwen";
