@@ -475,12 +475,20 @@ async function executeTestSuite() {
     ];
 
     function cleanGeminiModel(modelName) {
-      if (!modelName || DEPRECATED_GEMINI_MODELS.includes(modelName.trim())) {
+      if (!modelName) return "gemini-3.6-flash";
+      const trimmed = modelName.trim();
+      const lower = trimmed.toLowerCase();
+      const isNonGemini = /^(qwen|llama|gpt|deepseek|claude|mistral|mixtral|gemma)/i.test(lower) || (!lower.includes("gemini") && !lower.includes("nano-banana") && !lower.includes("lyria"));
+      const isDeprecated = DEPRECATED_GEMINI_MODELS.includes(lower);
+
+      if (isNonGemini || isDeprecated) {
         return "gemini-3.6-flash";
       }
-      return modelName.trim();
+      return trimmed;
     }
 
+    assert.strictEqual(cleanGeminiModel("qwen"), "gemini-3.6-flash");
+    assert.strictEqual(cleanGeminiModel("llama-3.3-70b-versatile"), "gemini-3.6-flash");
     assert.strictEqual(cleanGeminiModel("gemini-2.5-flash"), "gemini-3.6-flash");
     assert.strictEqual(cleanGeminiModel("gemini-2.0-flash"), "gemini-3.6-flash");
     assert.strictEqual(cleanGeminiModel("gemini-3.5-flash"), "gemini-3.5-flash");

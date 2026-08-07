@@ -1575,10 +1575,17 @@ const DEPRECATED_GEMINI_MODELS = [
 ];
 
 function cleanGeminiModel(modelName) {
-  if (!modelName || DEPRECATED_GEMINI_MODELS.includes(modelName.trim())) {
+  if (!modelName) return "gemini-3.6-flash";
+  const trimmed = modelName.trim();
+  const lower = trimmed.toLowerCase();
+
+  const isNonGemini = /^(qwen|llama|gpt|deepseek|claude|mistral|mixtral|gemma)/i.test(lower) || (!lower.includes("gemini") && !lower.includes("nano-banana") && !lower.includes("lyria"));
+  const isDeprecated = DEPRECATED_GEMINI_MODELS.includes(lower);
+
+  if (isNonGemini || isDeprecated) {
     return "gemini-3.6-flash";
   }
-  return modelName.trim();
+  return trimmed;
 }
 
 // Load recipe for selected provider into form
