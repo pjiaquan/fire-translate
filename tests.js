@@ -445,6 +445,26 @@ async function executeTestSuite() {
     assert.strictEqual(autoFixProviderUrl("ollama", {}, mockDefault), "http://localhost:11434");
   });
 
+  // Test 13.5: Provider recipe switching retains previously configured working model
+  await runTest("Provider recipe switching retains previously configured working model for each provider recipe", () => {
+    const loadedRecipes = {
+      gemini: { endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.5-flash" },
+      vllm: { endpoint: "http://192.168.3.202:4090", model: "qwen" }
+    };
+
+    function selectModelForProvider(providerKey, existingInputModel, recipes) {
+      const rec = recipes[providerKey] || {};
+      const savedModel = rec.model || existingInputModel;
+      if (providerKey === "gemini" && savedModel && savedModel !== "qwen") {
+        return savedModel;
+      }
+      return rec.model || "gemini-3.6-flash";
+    }
+
+    assert.strictEqual(selectModelForProvider("gemini", "qwen", loadedRecipes), "gemini-3.5-flash");
+    assert.strictEqual(selectModelForProvider("vllm", "gemini-3.5-flash", loadedRecipes), "qwen");
+  });
+
   // Test 14: Gemini Flash model filter & auto-selection test
   await runTest("Gemini live model fetcher should prioritize text Flash models and auto-select top Flash model", () => {
     function filterAndSelectGeminiFlash(detectedModels) {

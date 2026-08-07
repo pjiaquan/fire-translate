@@ -1996,7 +1996,17 @@ async function fetchLatestModels(silent = false) {
         if (topFlash) defaultSelected = topFlash;
       }
 
-      if (currentProvider === "gemini" || !inputModel.value.trim() || !allModels.includes(inputModel.value.trim())) {
+      let existingModel = inputModel.value.trim();
+      if (currentProvider === "gemini") {
+        existingModel = cleanGeminiModel(existingModel);
+      } else if (currentProvider === "groq") {
+        existingModel = cleanGroqModel(existingModel);
+      }
+
+      // Preserve previously worked/saved model if valid and present in models list
+      if (existingModel && (allModels.includes(existingModel) || allModels.some(m => m.toLowerCase() === existingModel.toLowerCase()))) {
+        inputModel.value = existingModel;
+      } else {
         inputModel.value = defaultSelected;
       }
       renderQuickModelChips(allModels);
