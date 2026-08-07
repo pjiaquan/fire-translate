@@ -1536,6 +1536,11 @@ if (selectProvider) {
       modelType: selectModelType.value
     });
 
+    // Automatically fetch latest models if Gemini or cloud provider is selected with an API key
+    if (newProvider === "gemini" && inputApiKey.value.trim()) {
+      fetchLatestModels(true);
+    }
+
     if (recipeStatusTag) {
       recipeStatusTag.textContent = "Recipe Loaded";
       setTimeout(() => { if (recipeStatusTag) recipeStatusTag.textContent = "Recipe Active"; }, 1500);
@@ -1813,6 +1818,18 @@ async function fetchLatestModels(silent = false) {
       } catch (e) {}
     }
 
+    // Filter and prioritize Flash models for Gemini
+    if (currentProvider === "gemini" && detectedModels.length > 0) {
+      const isTextModel = m => !/image|audio|video|veo|imagen|tts|embedding|live-preview|computer-use|robotics/i.test(m);
+      const flashModels = detectedModels.filter(m => /flash/i.test(m) && isTextModel(m));
+      flashModels.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" }));
+
+      const otherTextModels = detectedModels.filter(m => !flashModels.includes(m) && isTextModel(m));
+      otherTextModels.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" }));
+
+      detectedModels = [...flashModels, ...otherTextModels];
+    }
+
     const currentRec = loadedRecipes[currentProvider] || DEFAULT_RECIPES[currentProvider];
     const fallbackRecs = currentRec ? (currentRec.recommendedModels || []) : [];
     const allModels = Array.from(new Set([...detectedModels, ...fallbackRecs])).filter(Boolean);
@@ -1827,12 +1844,18 @@ async function fetchLatestModels(silent = false) {
     }
 
     if (detectedModels.length > 0) {
-      if (!inputModel.value.trim() || !allModels.includes(inputModel.value.trim())) {
-        inputModel.value = detectedModels[0];
+      let defaultSelected = detectedModels[0];
+      if (currentProvider === "gemini") {
+        const topFlash = detectedModels.find(m => /flash/i.test(m) && !/image|audio|video|veo|imagen|tts|embedding/i.test(m));
+        if (topFlash) defaultSelected = topFlash;
+      }
+
+      if (currentProvider === "gemini" || !inputModel.value.trim() || !allModels.includes(inputModel.value.trim())) {
+        inputModel.value = defaultSelected;
       }
       renderQuickModelChips(allModels);
-      await addLog("info", `Detected ${detectedModels.length} active models from server.`);
-      if (!silent) alert(`Successfully fetched ${detectedModels.length} live model(s) from server!\nFirst model "${detectedModels[0]}" selected.`);
+      await addLog("info", `Detected ${detectedModels.length} active models from server. Default Flash model: ${inputModel.value}`);
+      if (!silent) alert(`Successfully fetched ${detectedModels.length} live model(s) from server!\nDefault Flash model "${inputModel.value}" selected.`);
     } else {
       renderQuickModelChips(fallbackRecs);
       await addLog("warn", `Could not fetch live models from ${apiEndpoint}. Using provider presets.`);

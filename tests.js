@@ -440,6 +440,29 @@ async function executeTestSuite() {
     assert.strictEqual(autoFixProviderUrl("ollama", {}, mockDefault), "http://localhost:11434");
   });
 
+  // Test 14: Gemini Flash model filter & auto-selection test
+  await runTest("Gemini live model fetcher should prioritize text Flash models and auto-select top Flash model", () => {
+    function filterAndSelectGeminiFlash(detectedModels) {
+      const isTextModel = m => !/image|audio|video|veo|imagen|tts|embedding|live-preview|computer-use|robotics/i.test(m);
+      const flashModels = detectedModels.filter(m => /flash/i.test(m) && isTextModel(m));
+      flashModels.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" }));
+
+      const otherTextModels = detectedModels.filter(m => !flashModels.includes(m) && isTextModel(m));
+      otherTextModels.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" }));
+
+      const sorted = [...flashModels, ...otherTextModels];
+      const topFlash = sorted.find(m => /flash/i.test(m) && isTextModel(m)) || sorted[0];
+      return { sorted, topFlash };
+    }
+
+    const rawList = ["veo-3.1-generate-preview", "gemini-2.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "imagen-4.0-generate-001"];
+    const { sorted, topFlash } = filterAndSelectGeminiFlash(rawList);
+
+    assert.strictEqual(topFlash, "gemini-3.6-flash");
+    assert.strictEqual(sorted[0], "gemini-3.6-flash");
+    assert.strictEqual(sorted.includes("veo-3.1-generate-preview"), false);
+  });
+
   // Test 13: Error response payload parsing for Gemini array error format
   await runTest("Error response payload parsing should handle both object and array error structures", () => {
     function parseErrorMessage(errorText) {
