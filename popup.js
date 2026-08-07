@@ -1453,6 +1453,22 @@ function cleanGroqModel(modelName) {
   return modelName.trim();
 }
 
+const DEPRECATED_GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-1.0-pro",
+  "gemini-pro"
+];
+
+function cleanGeminiModel(modelName) {
+  if (!modelName || DEPRECATED_GEMINI_MODELS.includes(modelName.trim())) {
+    return "gemini-3.6-flash";
+  }
+  return modelName.trim();
+}
+
 // Load recipe for selected provider into form
 function applyRecipeToForm(providerKey) {
   activeProviderKey = providerKey;
@@ -1468,6 +1484,9 @@ function applyRecipeToForm(providerKey) {
   if (providerKey === "groq") {
     recipe.model = cleanGroqModel(recipe.model);
     recipe.recommendedModels = ["llama-3.3-70b-versatile", "deepseek-r1-distill-llama-70b", "llama-3.1-8b-instant", "qwen-2.5-32b", "deepseek-r1-distill-qwen-32b"];
+  } else if (providerKey === "gemini") {
+    recipe.model = cleanGeminiModel(recipe.model);
+    recipe.recommendedModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-flash-lite-latest"];
   }
 
   inputApiEndpoint.value = recipe.endpoint || targetStdUrl || "";
@@ -1585,7 +1604,11 @@ if (btnCloseTestPanel) {
 async function runDiagnosticTest() {
   const apiEndpoint = inputApiEndpoint.value.trim();
   const apiKey = inputApiKey.value.trim();
-  const model = inputModel.value.trim() || "qwen";
+  let model = inputModel.value.trim() || "qwen";
+  if (selectProvider.value === "gemini") {
+    model = cleanGeminiModel(model);
+    inputModel.value = model;
+  }
   const modelType = selectModelType.value;
 
   if (!apiEndpoint) {
@@ -1928,7 +1951,15 @@ async function loadSettingsToUI() {
 
   if (res.apiEndpoint !== undefined) inputApiEndpoint.value = res.apiEndpoint;
   if (res.apiKey !== undefined) inputApiKey.value = res.apiKey;
-  if (res.model !== undefined) inputModel.value = res.model;
+  if (res.model !== undefined) {
+    if (activeProv === "gemini") {
+      inputModel.value = cleanGeminiModel(res.model);
+    } else if (activeProv === "groq") {
+      inputModel.value = cleanGroqModel(res.model);
+    } else {
+      inputModel.value = res.model;
+    }
+  }
   if (res.modelType !== undefined) selectModelType.value = res.modelType;
 
   checkUrlFormat();

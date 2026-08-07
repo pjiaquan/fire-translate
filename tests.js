@@ -463,6 +463,30 @@ async function executeTestSuite() {
     assert.strictEqual(sorted.includes("veo-3.1-generate-preview"), false);
   });
 
+  // Test 15: Deprecated Gemini model sanitization test
+  await runTest("cleanGeminiModel should sanitize deprecated Gemini models to active gemini-3.6-flash", () => {
+    const DEPRECATED_GEMINI_MODELS = [
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-1.0-pro",
+      "gemini-pro"
+    ];
+
+    function cleanGeminiModel(modelName) {
+      if (!modelName || DEPRECATED_GEMINI_MODELS.includes(modelName.trim())) {
+        return "gemini-3.6-flash";
+      }
+      return modelName.trim();
+    }
+
+    assert.strictEqual(cleanGeminiModel("gemini-2.5-flash"), "gemini-3.6-flash");
+    assert.strictEqual(cleanGeminiModel("gemini-2.0-flash"), "gemini-3.6-flash");
+    assert.strictEqual(cleanGeminiModel("gemini-3.5-flash"), "gemini-3.5-flash");
+    assert.strictEqual(cleanGeminiModel("gemini-3.6-flash"), "gemini-3.6-flash");
+  });
+
   // Test 13: Error response payload parsing for Gemini array error format
   await runTest("Error response payload parsing should handle both object and array error structures", () => {
     function parseErrorMessage(errorText) {
