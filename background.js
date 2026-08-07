@@ -222,6 +222,9 @@ function isApiKeyLike(text) {
 function formatChatEndpointUrl(apiEndpoint) {
   if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
   let clean = apiEndpoint.trim().replace(/\/$/, "");
+  if (clean.includes("googleapis.com") && !clean.includes("/openai")) {
+    clean = `${clean}/openai`;
+  }
   if (clean.endsWith("/chat/completions")) {
     return clean;
   }

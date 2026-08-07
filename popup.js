@@ -1096,6 +1096,9 @@ checkEnableTelegram.addEventListener("change", toggleTelegramVisibility);
 function formatChatEndpointUrl(apiEndpoint) {
   if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
   let clean = apiEndpoint.trim().replace(/\/$/, "");
+  if (clean.includes("googleapis.com") && !clean.includes("/openai")) {
+    clean = `${clean}/openai`;
+  }
   if (clean.endsWith("/chat/completions")) {
     return clean;
   }
@@ -1591,13 +1594,14 @@ function cleanGeminiModel(modelName) {
 // Load recipe for selected provider into form
 function applyRecipeToForm(providerKey) {
   activeProviderKey = providerKey;
-  const recipe = loadedRecipes[providerKey] || DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
   const defaultRecipe = DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
+  const recipe = loadedRecipes[providerKey] || Object.assign({}, defaultRecipe);
 
   // Auto-fix URL to standard base URL for selected provider
-  const targetStdUrl = recipe.stdUrl || defaultRecipe.stdUrl || defaultRecipe.endpoint || "";
-  if (targetStdUrl) {
-    recipe.endpoint = targetStdUrl;
+  if (providerKey !== "custom" && defaultRecipe.stdUrl) {
+    recipe.endpoint = defaultRecipe.stdUrl;
+  } else if (!recipe.endpoint && defaultRecipe.stdUrl) {
+    recipe.endpoint = defaultRecipe.stdUrl;
   }
 
   if (providerKey === "groq") {
@@ -1608,7 +1612,7 @@ function applyRecipeToForm(providerKey) {
     recipe.recommendedModels = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-flash-lite-latest"];
   }
 
-  inputApiEndpoint.value = recipe.endpoint || targetStdUrl || "";
+  inputApiEndpoint.value = recipe.endpoint || defaultRecipe.stdUrl || "";
   inputApiKey.value = recipe.apiKey || "";
   inputModel.value = recipe.model || "";
   selectModelType.value = recipe.modelType || "qwen";
