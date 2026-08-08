@@ -347,11 +347,15 @@
             Toggle Current Site
           </button>
         </div>
-        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px;">
-          Excluded websites bypass double-click & selection translations. Right-click the toolbar icon or webpage anytime to toggle translation for any site.
+        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-bottom: 10px;">
+          Excluded websites bypass double-click & selection translations. Right-click toolbar icon or webpage anytime to toggle translation for any site.
         </p>
-        <div id="disabled-sites-chips" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px;">
-          <span style="font-size: 11px; color: var(--text-muted); font-style: italic;">No websites excluded</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <span id="exclusions-count-text" style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">0 websites excluded</span>
+          <button id="btn-open-exclusions" type="button" class="secondary-btn" style="font-size: 11px; padding: 5px 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+            <span>📋 View Exclusions</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
         </div>
       </div>
 
@@ -450,6 +454,35 @@
       <div class="empty-state">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
         <p>Log is empty.</p>
+      </div>
+    </div>
+  <!-- 4. Website Exclusions Panel -->
+  <div id="drawer-exclusions" class="drawer">
+    <div class="drawer-header">
+      <h3>🌐 Website Exclusions</h3>
+      <div class="header-actions-inline">
+        <button id="btn-clear-exclusions" class="text-danger-btn">Clear All</button>
+        <button class="drawer-close" title="Close Exclusions">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px; background: var(--bg-panel);">
+      <!-- Quick Add Domain Input -->
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="input-add-exclusion" placeholder="Add domain (e.g. github.com)" style="flex: 1; font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main);">
+        <button id="btn-add-exclusion" type="button" class="primary-btn" style="font-size: 11px; padding: 6px 12px;">+ Add</button>
+      </div>
+      <!-- Search Filter Input -->
+      <input type="text" id="input-search-exclusions" placeholder="🔍 Search excluded domains..." style="font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main);">
+    </div>
+
+    <div id="exclusions-list-container" class="drawer-body list-container" style="padding: 12px 16px;">
+      <!-- Dynamically filled -->
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+        <p>No websites excluded (translating everywhere).</p>
       </div>
     </div>
   </div>

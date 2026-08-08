@@ -126,7 +126,8 @@ const iconMoon = document.getElementById("icon-moon");
 const drawers = {
   settings: document.getElementById("drawer-settings"),
   history: document.getElementById("drawer-history"),
-  logs: document.getElementById("drawer-logs")
+  logs: document.getElementById("drawer-logs"),
+  exclusions: document.getElementById("drawer-exclusions")
 };
 const backdrop = document.getElementById("drawer-backdrop");
 
@@ -1044,6 +1045,9 @@ function openDrawer(name) {
       renderLogs();
     } else if (name === "settings") {
       loadSettingsToUI();
+      renderDisabledSitesList();
+    } else if (name === "exclusions") {
+      renderDisabledSitesList();
     }
   }
 }
@@ -1308,9 +1312,41 @@ function isDomainDisabled(hostname, disabledDomains) {
 
 const btnToggleCurrentSite = document.getElementById("btn-toggle-current-site");
 const disabledSitesChips = document.getElementById("disabled-sites-chips");
+const exclusionsCountText = document.getElementById("exclusions-count-text");
+const exclusionsListContainer = document.getElementById("exclusions-list-container");
+const btnOpenExclusions = document.getElementById("btn-open-exclusions");
+const btnClearExclusions = document.getElementById("btn-clear-exclusions");
+const btnAddExclusion = document.getElementById("btn-add-exclusion");
+const inputAddExclusion = document.getElementById("input-add-exclusion");
+const inputSearchExclusions = document.getElementById("input-search-exclusions");
+
+async function removeExclusionDomain(domain) {
+  const updateRes = await chrome.storage.local.get("disabledDomains");
+  let list = updateRes.disabledDomains || [];
+  list = list.filter(d => d !== domain);
+  await chrome.storage.local.set({ disabledDomains: list });
+  await renderDisabledSitesList();
+  await addLog("info", `Removed website exclusion for ${domain}`);
+}
+
+async function addExclusionDomain(rawDomain) {
+  if (!rawDomain) return;
+  let cleanDomain = rawDomain.toLowerCase().trim();
+  cleanDomain = cleanDomain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!cleanDomain) return;
+
+  const res = await chrome.storage.local.get("disabledDomains");
+  let list = res.disabledDomains || [];
+  if (!list.includes(cleanDomain)) {
+    list.push(cleanDomain);
+    await chrome.storage.local.set({ disabledDomains: list });
+    await addLog("info", `Added manual website exclusion for ${cleanDomain}`);
+  }
+  if (inputAddExclusion) inputAddExclusion.value = "";
+  await renderDisabledSitesList();
+}
 
 async function renderDisabledSitesList() {
-  if (!disabledSitesChips) return;
   const res = await chrome.storage.local.get("disabledDomains");
   const disabledDomains = res.disabledDomains || [];
 
@@ -1336,31 +1372,107 @@ async function renderDisabledSitesList() {
     }
   }
 
-  disabledSitesChips.innerHTML = "";
-  if (disabledDomains.length === 0) {
-    disabledSitesChips.innerHTML = `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">No websites excluded (translating everywhere)</span>`;
-    return;
+  // Update Summary card count
+  if (exclusionsCountText) {
+    const count = disabledDomains.length;
+    exclusionsCountText.textContent = count === 0
+      ? "0 websites excluded"
+      : count === 1
+        ? "1 website excluded"
+        : `${count} websites excluded`;
   }
 
-  disabledDomains.forEach(domain => {
-    const chip = document.createElement("div");
-    chip.className = "site-chip";
-    chip.innerHTML = `
-      <span>🚫 ${escapeHTML(domain)}</span>
-      <span class="remove-site-btn" title="Remove exclusion">✕</span>
-    `;
+  // Legacy fallback if chips container exists
+  if (disabledSitesChips) {
+    disabledSitesChips.innerHTML = "";
+    if (disabledDomains.length === 0) {
+      disabledSitesChips.innerHTML = `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">No websites excluded (translating everywhere)</span>`;
+    } else {
+      disabledDomains.forEach(domain => {
+        const chip = document.createElement("div");
+        chip.className = "site-chip";
+        chip.innerHTML = `
+          <span>🚫 ${escapeHTML(domain)}</span>
+          <span class="remove-site-btn" title="Remove exclusion">✕</span>
+        `;
+        chip.querySelector(".remove-site-btn").addEventListener("click", () => removeExclusionDomain(domain));
+        disabledSitesChips.appendChild(chip);
+      });
+    }
+  }
 
-    chip.querySelector(".remove-site-btn").addEventListener("click", async () => {
-      const updateRes = await chrome.storage.local.get("disabledDomains");
-      let list = updateRes.disabledDomains || [];
-      list = list.filter(d => d !== domain);
-      await chrome.storage.local.set({ disabledDomains: list });
-      renderDisabledSitesList();
-      await addLog("info", `Removed website exclusion for ${domain}`);
+  // Render dedicated drawer list
+  if (exclusionsListContainer) {
+    exclusionsListContainer.innerHTML = "";
+    const filterQuery = (inputSearchExclusions?.value || "").toLowerCase().trim();
+    const filteredList = filterQuery
+      ? disabledDomains.filter(d => d.toLowerCase().includes(filterQuery))
+      : disabledDomains;
+
+    if (disabledDomains.length === 0) {
+      exclusionsListContainer.innerHTML = `
+        <div class="empty-state" style="text-align: center; padding: 30px 10px; color: var(--text-muted);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+          <p style="font-size: 12px; margin: 0;">No websites excluded (translating everywhere).</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (filteredList.length === 0) {
+      exclusionsListContainer.innerHTML = `
+        <div class="empty-state" style="text-align: center; padding: 20px 10px; color: var(--text-muted);">
+          <p style="font-size: 12px; margin: 0;">No domains match "${escapeHTML(filterQuery)}".</p>
+        </div>
+      `;
+      return;
+    }
+
+    filteredList.forEach(domain => {
+      const item = document.createElement("div");
+      item.className = "exclusion-item";
+      item.innerHTML = `
+        <div class="exclusion-domain-info">
+          <span class="exclusion-domain-icon">🌐</span>
+          <span>${escapeHTML(domain)}</span>
+        </div>
+        <button class="btn-remove-exclusion" title="Remove website exclusion">✕ Remove</button>
+      `;
+      item.querySelector(".btn-remove-exclusion").addEventListener("click", () => removeExclusionDomain(domain));
+      exclusionsListContainer.appendChild(item);
     });
+  }
+}
 
-    disabledSitesChips.appendChild(chip);
+if (btnOpenExclusions) {
+  btnOpenExclusions.addEventListener("click", () => openDrawer("exclusions"));
+}
+
+if (btnClearExclusions) {
+  btnClearExclusions.addEventListener("click", async () => {
+    if (confirm("Are you sure you want to clear all website exclusions?")) {
+      await chrome.storage.local.set({ disabledDomains: [] });
+      await renderDisabledSitesList();
+      await addLog("info", "Cleared all website exclusions.");
+    }
   });
+}
+
+if (btnAddExclusion) {
+  btnAddExclusion.addEventListener("click", () => addExclusionDomain(inputAddExclusion?.value));
+}
+
+if (inputAddExclusion) {
+  inputAddExclusion.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addExclusionDomain(inputAddExclusion.value);
+    }
+  });
+}
+
+if (inputSearchExclusions) {
+  inputSearchExclusions.addEventListener("input", () => renderDisabledSitesList());
 }
 
 if (btnToggleCurrentSite) {
