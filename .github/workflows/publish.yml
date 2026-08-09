@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
@@ -40,7 +40,7 @@ jobs:
             -x "*.git*" "*node_modules*" "*.github*" "tests.js" "test-api.js"
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: fire-translate-extension-zip
           path: dist/fire-translate-extension.zip
@@ -53,15 +53,15 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
       - name: Download Extension Package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: fire-translate-extension-zip
           path: dist
@@ -86,10 +86,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
@@ -124,10 +124,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download Extension Package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: fire-translate-extension-zip
           path: dist
