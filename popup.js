@@ -377,14 +377,14 @@ async function renderMonthlyTokenUsageUI() {
     const byProv = monthData.byProvider || {};
     const provKeys = Object.keys(byProv);
     if (provKeys.length === 0) {
-      containerBreakdown.innerHTML = `<span style="color:var(--text-muted); font-style:italic;">No AI requests recorded for ${selectedMonthKey}.</span>`;
+      containerBreakdown.innerHTML = `<span style="color:var(--text-muted); font-style:italic;">No AI requests recorded for ${escapeHTML(selectedMonthKey)}.</span>`;
     } else {
       let html = `<div style="display:flex; flex-direction:column; gap:4px; margin-top: 4px;">`;
       provKeys.forEach(pk => {
         const pData = byProv[pk];
         const provName = DEFAULT_RECIPES[pk]?.name || pk.toUpperCase();
         html += `<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:4px 8px; border-radius:6px; font-size:11px;">
-          <span><strong>${provName}</strong> (${pData.requestCount || 0} reqs)</span>
+          <span><strong>${escapeHTML(provName)}</strong> (${Number(pData.requestCount || 0)} reqs)</span>
           <span style="font-weight:600; color:var(--accent-color-1);">${Number(pData.totalTokens || 0).toLocaleString()} tokens</span>
         </div>`;
       });
@@ -1581,10 +1581,19 @@ function checkUrlFormat() {
   const currentProvider = selectProvider.value;
   const currentRec = loadedRecipes[currentProvider] || DEFAULT_RECIPES[currentProvider];
   const urlVal = inputApiEndpoint.value.trim();
+  const keyVal = inputApiKey ? inputApiKey.value.trim() : "";
+
+  let httpWarning = "";
+  if (urlVal.toLowerCase().startsWith("http://")) {
+    const isLocalhost = urlVal.includes("localhost") || urlVal.includes("127.0.0.1");
+    if (keyVal || !isLocalhost) {
+      httpWarning = `<br><span style="color:var(--warning-color); font-weight:600;">⚠️ Insecure HTTP endpoint: API key and translation text will be transmitted unencrypted over cleartext HTTP.</span>`;
+    }
+  }
 
   if (!urlVal) {
     if (btnFixUrl) btnFixUrl.classList.add("hidden");
-    if (urlRecommendationHelp) urlRecommendationHelp.textContent = "Base URL for OpenAI-compatible completions API.";
+    if (urlRecommendationHelp) urlRecommendationHelp.innerHTML = "Base URL for OpenAI-compatible completions API." + httpWarning;
     return;
   }
 
@@ -1594,17 +1603,17 @@ function checkUrlFormat() {
     if (cleanInput !== cleanStd && !cleanInput.startsWith(cleanStd)) {
       if (btnFixUrl) btnFixUrl.classList.remove("hidden");
       if (urlRecommendationHelp) {
-        urlRecommendationHelp.innerHTML = `💡 Standard URL for ${currentRec.name}: <code style="color:var(--accent-color-1);">${currentRec.stdUrl}</code>`;
+        urlRecommendationHelp.innerHTML = `💡 Standard URL for ${escapeHTML(currentRec.name)}: <code style="color:var(--accent-color-1);">${escapeHTML(currentRec.stdUrl)}</code>` + httpWarning;
       }
     } else {
       if (btnFixUrl) btnFixUrl.classList.add("hidden");
       if (urlRecommendationHelp) {
-        urlRecommendationHelp.textContent = `✓ Standard base URL for ${currentRec.name}.`;
+        urlRecommendationHelp.innerHTML = `✓ Standard base URL for ${escapeHTML(currentRec.name)}.` + httpWarning;
       }
     }
   } else {
     if (btnFixUrl) btnFixUrl.classList.add("hidden");
-    if (urlRecommendationHelp) urlRecommendationHelp.textContent = "OpenAI-compatible Chat Completion endpoint.";
+    if (urlRecommendationHelp) urlRecommendationHelp.innerHTML = "OpenAI-compatible Chat Completion endpoint." + httpWarning;
   }
 }
 
@@ -1651,7 +1660,7 @@ function renderQuickModelChips(models) {
     if (recList.includes(m)) tag = "Preset";
     if (m.includes("3.3") || m.includes("gpt-4o") || m.includes("reasoner") || m.includes("2.5")) tag = "Latest";
     
-    chip.innerHTML = `${m}${tag ? ` <span class="chip-tag">${tag}</span>` : ''}`;
+    chip.innerHTML = `${escapeHTML(m)}${tag ? ` <span class="chip-tag">${escapeHTML(tag)}</span>` : ''}`;
     
     chip.addEventListener("click", () => {
       inputModel.value = m;
@@ -1874,7 +1883,7 @@ async function runDiagnosticTest() {
   try {
     // Step 1: URL format validation
     const step1El = document.getElementById("step-1");
-    if (step1El) step1El.innerHTML = `✓ Step 1: Endpoint URL formatted → <code style="color:var(--accent-color-1);">${chatEndpointUrl}</code>`;
+    if (step1El) step1El.innerHTML = `✓ Step 1: Endpoint URL formatted → <code style="color:var(--accent-color-1);">${escapeHTML(chatEndpointUrl)}</code>`;
     if (step1El) step1El.className = "test-step-item success";
 
     // Step 2: Prepare Auth headers
@@ -1882,7 +1891,7 @@ async function runDiagnosticTest() {
     const headers = { "Content-Type": "application/json" };
     if (apiKey) {
       headers["Authorization"] = `Bearer ${apiKey}`;
-      if (step2El) step2El.innerHTML = `✓ Step 2: Authorization Header set (Bearer ${apiKey.substring(0, 6)}...)`;
+      if (step2El) step2El.innerHTML = `✓ Step 2: Authorization Header set (Bearer ${escapeHTML(apiKey.substring(0, 6))}...)`;
     } else {
       if (step2El) step2El.innerHTML = `✓ Step 2: No API key provided (Local Server / Anonymous mode)`;
     }
@@ -1925,7 +1934,7 @@ async function runDiagnosticTest() {
       if (step3El) step3El.innerHTML = `✓ Step 3: Server responded HTTP ${response.status} OK!`;
       if (step3El) step3El.className = "test-step-item success";
 
-      if (step4El) step4El.innerHTML = `✓ Step 4: Test response received: "${responseText || 'OK'}" (${latency}ms)`;
+      if (step4El) step4El.innerHTML = `✓ Step 4: Test response received: "${escapeHTML(responseText) || 'OK'}" (${latency}ms)`;
       if (step4El) step4El.className = "test-step-item success";
 
       if (testStatusPill) {
@@ -1937,7 +1946,7 @@ async function runDiagnosticTest() {
         testLatencyBadge.classList.remove("hidden");
       }
       if (testDetailMsg) {
-        testDetailMsg.innerHTML = `<strong>✔ Connection Test Passed!</strong><br>Provider server is responsive and model <code>${model}</code> answered correctly.`;
+        testDetailMsg.innerHTML = `<strong>✔ Connection Test Passed!</strong><br>Provider server is responsive and model <code>${escapeHTML(model)}</code> answered correctly.`;
       }
 
       await addLog("info", `Connection test success for ${chatEndpointUrl} (${latency}ms)`);
@@ -1968,12 +1977,13 @@ async function runDiagnosticTest() {
       }
       
       let troubleshooting = "";
+      const safeErrorMsg = escapeHTML(errorMsg);
       if (response.status === 401 || response.status === 403) {
-        troubleshooting = `🔑 <strong>Authentication Error:</strong> ${errorMsg || "Invalid or missing API Key. Please verify your API Key."}`;
+        troubleshooting = `🔑 <strong>Authentication Error:</strong> ${safeErrorMsg || "Invalid or missing API Key. Please verify your API Key."}`;
       } else if (response.status === 404) {
-        troubleshooting = `🔍 <strong>404 Not Found:</strong> ${errorMsg || "Check if endpoint URL includes correct path or if model name exists."}`;
+        troubleshooting = `🔍 <strong>404 Not Found:</strong> ${safeErrorMsg || "Check if endpoint URL includes correct path or if model name exists."}`;
       } else {
-        troubleshooting = `⚠️ <strong>Server Response:</strong> ${errorMsg}`;
+        troubleshooting = `⚠️ <strong>Server Response:</strong> ${safeErrorMsg}`;
       }
 
       if (testDetailMsg) {
@@ -1987,7 +1997,7 @@ async function runDiagnosticTest() {
     const step3El = document.getElementById("step-3");
     const step4El = document.getElementById("step-4");
 
-    if (step3El) step3El.innerHTML = `✘ Step 3: Request failed → ${err.message}`;
+    if (step3El) step3El.innerHTML = `✘ Step 3: Request failed → ${escapeHTML(err.message)}`;
     if (step3El) step3El.className = "test-step-item failed";
 
     if (step4El) step4El.innerHTML = `✘ Step 4: Connection error (${latency}ms)`;
@@ -1999,7 +2009,7 @@ async function runDiagnosticTest() {
     }
 
     if (testDetailMsg) {
-      testDetailMsg.innerHTML = `<strong>✘ Network Connection Error</strong><br>Could not connect to server at <code>${apiEndpoint}</code>.<br><small>Troubleshooting: Ensure server is running and CORS is enabled (e.g. for Ollama set <code>OLLAMA_ORIGINS=*</code>).</small>`;
+      testDetailMsg.innerHTML = `<strong>✘ Network Connection Error</strong><br>Could not connect to server at <code>${escapeHTML(apiEndpoint)}</code>.<br><small>Troubleshooting: Ensure server is running and CORS is enabled (e.g. for Ollama set <code>OLLAMA_ORIGINS=*</code>).</small>`;
     }
 
     await addLog("error", `Connection test error: ${err.message}`);
@@ -2150,6 +2160,340 @@ function updateTextSizeClass(size) {
   document.body.classList.add(`font-size-${size}`);
 }
 
+// Local Draft & Unsaved State System Constants & Helpers
+const DRAFT_STORAGE_KEY = "settings_draft";
+const DRAFT_SECRET_STORAGE_KEY = "settings_draft_secrets";
+
+// Credentials never go into the localStorage draft, because that is written to disk and
+// survives indefinitely. An in-progress key still has to survive the popup closing (which
+// happens on any outside click), so it is held in chrome.storage.session instead: memory
+// only, never written to disk, dropped on browser restart, and unreachable from content
+// scripts. Where session storage is unavailable (Firefox < 115) the key simply is not
+// restored, which is the safe direction to fail in.
+const DRAFT_SECRET_KEYS = ["apiKey", "telegramBotToken"];
+
+let lastServerSettings = null;
+let settingsDraftListenersInitialized = false;
+
+function redactDraftSecrets(state) {
+  if (!state || typeof state !== "object") return state;
+  const copy = { ...state };
+  DRAFT_SECRET_KEYS.forEach(key => delete copy[key]);
+  return copy;
+}
+
+function getSessionStorageAreaSafe() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.session) {
+      return chrome.storage.session;
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Keeps only the credentials that actually differ from what is saved, so nothing is held
+// in session storage during normal use.
+async function saveDraftSecrets(state) {
+  const session = getSessionStorageAreaSafe();
+  if (!session) return;
+
+  const pending = {};
+  let hasPending = false;
+  DRAFT_SECRET_KEYS.forEach(key => {
+    const current = state && state[key] !== undefined ? state[key] : "";
+    const saved = lastServerSettings && lastServerSettings[key] !== undefined ? lastServerSettings[key] : "";
+    if (current !== saved) {
+      pending[key] = current;
+      hasPending = true;
+    }
+  });
+
+  try {
+    if (hasPending) {
+      await session.set({ [DRAFT_SECRET_STORAGE_KEY]: pending });
+    } else {
+      await session.remove(DRAFT_SECRET_STORAGE_KEY);
+    }
+  } catch (e) {
+    console.warn("Failed to sync draft credentials to session storage:", e);
+  }
+}
+
+async function clearDraftSecrets() {
+  const session = getSessionStorageAreaSafe();
+  if (!session) return;
+  try {
+    await session.remove(DRAFT_SECRET_STORAGE_KEY);
+  } catch (e) {
+    console.warn("Failed to clear draft credentials from session storage:", e);
+  }
+}
+
+async function restoreDraftSecretsToForm() {
+  const session = getSessionStorageAreaSafe();
+  if (!session) return;
+  try {
+    const stored = await session.get(DRAFT_SECRET_STORAGE_KEY);
+    const pending = stored ? stored[DRAFT_SECRET_STORAGE_KEY] : null;
+    if (pending && typeof pending === "object") {
+      // Only carries credential fields, so this cannot trigger a provider switch.
+      applyStateToForm(pending);
+    }
+  } catch (e) {
+    console.warn("Failed to restore draft credentials from session storage:", e);
+  }
+}
+
+function getLocalStorageSafe() {
+  try {
+    if (typeof localStorage !== "undefined") return localStorage;
+    if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+  } catch (e) {}
+  return null;
+}
+
+function getFormSettingsState() {
+  const tempInput = document.getElementById("input-temperature");
+  const historyInput = document.getElementById("input-max-history");
+  const autoInput = document.getElementById("check-auto-translate");
+  const dblclickInput = document.getElementById("check-dblclick-translate");
+  const streamInput = document.getElementById("check-stream-translations");
+  const thinkingInput = document.getElementById("check-show-thinking");
+  const sizeSelect = document.getElementById("select-text-size");
+  const promptInput = document.getElementById("input-system-prompt");
+  const promptLearningInput = document.getElementById("input-system-prompt-learning");
+  const tgTokenInput = document.getElementById("input-telegram-token");
+  const tgChatInput = document.getElementById("input-telegram-chatid");
+
+  return {
+    currentProvider: selectProvider ? selectProvider.value : "vllm",
+    apiEndpoint: inputApiEndpoint ? inputApiEndpoint.value.trim() : "",
+    apiKey: inputApiKey ? inputApiKey.value.trim() : "",
+    model: inputModel ? inputModel.value.trim() : "",
+    modelType: selectModelType ? selectModelType.value : "qwen",
+    temperature: tempInput ? parseFloat(tempInput.value) : 0.1,
+    maxHistory: historyInput ? parseInt(historyInput.value, 10) : 100,
+    autoTranslate: autoInput ? autoInput.checked : true,
+    richLearningMode: checkRichLearning ? checkRichLearning.checked : true,
+    doubleClickTranslate: dblclickInput ? dblclickInput.checked : true,
+    streamTranslations: streamInput ? streamInput.checked : true,
+    showThinking: thinkingInput ? thinkingInput.checked : true,
+    textSize: sizeSelect ? sizeSelect.value : "medium",
+    systemPrompt: promptInput ? promptInput.value.trim() : "",
+    systemPromptLearning: promptLearningInput ? promptLearningInput.value.trim() : "",
+    enableTelegram: checkEnableTelegram ? checkEnableTelegram.checked : false,
+    telegramBotToken: tgTokenInput ? tgTokenInput.value.trim() : "",
+    telegramChatId: tgChatInput ? tgChatInput.value.trim() : ""
+  };
+}
+
+function areSettingsDifferent(stateA, stateB, ignoreKeys = []) {
+  if (!stateA || !stateB) return true;
+  const keys = [
+    "currentProvider",
+    "apiEndpoint",
+    "apiKey",
+    "model",
+    "modelType",
+    "temperature",
+    "maxHistory",
+    "autoTranslate",
+    "richLearningMode",
+    "doubleClickTranslate",
+    "streamTranslations",
+    "showThinking",
+    "textSize",
+    "systemPrompt",
+    "systemPromptLearning",
+    "enableTelegram",
+    "telegramBotToken",
+    "telegramChatId"
+  ];
+  const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
+  const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
+
+  for (const k of keys) {
+    if (ignoreKeys.includes(k)) continue;
+
+    let valA = stateA[k];
+    let valB = stateB[k];
+
+    if (k === "systemPrompt" && (valB === undefined || valB === null)) valB = defaultPrompt;
+    if (k === "systemPromptLearning" && (valB === undefined || valB === null)) valB = defaultPromptLearning;
+    if (k === "systemPrompt" && (valA === undefined || valA === null)) valA = defaultPrompt;
+    if (k === "systemPromptLearning" && (valA === undefined || valA === null)) valA = defaultPromptLearning;
+
+    if (typeof valA === "string") valA = valA.trim();
+    if (typeof valB === "string") valB = valB.trim();
+
+    if (valA !== valB) return true;
+  }
+  return false;
+}
+
+function updateSettingsDraftUI() {
+  const badge = document.getElementById("settings-draft-badge");
+  const btnDiscard = document.getElementById("btn-discard-draft");
+  const currentState = getFormSettingsState();
+  const isDiff = areSettingsDifferent(currentState, lastServerSettings);
+
+  const storage = getLocalStorageSafe();
+  if (isDiff) {
+    if (badge) {
+      badge.textContent = "🟡 Unsaved Draft";
+      badge.className = "settings-draft-badge badge-unsaved";
+    }
+    if (btnDiscard) {
+      btnDiscard.classList.remove("hidden");
+    }
+  } else {
+    if (badge) {
+      badge.textContent = "🟢 Synced";
+      badge.className = "settings-draft-badge badge-synced";
+    }
+    if (btnDiscard) {
+      btnDiscard.classList.add("hidden");
+    }
+    if (storage) {
+      storage.removeItem(DRAFT_STORAGE_KEY);
+    }
+  }
+}
+
+async function saveSettingsDraft() {
+  const currentState = getFormSettingsState();
+  const storage = getLocalStorageSafe();
+  // Persist only when a non-credential field differs: an edit confined to the API key
+  // or bot token has nothing left to store once the secrets are stripped out.
+  if (areSettingsDifferent(currentState, lastServerSettings, DRAFT_SECRET_KEYS)) {
+    if (storage) {
+      storage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(redactDraftSecrets(currentState)));
+    }
+  } else {
+    if (storage) {
+      storage.removeItem(DRAFT_STORAGE_KEY);
+    }
+  }
+  updateSettingsDraftUI();
+  await saveDraftSecrets(currentState);
+}
+
+function applyStateToForm(state) {
+  if (!state) return;
+  if (state.currentProvider !== undefined && selectProvider) {
+    selectProvider.value = state.currentProvider;
+    applyRecipeToForm(state.currentProvider);
+  }
+  if (state.apiEndpoint !== undefined && inputApiEndpoint) inputApiEndpoint.value = state.apiEndpoint;
+  if (state.apiKey !== undefined && inputApiKey) inputApiKey.value = state.apiKey;
+  if (state.model !== undefined && inputModel) inputModel.value = state.model;
+  if (state.modelType !== undefined && selectModelType) selectModelType.value = state.modelType;
+  
+  if (state.temperature !== undefined && document.getElementById("input-temperature")) {
+    document.getElementById("input-temperature").value = state.temperature;
+    if (document.getElementById("val-temperature")) {
+      document.getElementById("val-temperature").textContent = state.temperature;
+    }
+  }
+  if (state.maxHistory !== undefined && document.getElementById("input-max-history")) {
+    document.getElementById("input-max-history").value = state.maxHistory;
+  }
+  if (state.autoTranslate !== undefined && document.getElementById("check-auto-translate")) {
+    document.getElementById("check-auto-translate").checked = !!state.autoTranslate;
+  }
+  if (state.richLearningMode !== undefined && checkRichLearning) {
+    checkRichLearning.checked = !!state.richLearningMode;
+  }
+  if (state.doubleClickTranslate !== undefined && document.getElementById("check-dblclick-translate")) {
+    document.getElementById("check-dblclick-translate").checked = !!state.doubleClickTranslate;
+  }
+  if (state.streamTranslations !== undefined && document.getElementById("check-stream-translations")) {
+    document.getElementById("check-stream-translations").checked = !!state.streamTranslations;
+  }
+  if (state.showThinking !== undefined && document.getElementById("check-show-thinking")) {
+    document.getElementById("check-show-thinking").checked = !!state.showThinking;
+  }
+  if (state.textSize !== undefined && document.getElementById("select-text-size")) {
+    document.getElementById("select-text-size").value = state.textSize;
+    updateTextSizeClass(state.textSize);
+  }
+  if (state.systemPrompt !== undefined && document.getElementById("input-system-prompt")) {
+    document.getElementById("input-system-prompt").value = state.systemPrompt;
+  }
+  if (state.systemPromptLearning !== undefined && document.getElementById("input-system-prompt-learning")) {
+    document.getElementById("input-system-prompt-learning").value = state.systemPromptLearning;
+  }
+  if (state.enableTelegram !== undefined && checkEnableTelegram) {
+    checkEnableTelegram.checked = !!state.enableTelegram;
+    if (typeof telegramFields !== "undefined" && telegramFields) {
+      if (state.enableTelegram) telegramFields.classList.remove("hidden");
+      else telegramFields.classList.add("hidden");
+    }
+  }
+  if (state.telegramBotToken !== undefined && document.getElementById("input-telegram-token")) {
+    document.getElementById("input-telegram-token").value = state.telegramBotToken;
+  }
+  if (state.telegramChatId !== undefined && document.getElementById("input-telegram-chatid")) {
+    document.getElementById("input-telegram-chatid").value = state.telegramChatId;
+  }
+  checkUrlFormat();
+}
+
+function setupSettingsDraftListeners() {
+  if (settingsDraftListenersInitialized) return;
+  settingsDraftListenersInitialized = true;
+
+  const fields = [
+    { id: "select-provider", evts: ["change"] },
+    { id: "input-api-endpoint", evts: ["input", "change"] },
+    { id: "input-api-key", evts: ["input", "change"] },
+    { id: "input-model", evts: ["input", "change"] },
+    { id: "select-model-type", evts: ["change"] },
+    { id: "input-temperature", evts: ["input", "change"] },
+    { id: "input-max-history", evts: ["input", "change"] },
+    { id: "select-text-size", evts: ["change"] },
+    { id: "check-auto-translate", evts: ["change"] },
+    { id: "check-rich-learning", evts: ["change"] },
+    { id: "check-dblclick-translate", evts: ["change"] },
+    { id: "check-stream-translations", evts: ["change"] },
+    { id: "check-show-thinking", evts: ["change"] },
+    { id: "input-system-prompt", evts: ["input", "change"] },
+    { id: "input-system-prompt-learning", evts: ["input", "change"] },
+    { id: "check-enable-telegram", evts: ["change"] },
+    { id: "input-telegram-token", evts: ["input", "change"] },
+    { id: "input-telegram-chatid", evts: ["input", "change"] }
+  ];
+
+  fields.forEach(f => {
+    const el = document.getElementById(f.id);
+    if (el) {
+      f.evts.forEach(evt => {
+        el.addEventListener(evt, saveSettingsDraft);
+      });
+    }
+  });
+
+  const btnDiscard = document.getElementById("btn-discard-draft");
+  if (btnDiscard) {
+    btnDiscard.addEventListener("click", async () => {
+      const storage = getLocalStorageSafe();
+      if (storage) {
+        storage.removeItem(DRAFT_STORAGE_KEY);
+      }
+      await clearDraftSecrets();
+      if (lastServerSettings) {
+        applyStateToForm(lastServerSettings);
+      } else {
+        await loadSettingsToUI();
+      }
+      updateSettingsDraftUI();
+      if (typeof addLog === "function") {
+        await addLog("info", "Discarded local draft, reverted to server configuration");
+      }
+    });
+  }
+}
+
 async function loadSettingsToUI() {
   const res = await chrome.storage.local.get([
     "apiEndpoint",
@@ -2191,53 +2535,79 @@ async function loadSettingsToUI() {
     else activeProv = "vllm";
   }
 
-  selectProvider.value = activeProv;
-  applyRecipeToForm(activeProv);
+  const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
+  const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
 
-  if (res.apiEndpoint !== undefined) inputApiEndpoint.value = res.apiEndpoint;
-  if (res.apiKey !== undefined) inputApiKey.value = res.apiKey;
-  if (res.model !== undefined) {
-    if (activeProv === "gemini") {
-      inputModel.value = cleanGeminiModel(res.model);
-    } else if (activeProv === "groq") {
-      inputModel.value = cleanGroqModel(res.model);
-    } else {
-      inputModel.value = res.model;
-    }
+  let cleanedModel = res.model;
+  if (activeProv === "gemini") {
+    cleanedModel = cleanGeminiModel(res.model);
+  } else if (activeProv === "groq") {
+    cleanedModel = cleanGroqModel(res.model);
   }
-  if (res.modelType !== undefined) selectModelType.value = res.modelType;
 
-  checkUrlFormat();
-  renderQuickModelChips(loadedRecipes[activeProv]?.recommendedModels || []);
+  const currentRec = loadedRecipes[activeProv] || DEFAULT_RECIPES[activeProv] || DEFAULT_RECIPES.custom;
 
-  document.getElementById("input-temperature").value = res.temperature ?? 0.1;
-  document.getElementById("val-temperature").textContent = res.temperature ?? 0.1;
-  document.getElementById("input-max-history").value = res.maxHistory ?? 100;
-  document.getElementById("check-auto-translate").checked = res.autoTranslate !== false;
-  checkRichLearning.checked = res.richLearningMode !== false;
-  document.getElementById("check-dblclick-translate").checked = res.doubleClickTranslate !== false;
-  document.getElementById("check-stream-translations").checked = res.streamTranslations !== false;
-  document.getElementById("check-show-thinking").checked = res.showThinking !== false;
-  
+  lastServerSettings = {
+    currentProvider: activeProv,
+    apiEndpoint: res.apiEndpoint !== undefined ? res.apiEndpoint : (currentRec.endpoint || currentRec.stdUrl || ""),
+    apiKey: res.apiKey !== undefined ? res.apiKey : (currentRec.apiKey || ""),
+    model: cleanedModel !== undefined ? cleanedModel : (currentRec.model || ""),
+    modelType: res.modelType !== undefined ? res.modelType : (currentRec.modelType || "qwen"),
+    temperature: res.temperature ?? 0.1,
+    maxHistory: res.maxHistory ?? 100,
+    autoTranslate: res.autoTranslate !== false,
+    richLearningMode: res.richLearningMode !== false,
+    doubleClickTranslate: res.doubleClickTranslate !== false,
+    streamTranslations: res.streamTranslations !== false,
+    showThinking: res.showThinking !== false,
+    textSize: res.textSize || "medium",
+    systemPrompt: res.systemPrompt ?? defaultPrompt,
+    systemPromptLearning: res.systemPromptLearning ?? defaultPromptLearning,
+    enableTelegram: res.enableTelegram ?? false,
+    telegramBotToken: res.telegramBotToken ?? "",
+    telegramChatId: res.telegramChatId ?? ""
+  };
+
+  applyStateToForm(lastServerSettings);
+
   renderMonthlyTokenUsageUI();
 
   const selectUsageMonth = document.getElementById("select-usage-month");
   if (selectUsageMonth) {
     selectUsageMonth.addEventListener("change", renderMonthlyTokenUsageUI);
   }
-  
-  const textSize = res.textSize || "medium";
-  document.getElementById("select-text-size").value = textSize;
-  updateTextSizeClass(textSize);
-  
-  const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
-  document.getElementById("input-system-prompt").value = res.systemPrompt ?? defaultPrompt;
-  
-  const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
-  document.getElementById("input-system-prompt-learning").value = res.systemPromptLearning ?? defaultPromptLearning;
 
   renderDisabledSitesList();
   togglePromptVisibility();
+
+  setupSettingsDraftListeners();
+
+  const storage = getLocalStorageSafe();
+  const rawDraft = storage ? storage.getItem(DRAFT_STORAGE_KEY) : null;
+  if (rawDraft) {
+    try {
+      const draftObj = JSON.parse(rawDraft);
+      if (draftObj && typeof draftObj === "object") {
+        const carriesSecrets = DRAFT_SECRET_KEYS.some(key => draftObj[key] !== undefined);
+        const safeDraft = redactDraftSecrets(draftObj);
+        // Credentials in the draft are ignored, so the fields keep the values already
+        // loaded from chrome.storage rather than being overwritten by the draft.
+        applyStateToForm(safeDraft);
+        // Drafts written before credentials were excluded still hold them: rewrite in place.
+        if (carriesSecrets && storage) {
+          storage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(safeDraft));
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to parse settings_draft:", e);
+    }
+  }
+
+  // Must come after the draft above: restoring a draft that switched provider reapplies
+  // that recipe's credentials, which would otherwise clobber the in-progress ones.
+  await restoreDraftSecretsToForm();
+
+  updateSettingsDraftUI();
 }
 
 document.getElementById("input-temperature").addEventListener("input", (e) => {
@@ -2289,11 +2659,38 @@ btnSaveSettings.addEventListener("click", async () => {
     telegramChatId
   });
 
+  lastServerSettings = {
+    currentProvider,
+    apiEndpoint,
+    apiKey,
+    model,
+    modelType,
+    temperature,
+    maxHistory,
+    autoTranslate,
+    richLearningMode,
+    doubleClickTranslate,
+    streamTranslations,
+    showThinking,
+    systemPrompt,
+    systemPromptLearning,
+    textSize,
+    enableTelegram,
+    telegramBotToken,
+    telegramChatId
+  };
+
+  const storage = getLocalStorageSafe();
+  if (storage) {
+    storage.removeItem(DRAFT_STORAGE_KEY);
+  }
+  await clearDraftSecrets();
+
+  updateSettingsDraftUI();
   updateTextSizeClass(textSize);
   await addLog("info", "Settings saved successfully");
   closeAllDrawers();
   
-  // Re-run translation with new settings if source has text
   if (srcTextarea.value.trim()) {
     translate();
   }
@@ -2301,7 +2698,13 @@ btnSaveSettings.addEventListener("click", async () => {
 
 btnResetSettings.addEventListener("click", async () => {
   if (confirm("Reset settings to default values?")) {
-    await chrome.storage.local.set({
+    const storage = getLocalStorageSafe();
+    if (storage) {
+      storage.removeItem(DRAFT_STORAGE_KEY);
+    }
+    await clearDraftSecrets();
+
+    const defaultState = {
       apiEndpoint: "http://192.168.3.202:4090",
       apiKey: "",
       model: "qwen",
@@ -2319,7 +2722,9 @@ btnResetSettings.addEventListener("click", async () => {
       telegramChatId: "",
       systemPrompt: "你是一個專業的翻譯引擎。請將使用者輸入的 any 文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。",
       systemPromptLearning: "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含 any Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}"
-    });
+    };
+
+    await chrome.storage.local.set(defaultState);
     await loadSettingsToUI();
     await addLog("info", "Settings reset to defaults");
   }
@@ -2431,7 +2836,23 @@ function processImportSettingsJson(jsonStr) {
 async function importSettingsFromFile(file) {
   try {
     const text = await file.text();
-    const settingsToSave = processImportSettingsJson(text);
+    const settingsToSave = processImportSettingsJson(text, EXPORTABLE_SETTING_KEYS);
+
+    const changes = [];
+    if (settingsToSave.apiEndpoint) changes.push(`• Server Endpoint: ${settingsToSave.apiEndpoint}`);
+    if (settingsToSave.apiKey !== undefined) changes.push(`• API Key: ${settingsToSave.apiKey ? "[Updated Key]" : "[Cleared Key]"}`);
+    if (settingsToSave.currentProvider) changes.push(`• AI Provider: ${settingsToSave.currentProvider}`);
+    if (settingsToSave.enableTelegram !== undefined) changes.push(`• Telegram Integration: ${settingsToSave.enableTelegram ? "Enabled" : "Disabled"}`);
+    if (settingsToSave.telegramBotToken !== undefined) changes.push(`• Telegram Token: ${settingsToSave.telegramBotToken ? "[Updated Token]" : "[Cleared Token]"}`);
+    if (settingsToSave.providerRecipes) changes.push(`• Provider Recipes: ${Object.keys(settingsToSave.providerRecipes).length} recipes`);
+
+    const summaryMsg = `Confirm Settings Import\n\nImporting this configuration file will update the following settings:\n\n${changes.join("\n")}\n\nDo you want to proceed and overwrite your current settings?`;
+
+    if (!confirm(summaryMsg)) {
+      await addLog("info", "Settings import cancelled by user.");
+      return;
+    }
+
     await chrome.storage.local.set(settingsToSave);
     await loadSettingsToUI();
     await addLog("info", `Imported ${Object.keys(settingsToSave).length} settings successfully.`);
@@ -2866,8 +3287,8 @@ function formatRelativeTime(isoStr) {
 }
 
 function escapeHTML(str) {
-  if (!str) return "";
-  return str.replace(/[&<>'"]/g, 
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/[&<>'"]/g, 
     tag => ({
       '&': '&amp;',
       '<': '&lt;',

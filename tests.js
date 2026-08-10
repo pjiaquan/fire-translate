@@ -8,7 +8,16 @@ console.log("\x1b[36m%s\x1b[0m", "🧪 Running Fire Translate Extension Unit Tes
 // Helper to create sandbox context with mocks
 function createSandbox() {
   const mockLocalStorage = {};
+  const mockSessionStorage = {};
+  const mockWebLocalStorage = {};
+  const mockLocalStorageObj = {
+    getItem: (key) => (key in mockWebLocalStorage ? mockWebLocalStorage[key] : null),
+    setItem: (key, val) => { mockWebLocalStorage[key] = String(val); },
+    removeItem: (key) => { delete mockWebLocalStorage[key]; },
+    clear: () => { Object.keys(mockWebLocalStorage).forEach(k => delete mockWebLocalStorage[k]); }
+  };
   
+  const elementsMap = {};
   const mockDocument = {
     body: {
       classList: {
@@ -19,14 +28,54 @@ function createSandbox() {
       appendChild: () => {},
       removeChild: () => {}
     },
-    getElementById: (id) => ({
+    getElementById: (id) => {
+      if (!elementsMap[id]) {
+        const _classes = new Set();
+        const el = {
+          id: id,
+          value: "",
+          textContent: "",
+          checked: false,
+          type: "",
+          listeners: {},
+          addEventListener: function(evt, fn) {
+            if (!this.listeners[evt]) this.listeners[evt] = [];
+            this.listeners[evt].push(fn);
+          },
+          dispatchEvent: function(evt) {
+            if (this.listeners[evt]) {
+              this.listeners[evt].forEach(fn => fn({ target: this }));
+            }
+          },
+          appendChild: () => {},
+          removeChild: () => {},
+          querySelector: () => null,
+          querySelectorAll: () => []
+        };
+        Object.defineProperty(el, "className", {
+          get() { return Array.from(_classes).join(" "); },
+          set(v) {
+            _classes.clear();
+            if (v) String(v).split(/\s+/).filter(Boolean).forEach(c => _classes.add(c));
+          }
+        });
+        el.classList = {
+          add: function(...cs) { cs.forEach(c => _classes.add(c)); },
+          remove: function(...cs) { cs.forEach(c => _classes.delete(c)); },
+          contains: function(c) { return _classes.has(c); }
+        };
+        elementsMap[id] = el;
+      }
+      return elementsMap[id];
+    },
+    createElement: (tag) => ({
+      tagName: (tag || "").toUpperCase(),
       value: "",
+      textContent: "",
+      className: "",
+      innerHTML: "",
       addEventListener: () => {},
-      classList: { add: () => {}, remove: () => {}, contains: () => false },
-      appendChild: () => {},
-      removeChild: () => {},
-      querySelector: () => null,
-      querySelectorAll: () => []
+      appendChild: () => {}
     }),
     querySelectorAll: () => [],
     addEventListener: () => {}
@@ -35,7 +84,8 @@ function createSandbox() {
   const mockWindow = {
     addEventListener: () => {},
     SpeechSynthesisUtterance: class {},
-    speechSynthesis: { speak: () => {}, cancel: () => {} }
+    speechSynthesis: { speak: () => {}, cancel: () => {} },
+    localStorage: mockLocalStorageObj
   };
 
   const mockChrome = {
@@ -59,6 +109,31 @@ function createSandbox() {
           const keysArray = Array.isArray(keys) ? keys : [keys];
           keysArray.forEach(k => {
             delete mockLocalStorage[k];
+          });
+          if (callback) callback();
+          return Promise.resolve();
+        }
+      },
+      // In-memory session area (chrome.storage.session): never written to disk
+      session: {
+        get: (keys, callback) => {
+          const res = {};
+          const keysArray = Array.isArray(keys) ? keys : [keys];
+          keysArray.forEach(k => {
+            if (k in mockSessionStorage) res[k] = mockSessionStorage[k];
+          });
+          if (callback) callback(res);
+          return Promise.resolve(res);
+        },
+        set: (items, callback) => {
+          Object.assign(mockSessionStorage, items);
+          if (callback) callback();
+          return Promise.resolve();
+        },
+        remove: (keys, callback) => {
+          const keysArray = Array.isArray(keys) ? keys : [keys];
+          keysArray.forEach(k => {
+            delete mockSessionStorage[k];
           });
           if (callback) callback();
           return Promise.resolve();
@@ -98,7 +173,11 @@ function createSandbox() {
     },
     setTimeout: setTimeout,
     clearTimeout: clearTimeout,
-    mockLocalStorage: mockLocalStorage
+    localStorage: mockLocalStorageObj,
+    mockWebLocalStorage: mockWebLocalStorage,
+    elementsMap: elementsMap,
+    mockLocalStorage: mockLocalStorage,
+    mockSessionStorage: mockSessionStorage
   };
 }
 
@@ -841,6 +920,244 @@ async function executeTestSuite() {
     const imported = processImportSettingsJson(jsonToImport, keys);
     assert.strictEqual(imported.model, "llama3");
     assert.strictEqual(imported.apiEndpoint, "http://localhost:11434");
+  });
+
+  // Test 22: Instant Keystroke Auto-Draft saves form input to localStorage (settings_draft)
+  await runTest("Instant Keystroke Auto-Draft should save settings state to localStorage but never persist credentials", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+    sandbox.document.getElementById("input-model").value = "draft-model-xyz";
+    sandbox.document.getElementById("input-api-key").value = "gsk_draft_secret_123456";
+    sandbox.document.getElementById("input-telegram-token").value = "123456789:draft-bot-token";
+
+    await sandbox.saveSettingsDraft();
+
+    const rawDraft = sandbox.localStorage.getItem("settings_draft");
+    assert.ok(rawDraft !== null, "settings_draft should exist in localStorage");
+
+    const draft = JSON.parse(rawDraft);
+    assert.strictEqual(draft.model, "draft-model-xyz", "non-secret fields should persist");
+    assert.strictEqual(draft.apiKey, undefined, "apiKey must not be persisted to localStorage");
+    assert.strictEqual(draft.telegramBotToken, undefined, "telegramBotToken must not be persisted");
+    assert.ok(!rawDraft.includes("gsk_draft_secret_123456"), "raw draft must not contain the API key");
+    assert.ok(!rawDraft.includes("draft-bot-token"), "raw draft must not contain the bot token");
+
+    // The badge still tracks credential edits even though they are not persisted
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+
+    // The credentials go to the in-memory session area instead, so nothing is lost
+    const pending = sandbox.mockSessionStorage["settings_draft_secrets"];
+    assert.strictEqual(pending.apiKey, "gsk_draft_secret_123456");
+    assert.strictEqual(pending.telegramBotToken, "123456789:draft-bot-token");
+  });
+
+  // Test 22b: A credential-only edit leaves nothing to persist on disk
+  await runTest("Auto-Draft should keep a credential-only edit in session storage, not on disk", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.apiKey = "original-key";
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+    sandbox.document.getElementById("input-api-key").value = "gsk_only_the_key_changed";
+
+    await sandbox.saveSettingsDraft();
+
+    assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(
+      sandbox.mockSessionStorage["settings_draft_secrets"].apiKey,
+      "gsk_only_the_key_changed"
+    );
+  });
+
+  // Test 22c: An in-progress credential survives the popup closing and reopening
+  await runTest("An in-progress API key should be restored when the popup reopens", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.apiKey = "saved-key";
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+    sandbox.document.getElementById("input-model").value = "half-typed-model";
+    sandbox.document.getElementById("input-api-key").value = "gsk_half_typed_key";
+    await sandbox.saveSettingsDraft();
+
+    // Reopening the popup: fresh context and DOM, but the same session storage,
+    // which is what chrome.storage.session preserves while the browser stays open.
+    const reopened = createSandbox();
+    reopened.mockLocalStorage.apiKey = "saved-key";
+    Object.assign(reopened.mockSessionStorage, sandbox.mockSessionStorage);
+    Object.assign(reopened.mockWebLocalStorage, sandbox.mockWebLocalStorage);
+    vm.createContext(reopened);
+    vm.runInContext(popupCode, reopened);
+
+    await reopened.loadSettingsToUI();
+
+    assert.strictEqual(reopened.document.getElementById("input-model").value, "half-typed-model");
+    assert.strictEqual(reopened.document.getElementById("input-api-key").value, "gsk_half_typed_key");
+    assert.strictEqual(reopened.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+  });
+
+  // Test 22d: Saving clears the in-memory credential draft
+  await runTest("Saving settings should clear the pending credential from session storage", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.apiKey = "original-key";
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+    sandbox.document.getElementById("input-api-key").value = "gsk_new_key";
+    await sandbox.saveSettingsDraft();
+    assert.ok(sandbox.mockSessionStorage["settings_draft_secrets"], "precondition: pending key held");
+
+    const btnSave = sandbox.document.getElementById("btn-save-settings");
+    for (const fn of (btnSave.listeners["click"] || [])) {
+      await fn();
+    }
+
+    assert.strictEqual(sandbox.mockSessionStorage["settings_draft_secrets"], undefined);
+  });
+
+  // Test 23: Visual Status Badge & Discard Draft actions state changes
+  await runTest("Visual Status Badge should display Unsaved Draft when draft differs and Synced when saved/discarded", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+    const badge = sandbox.document.getElementById("settings-draft-badge");
+    const btnDiscard = sandbox.document.getElementById("btn-discard-draft");
+
+    // Initially Synced
+    assert.strictEqual(badge.textContent, "🟢 Synced");
+    assert.strictEqual(btnDiscard.classList.contains("hidden"), true);
+
+    // Edit an input
+    const modelInput = sandbox.document.getElementById("input-model");
+    modelInput.value = "gemini-3.6-flash-draft";
+    await sandbox.saveSettingsDraft();
+
+    // Should update badge to Unsaved Draft and show Discard Draft button
+    assert.strictEqual(badge.textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(badge.classList.contains("badge-unsaved"), true);
+    assert.strictEqual(btnDiscard.classList.contains("hidden"), false);
+
+    // Click Save Configs
+    const btnSave = sandbox.document.getElementById("btn-save-settings");
+    const saveListeners = btnSave.listeners["click"] || [];
+    for (const fn of saveListeners) {
+      await fn();
+    }
+
+    // After save, should reset badge to Synced and hide Discard Draft
+    assert.strictEqual(badge.textContent, "🟢 Synced");
+    assert.strictEqual(btnDiscard.classList.contains("hidden"), true);
+    assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
+  });
+
+  // Test 24: Discard Draft button reverts local draft to server configuration
+  await runTest("Discard Draft button should clear settings_draft and revert form inputs to server configuration", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.model = "qwen2.5:7b";
+    sandbox.mockLocalStorage.apiKey = "original-key";
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+    const apiKeyInput = sandbox.document.getElementById("input-api-key");
+    apiKeyInput.value = "dirty-un saved-key";
+    await sandbox.saveSettingsDraft();
+
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+
+    // Click Discard Draft
+    const btnDiscard = sandbox.document.getElementById("btn-discard-draft");
+    const discardListeners = btnDiscard.listeners["click"] || [];
+    for (const fn of discardListeners) {
+      await fn();
+    }
+
+    assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
+    assert.strictEqual(apiKeyInput.value, "original-key");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟢 Synced");
+  });
+
+  // Test 25: Protection Against Overwriting: loadSettingsToUI preserves active draft
+  await runTest("loadSettingsToUI should restore active draft from localStorage without overwriting work-in-progress input fields", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.apiKey = "server-key-xyz";
+    
+    // Pre-populate settings_draft in localStorage
+    const draftState = {
+      currentProvider: "groq",
+      apiEndpoint: "https://api.groq.com/openai",
+      apiKey: "draft-work-in-progress-key",
+      model: "llama-3.3-70b-versatile",
+      modelType: "qwen",
+      temperature: 0.7,
+      maxHistory: 200,
+      autoTranslate: true,
+      richLearningMode: true,
+      doubleClickTranslate: true,
+      streamTranslations: true,
+      showThinking: true,
+      textSize: "large",
+      systemPrompt: "draft prompt",
+      systemPromptLearning: "draft learning prompt",
+      enableTelegram: false,
+      telegramBotToken: "",
+      telegramChatId: ""
+    };
+    sandbox.mockWebLocalStorage["settings_draft"] = JSON.stringify(draftState);
+
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+
+    const apiKeyInput = sandbox.document.getElementById("input-api-key");
+    const tempInput = sandbox.document.getElementById("input-temperature");
+    const badge = sandbox.document.getElementById("settings-draft-badge");
+
+    // Inputs should be restored from draft rather than wiped by background loadSettings
+    assert.strictEqual(String(tempInput.value), "0.7");
+    assert.strictEqual(badge.textContent, "🟡 Unsaved Draft");
+
+    // Credentials are never taken from a draft. This draft also switches provider to
+    // groq, so the key field is owned by that provider's saved recipe (empty here) —
+    // never by the value that happened to be sitting in the draft.
+    assert.notStrictEqual(apiKeyInput.value, "draft-work-in-progress-key");
+    assert.strictEqual(apiKeyInput.value, "");
+  });
+
+  // Test 26: Legacy drafts written before credentials were excluded get scrubbed on load
+  await runTest("loadSettingsToUI should strip credentials left in a legacy settings_draft", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.apiKey = "server-key-xyz";
+    sandbox.mockWebLocalStorage["settings_draft"] = JSON.stringify({
+      model: "legacy-draft-model",
+      temperature: 0.7,
+      apiKey: "leaked-legacy-key",
+      telegramBotToken: "123456789:leaked-legacy-token"
+    });
+
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+
+    const rawDraft = sandbox.localStorage.getItem("settings_draft");
+    assert.ok(rawDraft !== null, "the non-secret part of the draft should survive");
+    assert.ok(!rawDraft.includes("leaked-legacy-key"), "legacy API key should be scrubbed from storage");
+    assert.ok(!rawDraft.includes("leaked-legacy-token"), "legacy bot token should be scrubbed from storage");
+    assert.strictEqual(JSON.parse(rawDraft).model, "legacy-draft-model");
+
+    // The leaked value must not reach the form either
+    assert.strictEqual(sandbox.document.getElementById("input-api-key").value, "server-key-xyz");
   });
 
   // Summary reporting

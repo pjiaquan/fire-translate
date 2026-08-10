@@ -1,0 +1,7 @@
+.env
+.claude/
+*.zip
+refresh_token.txt
+dist/
+dist-firefox/
+node_modules/

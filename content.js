@@ -610,7 +610,7 @@ async function showBubble(text, selection) {
         
         if (chrome.runtime.lastError || !response || !response.success) {
           const errorMsg = response?.error || chrome.runtime.lastError?.message || "Server connection failed";
-          content.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Error: ${errorMsg}</span>`;
+          content.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Error: ${escapeHTML(errorMsg)}</span>`;
           return;
         }
         
@@ -727,8 +727,8 @@ function renderInlineVocab(content, vocabulary) {
 }
 
 function escapeHTML(str) {
-  if (!str) return "";
-  return str.replace(/[&<>'"]/g, 
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/[&<>'"]/g, 
     tag => ({
       '&': '&amp;',
       '<': '&lt;',
