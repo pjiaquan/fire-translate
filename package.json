@@ -1,11 +1,11 @@
 {
   "name": "fire-translate",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A sleek, modern Chrome extension for instant, local-LLM-powered translations. Inspired by Gikken Mate, it features a responsive split-pane UI, robust API customizations, real-time debugging logs, and full-featured translation history.",
   "main": "background.js",
   "scripts": {
     "test": "node tests.js",
-    "build": "zip -r fire-translate-v1.1.0.zip manifest.json background.js content.js popup.html popup.css popup.js icons PRIVACY_POLICY.md README.md"
+    "build": "zip -r fire-translate-v1.2.0.zip manifest.json background.js content.js popup.html popup.css popup.js icons PRIVACY_POLICY.md README.md"
   },
   "repository": {
     "type": "git",
