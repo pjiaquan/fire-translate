@@ -88,6 +88,23 @@
         <textarea id="src-textarea" placeholder="Type or paste text to translate..."></textarea>
       </div>
 
+      <!-- Live Grammar / Typo Suggestion Box -->
+      <div id="grammar-suggestion-box" class="grammar-suggestion-box hidden">
+        <div class="grammar-suggestion-main">
+          <div class="grammar-suggestion-badge">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <span>Did you mean:</span>
+          </div>
+          <span id="grammar-suggestion-text" class="grammar-suggestion-text" title="Click to apply correction"></span>
+        </div>
+        <div class="grammar-suggestion-actions">
+          <button id="btn-grammar-apply" class="grammar-apply-btn" type="button" title="Apply correction">Apply</button>
+          <button id="btn-grammar-dismiss" class="grammar-dismiss-btn" type="button" title="Dismiss suggestion">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+
       <div class="col-footer">
         <span id="char-counter" class="info-text">0 characters</span>
         <button id="btn-translate" class="primary-btn">
@@ -336,9 +353,13 @@
           <input type="checkbox" id="check-stream-translations">
           <label for="check-stream-translations">Enable streaming results (word-by-word)</label>
         </div>
-        <div class="checkbox-row">
+        <div class="checkbox-row" style="margin-bottom: 8px;">
           <input type="checkbox" id="check-show-thinking">
           <label for="check-show-thinking">Show Thinking Process (Reasoning/Thinking models)</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="check-grammar-check" checked>
+          <label for="check-grammar-check">Check grammar & typos while typing (Live Suggestion)</label>
         </div>
       </div>
 

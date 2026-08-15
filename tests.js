@@ -49,6 +49,8 @@ function createSandbox() {
           },
           appendChild: () => {},
           removeChild: () => {},
+          focus: () => {},
+          blur: () => {},
           querySelector: () => null,
           querySelectorAll: () => []
         };
@@ -1158,6 +1160,116 @@ async function executeTestSuite() {
 
     // The leaked value must not reach the form either
     assert.strictEqual(sandbox.document.getElementById("input-api-key").value, "server-key-xyz");
+  });
+
+  // Test 27: Grammar correction parser handles JSON, markdown code fences, thinking blocks, and fallback
+  await runTest("parseGrammarCorrectionResponse should parse pure JSON, markdown fences, and thinking blocks correctly", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // Pure JSON
+    const res1 = sandbox.parseGrammarCorrectionResponse('{"has_error": true, "corrected": "I went to school yesterday.", "explanation": "Fixed verb tense"}');
+    assert.strictEqual(res1.has_error, true);
+    assert.strictEqual(res1.corrected, "I went to school yesterday.");
+    assert.strictEqual(res1.explanation, "Fixed verb tense");
+
+    // Thinking process + JSON block
+    const res2 = sandbox.parseGrammarCorrectionResponse('<think>The user has a typo in scool</think>\n```json\n{"has_error": true, "corrected": "the quick brown fox", "explanation": "Fixed spelling"}\n```');
+    assert.strictEqual(res2.has_error, true);
+    assert.strictEqual(res2.corrected, "the quick brown fox");
+
+    // No error JSON
+    const res3 = sandbox.parseGrammarCorrectionResponse('{"has_error": false, "corrected": ""}');
+    assert.strictEqual(res3.has_error, false);
+    assert.strictEqual(res3.corrected, "");
+
+    // Invalid / fallback
+    const res4 = sandbox.parseGrammarCorrectionResponse('Random non-json text');
+    assert.strictEqual(res4.has_error, false);
+    assert.strictEqual(res4.corrected, "");
+  });
+
+  // Test 28: shouldShowGrammarSuggestion decision helper
+  await runTest("shouldShowGrammarSuggestion should only trigger on genuine corrections differing from input", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // True when error and different
+    assert.strictEqual(
+      sandbox.shouldShowGrammarSuggestion("I goes to scool", { has_error: true, corrected: "I go to school" }),
+      true
+    );
+
+    // False when has_error is false
+    assert.strictEqual(
+      sandbox.shouldShowGrammarSuggestion("Hello world", { has_error: false, corrected: "Hello world" }),
+      false
+    );
+
+    // False when corrected matches original
+    assert.strictEqual(
+      sandbox.shouldShowGrammarSuggestion("Hello world", { has_error: true, corrected: "hello world" }),
+      false
+    );
+
+    // False when corrected is empty
+    assert.strictEqual(
+      sandbox.shouldShowGrammarSuggestion("Test", { has_error: true, corrected: "" }),
+      false
+    );
+  });
+
+  // Test 29: Grammar suggestion display does NOT overwrite textarea automatically
+  await runTest("Live grammar suggestion displays in UI without overwriting user typing", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    const srcTextarea = sandbox.document.getElementById("src-textarea");
+    const suggestionBox = sandbox.document.getElementById("grammar-suggestion-box");
+    const suggestionText = sandbox.document.getElementById("grammar-suggestion-text");
+
+    // Simulate user typing a typo
+    srcTextarea.value = "I goes to scool";
+
+    // Show suggestion
+    sandbox.showGrammarSuggestion("I go to school", "Fixed verb tense and spelling");
+
+    // Textarea must NOT be overwritten by the suggestion
+    assert.strictEqual(srcTextarea.value, "I goes to scool");
+    assert.strictEqual(suggestionText.textContent, "I go to school");
+    assert.strictEqual(suggestionBox.classList.contains("hidden"), false);
+
+    // Dismiss / hide suggestion
+    sandbox.hideGrammarSuggestion();
+    assert.strictEqual(suggestionBox.classList.contains("hidden"), true);
+    assert.strictEqual(srcTextarea.value, "I goes to scool");
+
+    // Explicit apply only replaces textarea when user chooses to apply
+    sandbox.showGrammarSuggestion("I go to school");
+    sandbox.applyGrammarSuggestion();
+    assert.strictEqual(srcTextarea.value, "I go to school");
+    assert.strictEqual(suggestionBox.classList.contains("hidden"), true);
+  });
+
+  // Test 30: Settings management preserves grammarCheck configuration
+  await runTest("Settings form and draft persistence preserve grammarCheck configuration", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.grammarCheck = false;
+
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+    const checkEl = sandbox.document.getElementById("check-grammar-check");
+    assert.strictEqual(checkEl.checked, false);
+
+    // Toggle on and get state
+    checkEl.checked = true;
+    const state = sandbox.getFormSettingsState();
+    assert.strictEqual(state.grammarCheck, true);
   });
 
   // Summary reporting

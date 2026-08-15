@@ -370,6 +370,123 @@ body {
   font-style: italic;
 }
 
+/* Grammar / Typo Live Suggestion Box */
+.grammar-suggestion-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-color-1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: -6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  animation: grammarFadeIn 0.2s ease-out;
+  transition: all var(--transition-speed) var(--transition-bezier);
+}
+
+.grammar-suggestion-box.hidden {
+  display: none !important;
+}
+
+.grammar-suggestion-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.grammar-suggestion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-color-1);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.grammar-suggestion-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  text-decoration: underline dotted var(--accent-color-1);
+  text-underline-offset: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.grammar-suggestion-text:hover {
+  color: var(--accent-color-1);
+}
+
+.grammar-suggestion-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.grammar-apply-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent-gradient);
+  color: var(--text-inverse);
+  font-family: var(--font-title);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.grammar-apply-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.grammar-apply-btn:active {
+  transform: translateY(0);
+}
+
+.grammar-dismiss-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grammar-dismiss-btn:hover {
+  color: var(--text-main);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes grammarFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Footer row */
 .col-footer {
   display: flex;

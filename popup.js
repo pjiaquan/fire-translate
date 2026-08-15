@@ -131,12 +131,194 @@ const drawers = {
 };
 const backdrop = document.getElementById("drawer-backdrop");
 
-// Debounce timer for auto-translate
+// Grammar & Typo Suggestion DOM Elements
+const grammarSuggestionBox = document.getElementById("grammar-suggestion-box");
+const grammarSuggestionText = document.getElementById("grammar-suggestion-text");
+const btnGrammarApply = document.getElementById("btn-grammar-apply");
+const btnGrammarDismiss = document.getElementById("btn-grammar-dismiss");
+const checkGrammarCheck = document.getElementById("check-grammar-check");
+
+// Debounce timers
 let debounceTimer = null;
+let grammarDebounceTimer = null;
+let grammarAbortController = null;
+const grammarCache = new Map();
+
 // SpeechSynthesis reference
 let currentUtterance = null;
 // Current primary translation text (for copying/TTS)
 let currentTranslationText = "";
+
+function parseGrammarCorrectionResponse(reply) {
+  if (!reply || typeof reply !== "string") {
+    return { has_error: false, corrected: "", explanation: "" };
+  }
+  let cleaned = reply;
+  if (cleaned.includes("<think>")) {
+    const parsed = splitThinkingText(cleaned);
+    cleaned = parsed.translation;
+  }
+  cleaned = cleaned.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+  let parsedObj = null;
+  try {
+    parsedObj = JSON.parse(cleaned);
+  } catch (e) {
+    const s = cleaned.indexOf("{");
+    const eIdx = cleaned.lastIndexOf("}");
+    if (s !== -1 && eIdx > s) {
+      try {
+        parsedObj = JSON.parse(cleaned.substring(s, eIdx + 1));
+      } catch (_) {}
+    }
+  }
+
+  if (parsedObj && typeof parsedObj === "object") {
+    return {
+      has_error: Boolean(parsedObj.has_error),
+      corrected: typeof parsedObj.corrected === "string" ? parsedObj.corrected.trim() : "",
+      explanation: typeof parsedObj.explanation === "string" ? parsedObj.explanation.trim() : ""
+    };
+  }
+
+  return { has_error: false, corrected: "", explanation: "" };
+}
+
+function shouldShowGrammarSuggestion(originalText, result) {
+  if (!result || !result.has_error || !result.corrected) return false;
+  const orig = (originalText || "").trim();
+  const corr = result.corrected.trim();
+  if (!orig || !corr) return false;
+  return orig.toLowerCase() !== corr.toLowerCase();
+}
+
+function hideGrammarSuggestion() {
+  if (grammarSuggestionBox) {
+    grammarSuggestionBox.classList.add("hidden");
+  }
+}
+
+function showGrammarSuggestion(correctedText, explanation = "") {
+  if (!grammarSuggestionBox || !grammarSuggestionText) return;
+  grammarSuggestionText.textContent = correctedText;
+  if (explanation) {
+    grammarSuggestionText.title = `${explanation} (Click to apply)`;
+  } else {
+    grammarSuggestionText.title = "Click to apply correction";
+  }
+  grammarSuggestionBox.classList.remove("hidden");
+}
+
+function applyGrammarSuggestion() {
+  if (!grammarSuggestionText) return;
+  const corrected = grammarSuggestionText.textContent;
+  if (corrected) {
+    srcTextarea.value = corrected;
+    charCounter.textContent = `${corrected.length} characters`;
+    hideGrammarSuggestion();
+    if (srcTextarea && typeof srcTextarea.focus === "function") {
+      srcTextarea.focus();
+    }
+    translate();
+  }
+}
+
+async function checkGrammarAndTypo(rawText) {
+  const trimmed = rawText ? rawText.trim() : "";
+  if (!trimmed || trimmed.length < 2 || !/\p{L}/u.test(trimmed) || isUrlLike(trimmed) || isApiKeyLike(trimmed)) {
+    hideGrammarSuggestion();
+    return;
+  }
+
+  if (grammarCache.has(trimmed)) {
+    const cached = grammarCache.get(trimmed);
+    if (shouldShowGrammarSuggestion(trimmed, cached)) {
+      showGrammarSuggestion(cached.corrected, cached.explanation);
+    } else {
+      hideGrammarSuggestion();
+    }
+    return;
+  }
+
+  if (grammarAbortController) {
+    grammarAbortController.abort();
+  }
+  grammarAbortController = new AbortController();
+
+  try {
+    const config = await chrome.storage.local.get([
+      "apiEndpoint",
+      "apiKey",
+      "model",
+      "modelType",
+      "grammarCheck"
+    ]);
+
+    if (config.grammarCheck === false) {
+      hideGrammarSuggestion();
+      return;
+    }
+
+    const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+    const apiKey = config.apiKey || "";
+    const model = config.model || "qwen";
+    const endpointUrl = formatChatEndpointUrl(apiEndpoint);
+
+    const systemPrompt = "You are a smart grammar and spell-checker assistant. Analyze the user's input text for typos, misspellings, or grammatical errors in whatever language it is written in.\\nIf there is any typo, misspelling, punctuation issue, or grammatical mistake, provide the corrected version.\\nRespond ONLY in the following JSON format without markdown code blocks:\\n{\\\"has_error\\\": true, \\\"corrected\\\": \\\"<the fully corrected sentence/text>\\\", \\\"explanation\\\": \\\"<brief reason, e.g. Fixed typo>\\\"}\\nIf the input is already correct, natural, or has no errors, respond ONLY in this JSON format:\\n{\\\"has_error\\\": false, \\\"corrected\\\": \\\"\\\", \\\"explanation\\\": \\\"\\\"}";
+
+    const messagesPayload = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: `Please proofread and check the following text for typos or grammatical errors:\n\n${trimmed}` }
+    ];
+
+    const payload = {
+      model: model,
+      messages: messagesPayload,
+      temperature: 0.1,
+      stream: false
+    };
+
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(endpointUrl, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(payload),
+      signal: grammarAbortController.signal
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const reply = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : "";
+    if (!reply) return;
+
+    const resultObj = parseGrammarCorrectionResponse(reply);
+
+    grammarCache.set(trimmed, resultObj);
+    if (grammarCache.size > 50) {
+      const firstKey = grammarCache.keys().next().value;
+      grammarCache.delete(firstKey);
+    }
+
+    if (srcTextarea.value.trim() !== trimmed) {
+      return;
+    }
+
+    if (shouldShowGrammarSuggestion(trimmed, resultObj)) {
+      showGrammarSuggestion(resultObj.corrected, resultObj.explanation);
+    } else {
+      hideGrammarSuggestion();
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      console.warn("Grammar check error:", err);
+    }
+  }
+}
 
 function splitThinkingText(text) {
   let thinking = "";
@@ -2274,6 +2456,7 @@ function getFormSettingsState() {
     temperature: tempInput ? parseFloat(tempInput.value) : 0.1,
     maxHistory: historyInput ? parseInt(historyInput.value, 10) : 100,
     autoTranslate: autoInput ? autoInput.checked : true,
+    grammarCheck: checkGrammarCheck ? checkGrammarCheck.checked : true,
     richLearningMode: checkRichLearning ? checkRichLearning.checked : true,
     doubleClickTranslate: dblclickInput ? dblclickInput.checked : true,
     streamTranslations: streamInput ? streamInput.checked : true,
@@ -2298,6 +2481,7 @@ function areSettingsDifferent(stateA, stateB, ignoreKeys = []) {
     "temperature",
     "maxHistory",
     "autoTranslate",
+    "grammarCheck",
     "richLearningMode",
     "doubleClickTranslate",
     "streamTranslations",
@@ -2401,6 +2585,9 @@ function applyStateToForm(state) {
   if (state.autoTranslate !== undefined && document.getElementById("check-auto-translate")) {
     document.getElementById("check-auto-translate").checked = !!state.autoTranslate;
   }
+  if (state.grammarCheck !== undefined && checkGrammarCheck) {
+    checkGrammarCheck.checked = !!state.grammarCheck;
+  }
   if (state.richLearningMode !== undefined && checkRichLearning) {
     checkRichLearning.checked = !!state.richLearningMode;
   }
@@ -2453,6 +2640,7 @@ function setupSettingsDraftListeners() {
     { id: "input-max-history", evts: ["input", "change"] },
     { id: "select-text-size", evts: ["change"] },
     { id: "check-auto-translate", evts: ["change"] },
+    { id: "check-grammar-check", evts: ["change"] },
     { id: "check-rich-learning", evts: ["change"] },
     { id: "check-dblclick-translate", evts: ["change"] },
     { id: "check-stream-translations", evts: ["change"] },
@@ -2507,6 +2695,7 @@ async function loadSettingsToUI() {
     "systemPromptLearning",
     "maxHistory",
     "autoTranslate",
+    "grammarCheck",
     "richLearningMode",
     "doubleClickTranslate",
     "streamTranslations",
@@ -2556,6 +2745,7 @@ async function loadSettingsToUI() {
     temperature: res.temperature ?? 0.1,
     maxHistory: res.maxHistory ?? 100,
     autoTranslate: res.autoTranslate !== false,
+    grammarCheck: res.grammarCheck !== false,
     richLearningMode: res.richLearningMode !== false,
     doubleClickTranslate: res.doubleClickTranslate !== false,
     streamTranslations: res.streamTranslations !== false,
@@ -2626,6 +2816,7 @@ btnSaveSettings.addEventListener("click", async () => {
   const temperature = parseFloat(document.getElementById("input-temperature").value);
   const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
   const autoTranslate = document.getElementById("check-auto-translate").checked;
+  const grammarCheck = checkGrammarCheck ? checkGrammarCheck.checked : true;
   const richLearningMode = checkRichLearning.checked;
   const doubleClickTranslate = document.getElementById("check-dblclick-translate").checked;
   const streamTranslations = document.getElementById("check-stream-translations").checked;
@@ -2647,6 +2838,7 @@ btnSaveSettings.addEventListener("click", async () => {
     temperature,
     maxHistory,
     autoTranslate,
+    grammarCheck,
     richLearningMode,
     doubleClickTranslate,
     streamTranslations,
@@ -2668,6 +2860,7 @@ btnSaveSettings.addEventListener("click", async () => {
     temperature,
     maxHistory,
     autoTranslate,
+    grammarCheck,
     richLearningMode,
     doubleClickTranslate,
     streamTranslations,
@@ -2712,6 +2905,7 @@ btnResetSettings.addEventListener("click", async () => {
       temperature: 0.1,
       maxHistory: 100,
       autoTranslate: true,
+      grammarCheck: true,
       richLearningMode: true,
       doubleClickTranslate: true,
       streamTranslations: true,
@@ -2756,6 +2950,7 @@ const EXPORTABLE_SETTING_KEYS = [
   "systemPromptLearning",
   "maxHistory",
   "autoTranslate",
+  "grammarCheck",
   "richLearningMode",
   "doubleClickTranslate",
   "streamTranslations",
@@ -3088,6 +3283,8 @@ document.getElementById("btn-clear-src").addEventListener("click", () => {
   targetContent.classList.add("empty");
   btnCopy.disabled = true;
   btnTts.disabled = true;
+  hideGrammarSuggestion();
+  if (grammarAbortController) grammarAbortController.abort();
   srcTextarea.focus();
 });
 
@@ -3097,6 +3294,11 @@ document.getElementById("btn-paste").addEventListener("click", async () => {
     srcTextarea.value = text;
     charCounter.textContent = `${text.length} characters`;
     srcTextarea.focus();
+    
+    // Check grammar on paste
+    if (text.trim()) {
+      checkGrammarAndTypo(text);
+    }
     
     const res = await chrome.storage.local.get("autoTranslate");
     if (res.autoTranslate !== false && text.trim()) {
@@ -3211,7 +3413,7 @@ selectTarget.addEventListener("change", async () => {
   }
 });
 
-// Keypress translate / typing auto-translate
+// Keypress translate / typing auto-translate & live grammar check
 srcTextarea.addEventListener("input", () => {
   const text = srcTextarea.value;
   charCounter.textContent = `${text.length} characters`;
@@ -3221,8 +3423,16 @@ srcTextarea.addEventListener("input", () => {
     targetContent.classList.add("empty");
     btnCopy.disabled = true;
     btnTts.disabled = true;
+    hideGrammarSuggestion();
+    if (grammarAbortController) grammarAbortController.abort();
     return;
   }
+
+  // Live grammar / typo check after 750ms debounce (500ms~1s)
+  clearTimeout(grammarDebounceTimer);
+  grammarDebounceTimer = setTimeout(() => {
+    checkGrammarAndTypo(srcTextarea.value);
+  }, 750);
   
   chrome.storage.local.get("autoTranslate", (result) => {
     if (result.autoTranslate !== false) {
@@ -3233,6 +3443,19 @@ srcTextarea.addEventListener("input", () => {
     }
   });
 });
+
+// Grammar suggestion UI actions
+if (btnGrammarApply) {
+  btnGrammarApply.addEventListener("click", applyGrammarSuggestion);
+}
+if (grammarSuggestionText) {
+  grammarSuggestionText.addEventListener("click", applyGrammarSuggestion);
+}
+if (btnGrammarDismiss) {
+  btnGrammarDismiss.addEventListener("click", () => {
+    hideGrammarSuggestion();
+  });
+}
 
 srcTextarea.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
