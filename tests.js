@@ -1272,7 +1272,30 @@ async function executeTestSuite() {
     assert.strictEqual(state.grammarCheck, true);
   });
 
-  // Test 31: isToday helper tests for edge cases and correct date matching
+  // Test 31: getGemmaLangCode mapping logic
+  await runTest("getGemmaLangCode should correctly map languages to specific tags or default to english/original", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    assert.strictEqual(sandbox.getGemmaLangCode(undefined), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode(null), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode(""), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode("auto"), "en");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-TW"), "zh_Hant");
+    assert.strictEqual(sandbox.getGemmaLangCode("繁體中文"), "zh_Hant");
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-Hant"), "zh_Hant");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-CN"), "zh_Hans");
+    assert.strictEqual(sandbox.getGemmaLangCode("簡體中文"), "zh_Hans");
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-Hans"), "zh_Hans");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("fr"), "fr");
+    assert.strictEqual(sandbox.getGemmaLangCode("es"), "es");
+  });
+
+  // Test 32: isToday helper tests for edge cases and correct date matching
   await runTest("isToday should accurately match today's date and handle invalid inputs gracefully", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
