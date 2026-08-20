@@ -1272,6 +1272,31 @@ async function executeTestSuite() {
     assert.strictEqual(state.grammarCheck, true);
   });
 
+  // Test 31: escapeTelegramHTML should escape HTML entities correctly
+  await runTest("escapeTelegramHTML should escape special characters correctly", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    // Falsy / empty values
+    assert.strictEqual(sandbox.escapeTelegramHTML(null), "");
+    assert.strictEqual(sandbox.escapeTelegramHTML(undefined), "");
+    assert.strictEqual(sandbox.escapeTelegramHTML(""), "");
+
+    // Normal strings without special chars
+    assert.strictEqual(sandbox.escapeTelegramHTML("Hello World"), "Hello World");
+    assert.strictEqual(sandbox.escapeTelegramHTML("No escape needed"), "No escape needed");
+
+    // Strings with special chars
+    assert.strictEqual(sandbox.escapeTelegramHTML("Fish & Chips"), "Fish &amp; Chips");
+    assert.strictEqual(sandbox.escapeTelegramHTML("<script>alert('xss')</script>"), "&lt;script&gt;alert('xss')&lt;/script&gt;");
+    assert.strictEqual(sandbox.escapeTelegramHTML("5 < 10 & 20 > 15"), "5 &lt; 10 &amp; 20 &gt; 15");
+
+    // Multiple occurrences
+    assert.strictEqual(sandbox.escapeTelegramHTML("&&&&"), "&amp;&amp;&amp;&amp;");
+    assert.strictEqual(sandbox.escapeTelegramHTML("<<<<>>>>"), "&lt;&lt;&lt;&lt;&gt;&gt;&gt;&gt;");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
