@@ -433,6 +433,34 @@ async function executeTestSuite() {
     );
   });
 
+  // Test 9b: getBilingualLangName logic
+  await runTest("getBilingualLangName should return correctly mapped bilingual names and handle fallbacks", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    // Test exact mapping matches
+    assert.strictEqual(sandbox.getBilingualLangName("en"), "English");
+    assert.strictEqual(sandbox.getBilingualLangName("ja"), "日本語 / Japanese");
+    assert.strictEqual(sandbox.getBilingualLangName("auto"), "自動偵測 / Auto Detect");
+
+    // Test Traditional Chinese aliases
+    assert.strictEqual(sandbox.getBilingualLangName("繁體中文"), "繁體中文 / Traditional Chinese");
+    assert.strictEqual(sandbox.getBilingualLangName("zh-TW"), "繁體中文 / Traditional Chinese");
+    assert.strictEqual(sandbox.getBilingualLangName("zh-Hant"), "繁體中文 / Traditional Chinese");
+
+    // Test Simplified Chinese aliases
+    assert.strictEqual(sandbox.getBilingualLangName("簡體中文"), "簡體中文 / Simplified Chinese");
+    assert.strictEqual(sandbox.getBilingualLangName("zh-CN"), "簡體中文 / Simplified Chinese");
+    assert.strictEqual(sandbox.getBilingualLangName("zh-Hans"), "簡體中文 / Simplified Chinese");
+
+    // Test fallback (returns the input as is if not found)
+    assert.strictEqual(sandbox.getBilingualLangName("unknown-lang"), "unknown-lang");
+    assert.strictEqual(sandbox.getBilingualLangName(""), "");
+    assert.strictEqual(sandbox.getBilingualLangName(null), null);
+    assert.strictEqual(sandbox.getBilingualLangName(undefined), undefined);
+  });
+
   // Test 10: Numeric filter ignore logic
   await runTest("Translation filter should ignore pure numbers and pure symbols but allow mixed text", () => {
     // Helper regex checks
