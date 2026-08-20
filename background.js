@@ -127,7 +127,7 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
   const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}${suffix}`;
   
   const res = await chrome.storage.local.get("translationCache");
-  const cache = res.translationCache || {};
+  let cache = res.translationCache || {};
   
   cache[cacheKey] = {
     data: translationData,
@@ -138,9 +138,11 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
   const keys = Object.keys(cache);
   if (keys.length > 500) {
     keys.sort((a, b) => cache[a].timestamp - cache[b].timestamp);
-    for (let i = 0; i < 50; i++) {
-      delete cache[keys[i]];
+    const newCache = {};
+    for (let i = 50; i < keys.length; i++) {
+      newCache[keys[i]] = cache[keys[i]];
     }
+    cache = newCache;
   }
   await chrome.storage.local.set({ translationCache: cache });
 }
