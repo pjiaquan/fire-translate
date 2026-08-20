@@ -90,6 +90,7 @@ function createSandbox() {
     localStorage: mockLocalStorageObj
   };
 
+  const importScripts = () => {};
   const mockChrome = {
     storage: {
       local: {
@@ -179,6 +180,7 @@ function createSandbox() {
     mockWebLocalStorage: mockWebLocalStorage,
     elementsMap: elementsMap,
     mockLocalStorage: mockLocalStorage,
+    importScripts: importScripts,
     mockSessionStorage: mockSessionStorage
   };
 }
@@ -199,9 +201,10 @@ async function runTest(name, fn) {
 }
 
 // Load scripts
-const popupCode = fs.readFileSync('popup.js', 'utf8');
-const bgCode = fs.readFileSync('background.js', 'utf8');
-const contentCode = fs.readFileSync('content.js', 'utf8');
+const utilsCode = fs.readFileSync('utils.js', 'utf8');
+const popupCode = utilsCode + '\n' + fs.readFileSync('popup.js', 'utf8');
+const bgCode = utilsCode + '\n' + fs.readFileSync('background.js', 'utf8');
+const contentCode = utilsCode + '\n' + fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {
   // Test 1: Cache initialization & key hashing
