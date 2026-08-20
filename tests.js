@@ -1272,7 +1272,82 @@ async function executeTestSuite() {
     assert.strictEqual(state.grammarCheck, true);
   });
 
-  // Test 31: areSettingsDifferent edge cases and comparisons
+  // Test 31: getGemmaLangCode mapping logic
+  await runTest("getGemmaLangCode should correctly map languages to specific tags or default to english/original", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    assert.strictEqual(sandbox.getGemmaLangCode(undefined), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode(null), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode(""), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode("auto"), "en");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-TW"), "zh_Hant");
+    assert.strictEqual(sandbox.getGemmaLangCode("繁體中文"), "zh_Hant");
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-Hant"), "zh_Hant");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-CN"), "zh_Hans");
+    assert.strictEqual(sandbox.getGemmaLangCode("簡體中文"), "zh_Hans");
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-Hans"), "zh_Hans");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("fr"), "fr");
+    assert.strictEqual(sandbox.getGemmaLangCode("es"), "es");
+  });
+
+  // Test 32: isToday helper tests for edge cases and correct date matching
+  await runTest("isToday should accurately match today's date and handle invalid inputs gracefully", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    // Create dates to test
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Test today
+    assert.strictEqual(sandbox.isToday(today.toISOString()), true, "Should return true for today's ISO string");
+
+    // Test other dates
+    assert.strictEqual(sandbox.isToday(yesterday.toISOString()), false, "Should return false for yesterday");
+    assert.strictEqual(sandbox.isToday(tomorrow.toISOString()), false, "Should return false for tomorrow");
+    assert.strictEqual(sandbox.isToday("2000-01-01T00:00:00.000Z"), false, "Should return false for a fixed past date");
+
+    // Test edge cases
+    assert.strictEqual(sandbox.isToday(null), false, "Should return false for null");
+    assert.strictEqual(sandbox.isToday(undefined), false, "Should return false for undefined");
+    assert.strictEqual(sandbox.isToday(""), false, "Should return false for empty string");
+  });
+
+  // Test 33: escapeTelegramHTML should escape HTML entities correctly
+  await runTest("escapeTelegramHTML should escape special characters correctly", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    // Falsy / empty values
+    assert.strictEqual(sandbox.escapeTelegramHTML(null), "");
+    assert.strictEqual(sandbox.escapeTelegramHTML(undefined), "");
+    assert.strictEqual(sandbox.escapeTelegramHTML(""), "");
+
+    // Normal strings without special chars
+    assert.strictEqual(sandbox.escapeTelegramHTML("Hello World"), "Hello World");
+    assert.strictEqual(sandbox.escapeTelegramHTML("No escape needed"), "No escape needed");
+
+    // Strings with special chars
+    assert.strictEqual(sandbox.escapeTelegramHTML("Fish & Chips"), "Fish &amp; Chips");
+    assert.strictEqual(sandbox.escapeTelegramHTML("<script>alert('xss')</script>"), "&lt;script&gt;alert('xss')&lt;/script&gt;");
+    assert.strictEqual(sandbox.escapeTelegramHTML("5 < 10 & 20 > 15"), "5 &lt; 10 &amp; 20 &gt; 15");
+
+    // Multiple occurrences
+    assert.strictEqual(sandbox.escapeTelegramHTML("&&&&"), "&amp;&amp;&amp;&amp;");
+    assert.strictEqual(sandbox.escapeTelegramHTML("<<<<>>>>"), "&lt;&lt;&lt;&lt;&gt;&gt;&gt;&gt;");
+  });
+
+  // Test 34: areSettingsDifferent edge cases and comparisons
   await runTest("areSettingsDifferent correctly identifies changes, fallbacks, ignores keys, and handles nulls", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
@@ -1321,8 +1396,6 @@ async function executeTestSuite() {
     assert.strictEqual(areSettingsDifferent(baseState, { ...baseState, model: "  llama3" }), false);
 
     // Default fallback handling
-    // If stateA is null/undefined for systemPrompt, it uses the default prompt.
-    // So if stateA has undefined, and stateB has the default prompt, they should be the same.
     const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
     const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
 
@@ -1333,7 +1406,6 @@ async function executeTestSuite() {
 
     // Another fallback case: if stateA has standard prompts, stateB has undefined, they are same.
     assert.strictEqual(areSettingsDifferent(stateBWithDefaultPrompts, stateAWithNullPrompts), false);
-
   });
 
   // Summary reporting
