@@ -1295,6 +1295,33 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.getGemmaLangCode("es"), "es");
   });
 
+  // Test 32: isToday helper tests for edge cases and correct date matching
+  await runTest("isToday should accurately match today's date and handle invalid inputs gracefully", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    // Create dates to test
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Test today
+    assert.strictEqual(sandbox.isToday(today.toISOString()), true, "Should return true for today's ISO string");
+
+    // Test other dates
+    assert.strictEqual(sandbox.isToday(yesterday.toISOString()), false, "Should return false for yesterday");
+    assert.strictEqual(sandbox.isToday(tomorrow.toISOString()), false, "Should return false for tomorrow");
+    assert.strictEqual(sandbox.isToday("2000-01-01T00:00:00.000Z"), false, "Should return false for a fixed past date");
+
+    // Test edge cases
+    assert.strictEqual(sandbox.isToday(null), false, "Should return false for null");
+    assert.strictEqual(sandbox.isToday(undefined), false, "Should return false for undefined");
+    assert.strictEqual(sandbox.isToday(""), false, "Should return false for empty string");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
