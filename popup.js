@@ -1507,7 +1507,10 @@ const inputSearchExclusions = document.getElementById("input-search-exclusions")
 async function removeExclusionDomain(domain) {
   const updateRes = await chrome.storage.local.get("disabledDomains");
   let list = updateRes.disabledDomains || [];
-  list = list.filter(d => d !== domain);
+  const idx = list.indexOf(domain);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+  }
   await chrome.storage.local.set({ disabledDomains: list });
   await renderDisabledSitesList();
   await addLog("info", `Removed website exclusion for ${domain}`);
@@ -3263,8 +3266,11 @@ async function loadHistoryItem(item) {
 async function deleteHistoryItem(id) {
   const res = await chrome.storage.local.get("history");
   const history = res.history || [];
-  const updatedHistory = history.filter(item => item.id !== id);
-  await chrome.storage.local.set({ history: updatedHistory });
+  const index = history.findIndex(item => item.id === id);
+  if (index !== -1) {
+    history.splice(index, 1);
+  }
+  await chrome.storage.local.set({ history });
   renderHistory();
   await addLog("info", "Deleted a single history item");
 }
