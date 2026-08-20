@@ -448,6 +448,7 @@ async function executeTestSuite() {
   await runTest("getBilingualLangName should return correctly mapped bilingual names and handle fallbacks", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
 
     // Test exact mapping matches
@@ -496,20 +497,10 @@ async function executeTestSuite() {
 
   // Test 11: Endpoint URL normalization helper
   await runTest("formatChatEndpointUrl should format base URLs, /v1 paths, and full endpoints correctly", () => {
-    function formatChatEndpointUrl(apiEndpoint) {
-      if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
-      let clean = apiEndpoint.trim().replace(/\/$/, "");
-      if (clean.includes("googleapis.com") && !clean.includes("/openai")) {
-        clean = `${clean}/openai`;
-      }
-      if (clean.endsWith("/chat/completions")) {
-        return clean;
-      }
-      if (clean.endsWith("/v1")) {
-        return `${clean}/chat/completions`;
-      }
-      return `${clean}/v1/chat/completions`;
-    }
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    const formatChatEndpointUrl = sandbox.formatChatEndpointUrl;
 
     assert.strictEqual(formatChatEndpointUrl("http://localhost:11434"), "http://localhost:11434/v1/chat/completions");
     assert.strictEqual(formatChatEndpointUrl("https://api.openai.com/v1"), "https://api.openai.com/v1/chat/completions");
@@ -744,49 +735,11 @@ async function executeTestSuite() {
 
   // Test 16: Website domain exclusion check
   await runTest("Website domain exclusion should mute translation when domain or base domain (*.example.com) is disabled", () => {
-    function getBaseDomain(hostname) {
-      if (!hostname || typeof hostname !== "string") return "";
-      const host = hostname.toLowerCase().trim();
-      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || !host.includes(".")) {
-        return host;
-      }
-      const parts = host.split(".");
-      if (parts.length <= 2) {
-        return host;
-      }
-      const multiPartTlds = [
-        "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk",
-        "com.tw", "org.tw", "net.tw", "edu.tw", "gov.tw",
-        "co.jp", "ne.jp", "or.jp", "ac.jp",
-        "com.au", "net.au", "org.au",
-        "com.cn", "net.cn", "org.cn", "gov.cn",
-        "com.br", "net.br", "org.br",
-        "co.nz", "net.nz", "org.nz",
-        "co.za", "web.za", "org.za"
-      ];
-      const lastTwo = parts.slice(-2).join(".");
-      if (multiPartTlds.includes(lastTwo) && parts.length >= 3) {
-        return parts.slice(-3).join(".");
-      }
-      return parts.slice(-2).join(".");
-    }
-
-    function isDomainDisabled(hostname, disabledDomains) {
-      if (!hostname || !Array.isArray(disabledDomains) || disabledDomains.length === 0) {
-        return false;
-      }
-      const host = hostname.toLowerCase().trim();
-      const base = getBaseDomain(host);
-
-      return disabledDomains.some(entry => {
-        if (!entry) return false;
-        let cleanEntry = entry.toLowerCase().trim();
-        if (cleanEntry.startsWith("*.")) {
-          cleanEntry = cleanEntry.slice(2);
-        }
-        return host === cleanEntry || host.endsWith("." + cleanEntry) || base === cleanEntry || base.endsWith("." + cleanEntry);
-      });
-    }
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    const getBaseDomain = sandbox.getBaseDomain;
+    const isDomainDisabled = sandbox.isDomainDisabled;
 
     // 1. Base domain extraction verification
     assert.strictEqual(getBaseDomain("jkaljsd.example.com"), "example.com");
@@ -1037,6 +990,7 @@ async function executeTestSuite() {
     Object.assign(reopened.mockSessionStorage, sandbox.mockSessionStorage);
     Object.assign(reopened.mockWebLocalStorage, sandbox.mockWebLocalStorage);
     vm.createContext(reopened);
+    vm.runInContext(sharedCode, reopened);
     vm.runInContext(popupCode, reopened);
 
     await reopened.loadSettingsToUI();
@@ -1351,6 +1305,7 @@ async function executeTestSuite() {
   await runTest("isToday should accurately match today's date and handle invalid inputs gracefully", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
 
     // Create dates to test
@@ -1378,6 +1333,7 @@ async function executeTestSuite() {
   await runTest("escapeTelegramHTML should escape special characters correctly", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
 
     // Falsy / empty values
@@ -1403,6 +1359,7 @@ async function executeTestSuite() {
   await runTest("areSettingsDifferent correctly identifies changes, fallbacks, ignores keys, and handles nulls", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
     const areSettingsDifferent = sandbox.areSettingsDifferent;
 
