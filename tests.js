@@ -200,9 +200,9 @@ async function runTest(name, fn) {
 }
 
 // Load scripts
-const utilsCode = fs.readFileSync('utils.js', 'utf8');
-const popupCode = utilsCode + "\n" + fs.readFileSync('popup.js', 'utf8');
-const bgCode = utilsCode + "\n" + fs.readFileSync('background.js', 'utf8');
+const sharedCode = fs.readFileSync('shared.js', 'utf8');
+const popupCode = sharedCode + "\n" + fs.readFileSync('popup.js', 'utf8');
+const bgCode = sharedCode + "\n" + fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {

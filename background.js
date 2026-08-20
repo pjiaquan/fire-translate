@@ -1,4 +1,4 @@
-importScripts("utils.js");
+importScripts("shared.js");
 
 // background.js for Fire Translate
 
