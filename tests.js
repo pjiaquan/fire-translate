@@ -199,16 +199,21 @@ async function runTest(name, fn) {
 }
 
 // Load scripts
+const utilsCode = fs.readFileSync('utils.js', 'utf8');
 const popupCode = fs.readFileSync('popup.js', 'utf8');
 const bgCode = fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
+
+// Prepend utils to scripts that need it for testing
+const popupWithUtils = utilsCode + '\n' + popupCode;
+const contentWithUtils = utilsCode + '\n' + contentCode;
 
 async function executeTestSuite() {
   // Test 1: Cache initialization & key hashing
   await runTest("Cache utility should store and retrieve translations", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     // Invoke caching helper functions
     const srcText = "hello";
@@ -228,7 +233,7 @@ async function executeTestSuite() {
   await runTest("Cache should evict oldest items when exceeding threshold", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     // Write 550 items to trigger eviction (cap is 500)
     for (let i = 0; i < 550; i++) {
@@ -245,7 +250,7 @@ async function executeTestSuite() {
   await runTest("System prompt replacing should format languages correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     const rawPrompt = "Translate user text into {target_lang} correctly.";
     const targetLangName = sandbox.languageNames["zh-TW"] || "zh-TW";
@@ -278,7 +283,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
     // Should compile and run without runtime exceptions
-    vm.runInContext(contentCode, sandbox);
+    vm.runInContext(contentWithUtils, sandbox);
   });
 
   // Test 6: Background script should evaluate and execute successfully
@@ -389,7 +394,7 @@ async function executeTestSuite() {
     };
     
     vm.createContext(sandbox);
-    vm.runInContext(contentCode, sandbox);
+    vm.runInContext(contentWithUtils, sandbox);
     
     const sentence = sandbox.getSentenceForSelection(mockSelection);
     assert.strictEqual(
@@ -928,7 +933,7 @@ async function executeTestSuite() {
   await runTest("Instant Keystroke Auto-Draft should save settings state to localStorage but never persist credentials", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
     sandbox.document.getElementById("input-model").value = "draft-model-xyz";
@@ -961,7 +966,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     sandbox.mockLocalStorage.apiKey = "original-key";
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
     sandbox.document.getElementById("input-api-key").value = "gsk_only_the_key_changed";
@@ -981,7 +986,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     sandbox.mockLocalStorage.apiKey = "saved-key";
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
     sandbox.document.getElementById("input-model").value = "half-typed-model";
@@ -995,7 +1000,7 @@ async function executeTestSuite() {
     Object.assign(reopened.mockSessionStorage, sandbox.mockSessionStorage);
     Object.assign(reopened.mockWebLocalStorage, sandbox.mockWebLocalStorage);
     vm.createContext(reopened);
-    vm.runInContext(popupCode, reopened);
+    vm.runInContext(popupWithUtils, reopened);
 
     await reopened.loadSettingsToUI();
 
@@ -1009,7 +1014,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     sandbox.mockLocalStorage.apiKey = "original-key";
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
     sandbox.document.getElementById("input-api-key").value = "gsk_new_key";
@@ -1028,7 +1033,7 @@ async function executeTestSuite() {
   await runTest("Visual Status Badge should display Unsaved Draft when draft differs and Synced when saved/discarded", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
     const badge = sandbox.document.getElementById("settings-draft-badge");
@@ -1067,7 +1072,7 @@ async function executeTestSuite() {
     sandbox.mockLocalStorage.model = "qwen2.5:7b";
     sandbox.mockLocalStorage.apiKey = "original-key";
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
     const apiKeyInput = sandbox.document.getElementById("input-api-key");
@@ -1117,7 +1122,7 @@ async function executeTestSuite() {
     sandbox.mockWebLocalStorage["settings_draft"] = JSON.stringify(draftState);
 
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
 
@@ -1148,7 +1153,7 @@ async function executeTestSuite() {
     });
 
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
 
@@ -1166,7 +1171,7 @@ async function executeTestSuite() {
   await runTest("parseGrammarCorrectionResponse should parse pure JSON, markdown fences, and thinking blocks correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     // Pure JSON
     const res1 = sandbox.parseGrammarCorrectionResponse('{"has_error": true, "corrected": "I went to school yesterday.", "explanation": "Fixed verb tense"}');
@@ -1194,7 +1199,7 @@ async function executeTestSuite() {
   await runTest("shouldShowGrammarSuggestion should only trigger on genuine corrections differing from input", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     // True when error and different
     assert.strictEqual(
@@ -1225,7 +1230,7 @@ async function executeTestSuite() {
   await runTest("Live grammar suggestion displays in UI without overwriting user typing", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     const srcTextarea = sandbox.document.getElementById("src-textarea");
     const suggestionBox = sandbox.document.getElementById("grammar-suggestion-box");
@@ -1260,7 +1265,7 @@ async function executeTestSuite() {
     sandbox.mockLocalStorage.grammarCheck = false;
 
     vm.createContext(sandbox);
-    vm.runInContext(popupCode, sandbox);
+    vm.runInContext(popupWithUtils, sandbox);
 
     await sandbox.loadSettingsToUI();
     const checkEl = sandbox.document.getElementById("check-grammar-check");
