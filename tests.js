@@ -1347,6 +1347,67 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.escapeTelegramHTML("<<<<>>>>"), "&lt;&lt;&lt;&lt;&gt;&gt;&gt;&gt;");
   });
 
+  // Test 34: areSettingsDifferent edge cases and comparisons
+  await runTest("areSettingsDifferent correctly identifies changes, fallbacks, ignores keys, and handles nulls", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
+    const areSettingsDifferent = sandbox.areSettingsDifferent;
+
+    // Edge case: null states
+    assert.strictEqual(areSettingsDifferent(null, {}), true);
+    assert.strictEqual(areSettingsDifferent({}, null), true);
+
+    const baseState = {
+      currentProvider: "ollama",
+      apiEndpoint: "http://localhost:11434",
+      apiKey: "123",
+      model: "llama3",
+      modelType: "chat",
+      temperature: 0.5,
+      maxHistory: 10,
+      autoTranslate: false,
+      grammarCheck: false,
+      richLearningMode: false,
+      doubleClickTranslate: false,
+      streamTranslations: false,
+      showThinking: true,
+      textSize: "medium",
+      systemPrompt: "custom prompt",
+      systemPromptLearning: "custom learning prompt",
+      enableTelegram: false,
+      telegramBotToken: "",
+      telegramChatId: ""
+    };
+
+    // Identical
+    assert.strictEqual(areSettingsDifferent(baseState, { ...baseState }), false);
+
+    // One scalar value changed
+    assert.strictEqual(areSettingsDifferent(baseState, { ...baseState, temperature: 0.8 }), true);
+    assert.strictEqual(areSettingsDifferent(baseState, { ...baseState, grammarCheck: true }), true);
+    assert.strictEqual(areSettingsDifferent(baseState, { ...baseState, model: "gemma" }), true);
+
+    // Ignore keys
+    assert.strictEqual(areSettingsDifferent(baseState, { ...baseState, temperature: 0.8 }, ["temperature"]), false);
+
+    // Trim string
+    assert.strictEqual(areSettingsDifferent(baseState, { ...baseState, model: "llama3  " }), false);
+    assert.strictEqual(areSettingsDifferent(baseState, { ...baseState, model: "  llama3" }), false);
+
+    // Default fallback handling
+    const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
+    const defaultPromptLearning = "你是一個專業的語言學習助手。請針對使用者輸入的原文字以及對應的{target_lang}翻譯結果，提供相關的學習資訊（與原文字同語言的相似詞/同義字、替換翻譯及關鍵字詞彙）。\n請務必只返回一個符合以下 JSON 格式的物件，不要包含任何 Markdown 標記（如 ```json）、前言、後記或解釋：\n\n{\n  \"alternatives\": [\n    {\n      \"text\": \"（另一種翻譯方式，例如更正式、更口語或不同語氣的翻譯）\",\n      \"tone\": \"（例如：正式商務、日常口語、書面文學）\",\n      \"explanation\": \"（說明這個翻譯的適用場景或細微差異）\"\n    }\n  ],\n  \"vocabulary\": [\n    {\n      \"word\": \"（從輸入文字中提取的關鍵字，原文字語言）\",\n      \"pos\": \"（詞性，例如 n. / v. / adj.）\",\n      \"translation\": \"（該關鍵詞在{target_lang}中的對應翻譯）\",\n      \"synonyms\": [\"（與原文字同語言的相似詞/同義字，並且在括號內附帶對應翻譯，例如若原文字為英文，請提供如 distraction (分心)、clutter (雜亂) 等格式的英文同義字與翻譯）\"],\n      \"when_to_use\": \"（說明此字詞的使用時機、搭配語境或使用習慣）\",\n      \"example_sentence_source\": \"（使用此關鍵字的英文/原語言例句）\",\n      \"example_sentence_target\": \"（該例句翻譯成{target_lang}的結果）\"\n    }\n  ]\n}";
+
+    const stateAWithNullPrompts = { ...baseState, systemPrompt: null, systemPromptLearning: undefined };
+    const stateBWithDefaultPrompts = { ...baseState, systemPrompt: defaultPrompt, systemPromptLearning: defaultPromptLearning };
+
+    assert.strictEqual(areSettingsDifferent(stateAWithNullPrompts, stateBWithDefaultPrompts), false);
+
+    // Another fallback case: if stateA has standard prompts, stateB has undefined, they are same.
+    assert.strictEqual(areSettingsDifferent(stateBWithDefaultPrompts, stateAWithNullPrompts), false);
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
