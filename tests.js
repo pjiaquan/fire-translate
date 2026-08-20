@@ -1272,7 +1272,57 @@ async function executeTestSuite() {
     assert.strictEqual(state.grammarCheck, true);
   });
 
-  // Test 31: escapeTelegramHTML should escape HTML entities correctly
+  // Test 31: getGemmaLangCode mapping logic
+  await runTest("getGemmaLangCode should correctly map languages to specific tags or default to english/original", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    assert.strictEqual(sandbox.getGemmaLangCode(undefined), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode(null), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode(""), "en");
+    assert.strictEqual(sandbox.getGemmaLangCode("auto"), "en");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-TW"), "zh_Hant");
+    assert.strictEqual(sandbox.getGemmaLangCode("繁體中文"), "zh_Hant");
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-Hant"), "zh_Hant");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-CN"), "zh_Hans");
+    assert.strictEqual(sandbox.getGemmaLangCode("簡體中文"), "zh_Hans");
+    assert.strictEqual(sandbox.getGemmaLangCode("zh-Hans"), "zh_Hans");
+
+    assert.strictEqual(sandbox.getGemmaLangCode("fr"), "fr");
+    assert.strictEqual(sandbox.getGemmaLangCode("es"), "es");
+  });
+
+  // Test 32: isToday helper tests for edge cases and correct date matching
+  await runTest("isToday should accurately match today's date and handle invalid inputs gracefully", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(bgCode, sandbox);
+
+    // Create dates to test
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // Test today
+    assert.strictEqual(sandbox.isToday(today.toISOString()), true, "Should return true for today's ISO string");
+
+    // Test other dates
+    assert.strictEqual(sandbox.isToday(yesterday.toISOString()), false, "Should return false for yesterday");
+    assert.strictEqual(sandbox.isToday(tomorrow.toISOString()), false, "Should return false for tomorrow");
+    assert.strictEqual(sandbox.isToday("2000-01-01T00:00:00.000Z"), false, "Should return false for a fixed past date");
+
+    // Test edge cases
+    assert.strictEqual(sandbox.isToday(null), false, "Should return false for null");
+    assert.strictEqual(sandbox.isToday(undefined), false, "Should return false for undefined");
+    assert.strictEqual(sandbox.isToday(""), false, "Should return false for empty string");
+  });
+
+  // Test 33: escapeTelegramHTML should escape HTML entities correctly
   await runTest("escapeTelegramHTML should escape special characters correctly", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
