@@ -1327,6 +1327,7 @@ async function executeTestSuite() {
   await runTest("getGemmaLangCode should correctly map languages to specific tags or default to english/original", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
 
     assert.strictEqual(sandbox.getGemmaLangCode(undefined), "en");
