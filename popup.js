@@ -52,14 +52,6 @@ if (typeof window !== "undefined") {
   checkViewportMode();
 }
 
-function getGemmaLangCode(lang) {
-  if (!lang) return "en";
-  if (lang === "auto") return "en";
-  if (lang === "zh-TW" || lang === "繁體中文" || lang === "zh-Hant") return "zh_Hant";
-  if (lang === "zh-CN" || lang === "簡體中文" || lang === "zh-Hans") return "zh_Hans";
-  return lang;
-}
-
 function isUrlLike(text) {
   const trimmed = text.trim();
   // 1. Protocol prefix (http://, https://, ftp://, file://, chrome://, etc.)

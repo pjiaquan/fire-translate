@@ -8,6 +8,7 @@ console.log("\x1b[36m%s\x1b[0m", "🧪 Running Fire Translate Extension Unit Tes
 // Helper to create sandbox context with mocks
 function createSandbox() {
   const mockLocalStorage = {};
+  const mockImportScripts = () => {};
   const mockSessionStorage = {};
   const mockWebLocalStorage = {};
   const mockLocalStorageObj = {
@@ -162,6 +163,7 @@ function createSandbox() {
   };
 
   return {
+    importScripts: mockImportScripts,
     console: console,
     chrome: mockChrome,
     document: mockDocument,

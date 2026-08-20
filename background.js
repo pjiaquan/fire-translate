@@ -1,4 +1,5 @@
 // background.js for Fire Translate
+importScripts('utils.js');
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -163,14 +164,6 @@ function getBilingualLangName(lang) {
   if (lang === "繁體中文" || lang === "zh-TW" || lang === "zh-Hant") return "繁體中文 / Traditional Chinese";
   if (lang === "簡體中文" || lang === "zh-CN" || lang === "zh-Hans") return "簡體中文 / Simplified Chinese";
   return mapping[lang] || lang;
-}
-
-function getGemmaLangCode(lang) {
-  if (!lang) return "en";
-  if (lang === "auto") return "en";
-  if (lang === "zh-TW" || lang === "繁體中文" || lang === "zh-Hant") return "zh_Hant";
-  if (lang === "zh-CN" || lang === "簡體中文" || lang === "zh-Hans") return "zh_Hans";
-  return lang;
 }
 
 function cleanTranslateText(text) {

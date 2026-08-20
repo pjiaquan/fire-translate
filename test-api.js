@@ -1,15 +1,8 @@
 // test-api.js - Direct local API translation verification script
+const { getGemmaLangCode } = require('./utils.js');
 const apiEndpoint = "http://192.168.3.202:4090";
 const srcText = "example";
 const targetLang = "zh-TW";
-
-function getGemmaLangCode(lang) {
-  if (!lang) return "en";
-  if (lang === "auto") return "en";
-  if (lang === "zh-TW" || lang === "繁體中文" || lang === "zh-Hant") return "zh_Hant";
-  if (lang === "zh-CN" || lang === "簡體中文" || lang === "zh-Hans") return "zh_Hans";
-  return lang;
-}
 
 async function runTest() {
   // Let's test the standard string prompt for TranslateGemma
