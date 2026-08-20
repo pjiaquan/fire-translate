@@ -1,6 +1,6 @@
 // background.js for Fire Translate
 
-importScripts("utils.js");
+importScripts("shared.js");
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
