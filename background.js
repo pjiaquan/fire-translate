@@ -1,4 +1,5 @@
 // background.js for Fire Translate
+importScripts('shared.js');
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -171,17 +172,6 @@ function getGemmaLangCode(lang) {
   if (lang === "zh-TW" || lang === "繁體中文" || lang === "zh-Hant") return "zh_Hant";
   if (lang === "zh-CN" || lang === "簡體中文" || lang === "zh-Hans") return "zh_Hans";
   return lang;
-}
-
-function cleanTranslateText(text) {
-  if (!text) return "";
-  // 1. Strip HTML tags
-  let cleaned = text.replace(/<\/?[^>]+(>|$)/g, "");
-  // 2. Remove control characters and non-printable characters
-  cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-  // 3. Strip edge non-alphanumeric punctuation and symbols
-  cleaned = cleaned.replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}]+$/u, '');
-  return cleaned.trim();
 }
 
 function isUrlLike(text) {
