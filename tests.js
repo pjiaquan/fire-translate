@@ -179,7 +179,8 @@ function createSandbox() {
     mockWebLocalStorage: mockWebLocalStorage,
     elementsMap: elementsMap,
     mockLocalStorage: mockLocalStorage,
-    mockSessionStorage: mockSessionStorage
+    mockSessionStorage: mockSessionStorage,
+    importScripts: () => {}
   };
 }
 
@@ -199,6 +200,7 @@ async function runTest(name, fn) {
 }
 
 // Load scripts
+const sharedCode = fs.readFileSync('shared.js', 'utf8');
 const popupCode = fs.readFileSync('popup.js', 'utf8');
 const bgCode = fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
@@ -208,6 +210,7 @@ async function executeTestSuite() {
   await runTest("Cache utility should store and retrieve translations", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     // Invoke caching helper functions
@@ -228,6 +231,7 @@ async function executeTestSuite() {
   await runTest("Cache should evict oldest items when exceeding threshold", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     // Write 550 items to trigger eviction (cap is 500)
@@ -245,6 +249,7 @@ async function executeTestSuite() {
   await runTest("System prompt replacing should format languages correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     const rawPrompt = "Translate user text into {target_lang} correctly.";
@@ -278,6 +283,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
     // Should compile and run without runtime exceptions
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(contentCode, sandbox);
   });
 
@@ -286,6 +292,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
     // Should compile and run without runtime exceptions
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
   });
 
@@ -293,6 +300,7 @@ async function executeTestSuite() {
   await runTest("URL detection helper should identify URLs and links correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
     
     // Check that isUrlLike matches URLs
@@ -314,6 +322,7 @@ async function executeTestSuite() {
   await runTest("API key detection helper should identify API keys correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
     
     // Check that isApiKeyLike matches various API keys
@@ -332,6 +341,7 @@ async function executeTestSuite() {
   await runTest("cleanTranslateText should strip edge punctuation, HTML tags, control chars and trim correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
     
     assert.strictEqual(sandbox.cleanTranslateText(" (hello) "), "hello");
@@ -389,6 +399,7 @@ async function executeTestSuite() {
     };
     
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(contentCode, sandbox);
     
     const sentence = sandbox.getSentenceForSelection(mockSelection);
@@ -956,6 +967,7 @@ async function executeTestSuite() {
   await runTest("Instant Keystroke Auto-Draft should save settings state to localStorage but never persist credentials", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -989,6 +1001,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     sandbox.mockLocalStorage.apiKey = "original-key";
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1009,6 +1022,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     sandbox.mockLocalStorage.apiKey = "saved-key";
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1037,6 +1051,7 @@ async function executeTestSuite() {
     const sandbox = createSandbox();
     sandbox.mockLocalStorage.apiKey = "original-key";
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1056,6 +1071,7 @@ async function executeTestSuite() {
   await runTest("Visual Status Badge should display Unsaved Draft when draft differs and Synced when saved/discarded", async () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1095,6 +1111,7 @@ async function executeTestSuite() {
     sandbox.mockLocalStorage.model = "qwen2.5:7b";
     sandbox.mockLocalStorage.apiKey = "original-key";
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1145,6 +1162,7 @@ async function executeTestSuite() {
     sandbox.mockWebLocalStorage["settings_draft"] = JSON.stringify(draftState);
 
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1176,6 +1194,7 @@ async function executeTestSuite() {
     });
 
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1194,6 +1213,7 @@ async function executeTestSuite() {
   await runTest("parseGrammarCorrectionResponse should parse pure JSON, markdown fences, and thinking blocks correctly", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     // Pure JSON
@@ -1222,6 +1242,7 @@ async function executeTestSuite() {
   await runTest("shouldShowGrammarSuggestion should only trigger on genuine corrections differing from input", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     // True when error and different
@@ -1253,6 +1274,7 @@ async function executeTestSuite() {
   await runTest("Live grammar suggestion displays in UI without overwriting user typing", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     const srcTextarea = sandbox.document.getElementById("src-textarea");
@@ -1288,6 +1310,7 @@ async function executeTestSuite() {
     sandbox.mockLocalStorage.grammarCheck = false;
 
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(popupCode, sandbox);
 
     await sandbox.loadSettingsToUI();
@@ -1304,6 +1327,7 @@ async function executeTestSuite() {
   await runTest("getGemmaLangCode should correctly map languages to specific tags or default to english/original", () => {
     const sandbox = createSandbox();
     vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
     vm.runInContext(bgCode, sandbox);
 
     assert.strictEqual(sandbox.getGemmaLangCode(undefined), "en");
