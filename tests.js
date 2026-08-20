@@ -179,7 +179,8 @@ function createSandbox() {
     mockWebLocalStorage: mockWebLocalStorage,
     elementsMap: elementsMap,
     mockLocalStorage: mockLocalStorage,
-    mockSessionStorage: mockSessionStorage
+    mockSessionStorage: mockSessionStorage,
+    importScripts: () => {}
   };
 }
 
@@ -199,8 +200,9 @@ async function runTest(name, fn) {
 }
 
 // Load scripts
-const popupCode = fs.readFileSync('popup.js', 'utf8');
-const bgCode = fs.readFileSync('background.js', 'utf8');
+const cacheCode = fs.readFileSync('cache.js', 'utf8');
+const popupCode = cacheCode + '\n' + fs.readFileSync('popup.js', 'utf8');
+const bgCode = cacheCode + '\n' + fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {
