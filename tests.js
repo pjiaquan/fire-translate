@@ -174,6 +174,7 @@ function createSandbox() {
       "zh-TW": "繁體中文"
     },
     setTimeout: setTimeout,
+    importScripts: () => {},
     clearTimeout: clearTimeout,
     localStorage: mockLocalStorageObj,
     mockWebLocalStorage: mockWebLocalStorage,
@@ -199,8 +200,9 @@ async function runTest(name, fn) {
 }
 
 // Load scripts
-const popupCode = fs.readFileSync('popup.js', 'utf8');
-const bgCode = fs.readFileSync('background.js', 'utf8');
+const utilsCode = fs.readFileSync('utils.js', 'utf8');
+const popupCode = utilsCode + "\n" + fs.readFileSync('popup.js', 'utf8');
+const bgCode = utilsCode + "\n" + fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {
@@ -457,28 +459,18 @@ async function executeTestSuite() {
 
   // Test 11: Endpoint URL normalization helper
   await runTest("formatChatEndpointUrl should format base URLs, /v1 paths, and full endpoints correctly", () => {
-    function formatChatEndpointUrl(apiEndpoint) {
-      if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
-      let clean = apiEndpoint.trim().replace(/\/$/, "");
-      if (clean.includes("googleapis.com") && !clean.includes("/openai")) {
-        clean = `${clean}/openai`;
-      }
-      if (clean.endsWith("/chat/completions")) {
-        return clean;
-      }
-      if (clean.endsWith("/v1")) {
-        return `${clean}/chat/completions`;
-      }
-      return `${clean}/v1/chat/completions`;
-    }
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(popupCode, sandbox);
 
-    assert.strictEqual(formatChatEndpointUrl("http://localhost:11434"), "http://localhost:11434/v1/chat/completions");
-    assert.strictEqual(formatChatEndpointUrl("https://api.openai.com/v1"), "https://api.openai.com/v1/chat/completions");
-    assert.strictEqual(formatChatEndpointUrl("https://api.groq.com/openai"), "https://api.groq.com/openai/v1/chat/completions");
-    assert.strictEqual(formatChatEndpointUrl("https://generativelanguage.googleapis.com/v1beta/openai"), "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions");
-    assert.strictEqual(formatChatEndpointUrl("https://generativelanguage.googleapis.com/v1beta"), "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions");
-    assert.strictEqual(formatChatEndpointUrl("https://api.deepseek.com/v1/chat/completions"), "https://api.deepseek.com/v1/chat/completions");
-    assert.strictEqual(formatChatEndpointUrl("http://192.168.3.202:4090/"), "http://192.168.3.202:4090/v1/chat/completions");
+
+    assert.strictEqual(sandbox.formatChatEndpointUrl("http://localhost:11434"), "http://localhost:11434/v1/chat/completions");
+    assert.strictEqual(sandbox.formatChatEndpointUrl("https://api.openai.com/v1"), "https://api.openai.com/v1/chat/completions");
+    assert.strictEqual(sandbox.formatChatEndpointUrl("https://api.groq.com/openai"), "https://api.groq.com/openai/v1/chat/completions");
+    assert.strictEqual(sandbox.formatChatEndpointUrl("https://generativelanguage.googleapis.com/v1beta/openai"), "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions");
+    assert.strictEqual(sandbox.formatChatEndpointUrl("https://generativelanguage.googleapis.com/v1beta"), "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions");
+    assert.strictEqual(sandbox.formatChatEndpointUrl("https://api.deepseek.com/v1/chat/completions"), "https://api.deepseek.com/v1/chat/completions");
+    assert.strictEqual(sandbox.formatChatEndpointUrl("http://192.168.3.202:4090/"), "http://192.168.3.202:4090/v1/chat/completions");
   });
 
   // Test 12: Provider recipes configuration validation
