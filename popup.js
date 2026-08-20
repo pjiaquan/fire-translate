@@ -404,7 +404,7 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
   const cacheKey = `${srcLang}:${targetLang}:${model}:${richLearningMode}:${normalizedText}${suffix}`;
   
   const res = await chrome.storage.local.get("translationCache");
-  const cache = res.translationCache || {};
+  let cache = res.translationCache || {};
   
   cache[cacheKey] = {
     data: translationData,
@@ -415,9 +415,11 @@ async function setCachedTranslation(srcText, srcLang, targetLang, model, richLea
   const keys = Object.keys(cache);
   if (keys.length > 500) {
     keys.sort((a, b) => cache[a].timestamp - cache[b].timestamp);
-    for (let i = 0; i < 50; i++) {
-      delete cache[keys[i]];
+    const newCache = {};
+    for (let i = 50; i < keys.length; i++) {
+      newCache[keys[i]] = cache[keys[i]];
     }
+    cache = newCache;
   }
   await chrome.storage.local.set({ translationCache: cache });
 }
@@ -1451,7 +1453,10 @@ const inputSearchExclusions = document.getElementById("input-search-exclusions")
 async function removeExclusionDomain(domain) {
   const updateRes = await chrome.storage.local.get("disabledDomains");
   let list = updateRes.disabledDomains || [];
-  list = list.filter(d => d !== domain);
+  const idx = list.indexOf(domain);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+  }
   await chrome.storage.local.set({ disabledDomains: list });
   await renderDisabledSitesList();
   await addLog("info", `Removed website exclusion for ${domain}`);
@@ -3207,8 +3212,11 @@ async function loadHistoryItem(item) {
 async function deleteHistoryItem(id) {
   const res = await chrome.storage.local.get("history");
   const history = res.history || [];
-  const updatedHistory = history.filter(item => item.id !== id);
-  await chrome.storage.local.set({ history: updatedHistory });
+  const index = history.findIndex(item => item.id === id);
+  if (index !== -1) {
+    history.splice(index, 1);
+  }
+  await chrome.storage.local.set({ history });
   renderHistory();
   await addLog("info", "Deleted a single history item");
 }
