@@ -1,0 +1,3 @@
+## 2023-11-20 - Explicit Focus Indicators for Keyboard Navigation
+**Learning:** In custom browser extensions using vanilla CSS where default browser outlines might be suppressed or invisible against dark themes, adding an explicit `:focus-visible` global state is critical for keyboard navigation and screen reader users to identify the currently active element. Dynamically created icon-only buttons often lack accessible names.
+**Action:** Ensure global `:focus-visible` styles with sufficient contrast are included in the base CSS (e.g. `outline: 2px solid var(--accent-color)`), and always add `aria-label` attributes when injecting dynamic button HTML without text content.

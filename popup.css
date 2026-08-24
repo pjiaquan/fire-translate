@@ -78,6 +78,13 @@
   scrollbar-color: var(--border-color) transparent;
 }
 
+/* Accessibility: Focus visible styling for interactive elements */
+:focus-visible {
+  outline: 2px solid var(--accent-color-1);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 body {
   width: 800px;
   min-width: 800px;
