@@ -1482,7 +1482,7 @@ async function renderDisabledSitesList() {
           <span class="exclusion-domain-icon">🌐</span>
           <span>${escapeHTML(domain)}</span>
         </div>
-        <button class="btn-remove-exclusion" title="Remove website exclusion">✕ Remove</button>
+        <button type="button" aria-label="Remove website exclusion" class="btn-remove-exclusion" title="Remove website exclusion">✕ Remove</button>
       `;
       item.querySelector(".btn-remove-exclusion").addEventListener("click", () => removeExclusionDomain(domain));
       exclusionsListContainer.appendChild(item);
@@ -2967,8 +2967,8 @@ async function renderLogs() {
     
     entry.innerHTML = `
       <div>
-        <span class="log-time">[${log.timestamp}]</span>
-        <span class="log-tag ${tagClass}">${log.type.toUpperCase()}</span>
+        <span class="log-time">[${escapeHTML(log.timestamp)}]</span>
+        <span class="log-tag ${tagClass}">${escapeHTML(log.type.toUpperCase())}</span>
         <span class="log-msg">${escapeHTML(log.message)}</span>
       </div>
       ${detailsHtml}
@@ -3013,14 +3013,14 @@ async function renderHistory() {
     
     card.innerHTML = `
       <div class="history-header">
-        <span class="history-meta">${srcLangText} &rarr; ${targetLangText}</span>
-        <span class="history-time" title="${new Date(item.timestamp).toLocaleString()}">${timeText}</span>
+        <span class="history-meta">${escapeHTML(srcLangText)} &rarr; ${escapeHTML(targetLangText)}</span>
+        <span class="history-time" title="${escapeHTML(new Date(item.timestamp).toLocaleString())}">${escapeHTML(timeText)}</span>
       </div>
       <div class="history-texts">
         <div class="history-src">${escapeHTML(item.srcText)}</div>
         <div class="history-target">${escapeHTML(item.targetText)}</div>
       </div>
-      <button class="history-delete-btn" data-id="${item.id}" title="Delete item">
+      <button type="button" aria-label="Delete item" class="history-delete-btn" data-id="${escapeHTML(item.id)}" title="Delete item">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     `;

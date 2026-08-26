@@ -1,0 +1,3 @@
+## 2026-08-26 - [Enhance Safety and Accessibility of Injected Buttons]
+**Learning:** Buttons dynamically injected via JavaScript using `innerHTML` often lack accessibility attributes like `aria-label` (especially for icon-only buttons) and safety attributes like `type="button"`. Omitting `type="button"` can lead to unintended form submissions if the injected HTML is accidentally wrapped in a form tag.
+**Action:** Always explicitly include the `type="button"` attribute and an `aria-label` (when appropriate) on all `<button>` elements that are constructed via string templates and injected into the DOM.
