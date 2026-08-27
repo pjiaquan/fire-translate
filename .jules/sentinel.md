@@ -1,0 +1,4 @@
+## 2024-08-27 - Untrusted `chrome.storage.local` Stored XSS Mitigation
+**Vulnerability:** A Stored XSS vulnerability was identified in `popup.js` where untrusted data (like `log.timestamp`, `item.srcLang`, `item.targetLang`, `item.srcText`, etc) retrieved from `chrome.storage.local` was injected directly into the DOM using `innerHTML` without proper sanitization.
+**Learning:** Data stored in `chrome.storage.local` can be modified by background scripts, content scripts running on potentially malicious websites, or maliciously crafted imports, and thus must be treated as untrusted user input when constructing dynamic UI elements.
+**Prevention:** Always wrap dynamically interpolated variables sourced from `chrome.storage.local` in the project's custom `escapeHTML()` utility when constructing `innerHTML` template strings.
