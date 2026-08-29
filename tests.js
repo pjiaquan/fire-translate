@@ -180,7 +180,9 @@ function createSandbox() {
     elementsMap: elementsMap,
     mockLocalStorage: mockLocalStorage,
     mockSessionStorage: mockSessionStorage,
-    importScripts: () => {}
+    importScripts: () => {},
+    AbortController: typeof AbortController !== "undefined" ? AbortController : class AbortController { constructor() { this.signal = { aborted: false }; } abort() { this.signal.aborted = true; } },
+    fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
   };
 }
 
