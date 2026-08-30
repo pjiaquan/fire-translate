@@ -1,0 +1,3 @@
+## 2024-05-24 - [Dynamically Injected Interactive Elements Lack Accessibility]
+**Learning:** I noticed a pattern where interactive UI elements (like delete buttons or exclusion removal spans) injected dynamically into the DOM using template literals often miss critical accessibility attributes (like `aria-label`, `type="button"`, `role="button"`, and `tabindex="0"`) as well as keyboard event handlers for spans acting as buttons.
+**Action:** When working on dynamically injected HTML, always double-check that interactive elements have complete keyboard support and necessary ARIA attributes, especially icon-only buttons. Ensure that non-native buttons (e.g., spans) receive `role="button"`, `tabindex="0"`, and `keydown` handlers for "Enter" and "Space" keys.

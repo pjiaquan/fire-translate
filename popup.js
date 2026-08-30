@@ -1439,9 +1439,16 @@ async function renderDisabledSitesList() {
         chip.className = "site-chip";
         chip.innerHTML = `
           <span>🚫 ${escapeHTML(domain)}</span>
-          <span class="remove-site-btn" title="Remove exclusion">✕</span>
+          <span class="remove-site-btn" role="button" tabindex="0" title="Remove exclusion" aria-label="Remove exclusion">✕</span>
         `;
-        chip.querySelector(".remove-site-btn").addEventListener("click", () => removeExclusionDomain(domain));
+        const removeBtn = chip.querySelector(".remove-site-btn");
+        removeBtn.addEventListener("click", () => removeExclusionDomain(domain));
+        removeBtn.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            removeExclusionDomain(domain);
+          }
+        });
         disabledSitesChips.appendChild(chip);
       });
     }
@@ -3020,7 +3027,7 @@ async function renderHistory() {
         <div class="history-src">${escapeHTML(item.srcText)}</div>
         <div class="history-target">${escapeHTML(item.targetText)}</div>
       </div>
-      <button class="history-delete-btn" data-id="${item.id}" title="Delete item">
+      <button type="button" class="history-delete-btn" data-id="${item.id}" title="Delete item" aria-label="Delete history item">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     `;
