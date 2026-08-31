@@ -307,6 +307,9 @@ function renderThinkingAndTranslation(translationText, thinkingText) {
     
     const thinkHeader = document.createElement("div");
     thinkHeader.className = "thinking-header";
+    thinkHeader.setAttribute("role", "button");
+    thinkHeader.setAttribute("tabindex", "0");
+    thinkHeader.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
     thinkHeader.innerHTML = `
       <span style="display: flex; align-items: center; gap: 6px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -319,12 +322,21 @@ function renderThinkingAndTranslation(translationText, thinkingText) {
     thinkContent.id = "thinking-content";
     thinkContent.className = "thinking-content";
     
-    thinkHeader.addEventListener("click", () => {
+    const toggleThinking = () => {
       const currentlyCollapsed = thinkBlock.classList.toggle("collapsed");
       localStorage.setItem("thinking-collapsed", currentlyCollapsed ? "true" : "false");
+      thinkHeader.setAttribute("aria-expanded", currentlyCollapsed ? "false" : "true");
       const chevron = thinkHeader.querySelector(".chevron-icon");
       if (chevron) {
         chevron.style.transform = currentlyCollapsed ? "rotate(0deg)" : "rotate(180deg)";
+      }
+    };
+
+    thinkHeader.addEventListener("click", toggleThinking);
+    thinkHeader.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleThinking();
       }
     });
     
@@ -642,6 +654,9 @@ async function renderRichTranslation(data) {
     
     const thinkHeader = document.createElement("div");
     thinkHeader.className = "thinking-header";
+    thinkHeader.setAttribute("role", "button");
+    thinkHeader.setAttribute("tabindex", "0");
+    thinkHeader.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
     thinkHeader.innerHTML = `
       <span style="display: flex; align-items: center; gap: 6px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -654,12 +669,21 @@ async function renderRichTranslation(data) {
     thinkContent.className = "thinking-content";
     thinkContent.textContent = finalThinking;
     
-    thinkHeader.addEventListener("click", () => {
+    const toggleThinking = () => {
       const currentlyCollapsed = thinkBlock.classList.toggle("collapsed");
       localStorage.setItem("thinking-collapsed", currentlyCollapsed ? "true" : "false");
+      thinkHeader.setAttribute("aria-expanded", currentlyCollapsed ? "false" : "true");
       const chevron = thinkHeader.querySelector(".chevron-icon");
       if (chevron) {
         chevron.style.transform = currentlyCollapsed ? "rotate(0deg)" : "rotate(180deg)";
+      }
+    };
+
+    thinkHeader.addEventListener("click", toggleThinking);
+    thinkHeader.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleThinking();
       }
     });
     
@@ -1439,9 +1463,17 @@ async function renderDisabledSitesList() {
         chip.className = "site-chip";
         chip.innerHTML = `
           <span>🚫 ${escapeHTML(domain)}</span>
-          <span class="remove-site-btn" title="Remove exclusion">✕</span>
+          <span class="remove-site-btn" title="Remove exclusion" role="button" tabindex="0" aria-label="Remove exclusion">✕</span>
         `;
-        chip.querySelector(".remove-site-btn").addEventListener("click", () => removeExclusionDomain(domain));
+        const removeBtn = chip.querySelector(".remove-site-btn");
+        const removeAction = () => removeExclusionDomain(domain);
+        removeBtn.addEventListener("click", removeAction);
+        removeBtn.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            removeAction();
+          }
+        });
         disabledSitesChips.appendChild(chip);
       });
     }
@@ -3006,6 +3038,8 @@ async function renderHistory() {
   history.forEach(item => {
     const card = document.createElement("div");
     card.className = "history-item";
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("aria-label", "Load history item");
     
     const srcLangText = languageNames[item.srcLang] || item.srcLang;
     const targetLangText = languageNames[item.targetLang] || item.targetLang;
@@ -3020,14 +3054,23 @@ async function renderHistory() {
         <div class="history-src">${escapeHTML(item.srcText)}</div>
         <div class="history-target">${escapeHTML(item.targetText)}</div>
       </div>
-      <button class="history-delete-btn" data-id="${item.id}" title="Delete item">
+      <button type="button" class="history-delete-btn" data-id="${item.id}" title="Delete item" aria-label="Delete history item">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     `;
     
-    card.addEventListener("click", (e) => {
+    const triggerLoad = (e) => {
       if (e.target.closest(".history-delete-btn")) return;
       loadHistoryItem(item);
+    };
+
+    card.addEventListener("click", triggerLoad);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        if (e.target.closest(".history-delete-btn")) return;
+        e.preventDefault();
+        triggerLoad(e);
+      }
     });
     
     listContainer.appendChild(card);

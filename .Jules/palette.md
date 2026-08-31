@@ -1,0 +1,3 @@
+## 2024-05-23 - Interactive Container Bubbling Anti-Pattern
+**Learning:** Adding `role="button"` to a container element (like a history card) that also contains interactive children (like a delete `<button>`) creates a nested interactive controls anti-pattern. This confuses screen readers and causes event bubbling issues where pressing Enter on the child button triggers the container's keyboard event listener instead.
+**Action:** When adding keyboard navigation to interactive containers, do not add `role="button"` if they contain other buttons. Ensure the `keydown` event listener explicitly ignores events originating from nested interactive elements using `e.target.closest()`.
