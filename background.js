@@ -253,6 +253,9 @@ async function translateInlineText(srcText, contextSentence = "") {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   const response = await fetch(endpointUrl, {
     method: "POST",
     headers: headers,
@@ -260,8 +263,11 @@ async function translateInlineText(srcText, contextSentence = "") {
       model: model,
       messages: messagesPayload,
       temperature: targetTemp
-    })
+    }),
+    signal: controller.signal
   });
+
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     throw new Error(`Phase 1 HTTP error ${response.status}`);
@@ -556,6 +562,9 @@ async function sendToTelegram(srcText, translatedText) {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -563,8 +572,11 @@ async function sendToTelegram(srcText, translatedText) {
         chat_id: chatId,
         text: htmlMessage,
         parse_mode: "HTML"
-      })
+      }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       const responseText = await response.text();
       console.warn("Telegram send failed:", response.status, responseText);
@@ -786,11 +798,17 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   const response = await fetch(endpointUrl, {
     method: "POST",
     headers: headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: controller.signal
   });
+
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     throw new Error(`Phase 1 HTTP error ${response.status}`);
@@ -866,6 +884,9 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
     headers["Authorization"] = `Bearer ${config.apiKey}`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   const response = await fetch(endpointUrl, {
     method: "POST",
     headers: headers,
@@ -877,8 +898,11 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
       ],
       temperature: temp,
       stream: false
-    })
+    }),
+    signal: controller.signal
   });
+
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     throw new Error(`Phase 2 HTTP error ${response.status}`);

@@ -180,7 +180,17 @@ function createSandbox() {
     elementsMap: elementsMap,
     mockLocalStorage: mockLocalStorage,
     mockSessionStorage: mockSessionStorage,
-    importScripts: () => {}
+    importScripts: () => {},
+    AbortController: global.AbortController || require('abort-controller').AbortController,
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: "mock translation" } }] }),
+      text: async () => "mock response",
+      body: {
+        getReader: () => ({ read: async () => ({ done: true, value: new Uint8Array() }) })
+      }
+    }),
+    TextDecoder: global.TextDecoder || require('util').TextDecoder
   };
 }
 
