@@ -1,0 +1,3 @@
+## 2024-05-18 - Dynamically Injected UI Elements Require ARIA Tags
+**Learning:** In projects heavily utilizing vanilla JS to render list structures (like history or settings) via `innerHTML` or `document.createElement`, accessibility attributes like `aria-label` are easily overlooked. It's crucial to apply accessibility standards not just to static HTML files, but also to components dynamically injected via JavaScript templates.
+**Action:** Always verify injected template literals in JavaScript for missing ARIA tags, especially for icon-only buttons like deletion actions.
