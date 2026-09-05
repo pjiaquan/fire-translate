@@ -180,7 +180,9 @@ function createSandbox() {
     elementsMap: elementsMap,
     mockLocalStorage: mockLocalStorage,
     mockSessionStorage: mockSessionStorage,
-    importScripts: () => {}
+    importScripts: () => {},
+    AbortController: class { abort() {} },
+    fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
   };
 }
 
