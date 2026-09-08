@@ -1,0 +1,3 @@
+## 2024-03-24 - Standalone Input and Select Accessibility
+**Learning:** Found multiple standalone form elements (`<select>` and `<textarea>`) used as main workspace inputs without associated explicit `<label>` tags. While visually clear to sighted users, screen readers lack context for these controls.
+**Action:** Always add explicit `aria-label` attributes to any standalone `<input>`, `<select>`, or `<textarea>` element that lacks an explicit `<label>`, especially when used as a primary interactive component in the UI.
