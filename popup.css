@@ -1857,3 +1857,12 @@ body.mobile-mode,
 .margin-bottom-10 {
   margin-bottom: 10px;
 }
+
+/* Keyboard Accessibility Focus States */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent-color-1) !important;
+  outline-offset: 2px !important;
+}
