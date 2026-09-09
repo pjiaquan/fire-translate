@@ -1439,9 +1439,16 @@ async function renderDisabledSitesList() {
         chip.className = "site-chip";
         chip.innerHTML = `
           <span>🚫 ${escapeHTML(domain)}</span>
-          <span class="remove-site-btn" title="Remove exclusion">✕</span>
+          <span class="remove-site-btn" role="button" tabindex="0" aria-label="Remove exclusion" title="Remove exclusion">✕</span>
         `;
-        chip.querySelector(".remove-site-btn").addEventListener("click", () => removeExclusionDomain(domain));
+        const removeBtn = chip.querySelector(".remove-site-btn");
+        removeBtn.addEventListener("click", () => removeExclusionDomain(domain));
+        removeBtn.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            removeExclusionDomain(domain);
+          }
+        });
         disabledSitesChips.appendChild(chip);
       });
     }
@@ -1482,7 +1489,7 @@ async function renderDisabledSitesList() {
           <span class="exclusion-domain-icon">🌐</span>
           <span>${escapeHTML(domain)}</span>
         </div>
-        <button type="button" class="btn-remove-exclusion" title="Remove website exclusion">✕ Remove</button>
+        <button type="button" class="btn-remove-exclusion" title="Remove website exclusion" aria-label="Remove website exclusion">✕ Remove</button>
       `;
       item.querySelector(".btn-remove-exclusion").addEventListener("click", () => removeExclusionDomain(domain));
       exclusionsListContainer.appendChild(item);
