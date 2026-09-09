@@ -2967,8 +2967,8 @@ async function renderLogs() {
     
     entry.innerHTML = `
       <div>
-        <span class="log-time">[${log.timestamp}]</span>
-        <span class="log-tag ${tagClass}">${log.type.toUpperCase()}</span>
+        <span class="log-time">[${escapeHTML(log.timestamp)}]</span>
+        <span class="log-tag ${tagClass}">${escapeHTML(log.type.toUpperCase())}</span>
         <span class="log-msg">${escapeHTML(log.message)}</span>
       </div>
       ${detailsHtml}
@@ -3013,8 +3013,8 @@ async function renderHistory() {
     
     card.innerHTML = `
       <div class="history-header">
-        <span class="history-meta">${srcLangText} &rarr; ${targetLangText}</span>
-        <span class="history-time" title="${new Date(item.timestamp).toLocaleString()}">${timeText}</span>
+        <span class="history-meta">${escapeHTML(srcLangText)} &rarr; ${escapeHTML(targetLangText)}</span>
+        <span class="history-time" title="${escapeHTML(new Date(item.timestamp).toLocaleString())}">${escapeHTML(timeText)}</span>
       </div>
       <div class="history-texts">
         <div class="history-src">${escapeHTML(item.srcText)}</div>

@@ -1,0 +1,4 @@
+## 2025-05-18 - [Stored XSS in History Panel via Missing escapeHTML]
+**Vulnerability:** The translation history panel in `popup.js` renders the source and target languages (`srcLangText` and `targetLangText`) using `innerHTML` without sanitization. If an attacker can inject a malicious language code into `chrome.storage.local` (e.g., via another extension or vulnerability), it will execute arbitrary scripts when the history panel is opened.
+**Learning:** Even internal data like language names or timestamps retrieved from local storage should be treated as untrusted and sanitized before rendering with `innerHTML`, as the storage layer may be manipulated independently of the UI.
+**Prevention:** Always wrap dynamically interpolated variables in `escapeHTML()` when constructing `innerHTML` templates, regardless of the expected data type.
