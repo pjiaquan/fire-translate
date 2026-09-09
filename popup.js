@@ -3324,6 +3324,12 @@ if (btnGrammarApply) {
 }
 if (grammarSuggestionText) {
   grammarSuggestionText.addEventListener("click", applyGrammarSuggestion);
+  grammarSuggestionText.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      if (e.key === " ") e.preventDefault();
+      grammarSuggestionText.click();
+    }
+  });
 }
 if (btnGrammarDismiss) {
   btnGrammarDismiss.addEventListener("click", () => {
