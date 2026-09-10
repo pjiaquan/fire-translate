@@ -43,9 +43,15 @@ function createSandbox() {
             this.listeners[evt].push(fn);
           },
           dispatchEvent: function(evt) {
-            if (this.listeners[evt]) {
-              this.listeners[evt].forEach(fn => fn({ target: this }));
+            const evtType = typeof evt === "string" ? evt : (evt && evt.type);
+            const evtObj = typeof evt === "string" ? { target: this, type: evt } : (evt || { target: this });
+            if (!evtObj.target) evtObj.target = this;
+            if (this.listeners[evtType]) {
+              this.listeners[evtType].forEach(fn => fn(evtObj));
             }
+          },
+          click: function() {
+            this.dispatchEvent({ type: "click", target: this });
           },
           appendChild: () => {},
           removeChild: () => {},
@@ -1265,6 +1271,67 @@ async function executeTestSuite() {
     sandbox.showGrammarSuggestion("I go to school");
     sandbox.applyGrammarSuggestion();
     assert.strictEqual(srcTextarea.value, "I go to school");
+    assert.strictEqual(suggestionBox.classList.contains("hidden"), true);
+  });
+
+  // Test 30: Grammar suggestion accessibility attributes, keyboard navigation and focus styling
+  await runTest("Grammar suggestion text element is accessible with role=button, tabindex=0, and keyboard navigation", () => {
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+
+    // Check HTML accessibility attributes
+    assert.match(
+      htmlContent,
+      /id="grammar-suggestion-text"[^>]*role="button"[^>]*tabindex="0"/,
+      "grammar-suggestion-text must have role=button and tabindex=0 in popup.html"
+    );
+
+    // Check CSS focus-visible accessibility styling
+    assert.ok(
+      cssContent.includes('[role="button"]:focus-visible'),
+      "popup.css must define [role=\"button\"]:focus-visible styling"
+    );
+
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    const srcTextarea = sandbox.document.getElementById("src-textarea");
+    const suggestionBox = sandbox.document.getElementById("grammar-suggestion-box");
+    const suggestionText = sandbox.document.getElementById("grammar-suggestion-text");
+
+    // Test click on suggestion text
+    srcTextarea.value = "initial typo";
+    sandbox.showGrammarSuggestion("fixed typo");
+    suggestionText.click();
+    assert.strictEqual(srcTextarea.value, "fixed typo");
+    assert.strictEqual(suggestionBox.classList.contains("hidden"), true);
+
+    // Test Enter key on suggestion text
+    srcTextarea.value = "another error";
+    sandbox.showGrammarSuggestion("corrected error");
+    let enterPrevented = false;
+    suggestionText.dispatchEvent({
+      type: "keydown",
+      key: "Enter",
+      preventDefault: () => { enterPrevented = true; }
+    });
+    assert.strictEqual(srcTextarea.value, "corrected error");
+    assert.strictEqual(enterPrevented, true);
+    assert.strictEqual(suggestionBox.classList.contains("hidden"), true);
+
+    // Test Space key on suggestion text
+    srcTextarea.value = "space error";
+    sandbox.showGrammarSuggestion("corrected space");
+    let spacePrevented = false;
+    suggestionText.dispatchEvent({
+      type: "keydown",
+      key: " ",
+      preventDefault: () => { spacePrevented = true; }
+    });
+    assert.strictEqual(srcTextarea.value, "corrected space");
+    assert.strictEqual(spacePrevented, true);
     assert.strictEqual(suggestionBox.classList.contains("hidden"), true);
   });
 

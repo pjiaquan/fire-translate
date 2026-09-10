@@ -3326,8 +3326,8 @@ if (grammarSuggestionText) {
   grammarSuggestionText.addEventListener("click", applyGrammarSuggestion);
   grammarSuggestionText.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
-      if (e.key === " ") e.preventDefault();
-      grammarSuggestionText.click();
+      e.preventDefault();
+      applyGrammarSuggestion();
     }
   });
 }

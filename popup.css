@@ -422,6 +422,7 @@ body {
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.15s ease;
+  border-radius: 4px;
 }
 
 .grammar-suggestion-text:hover {
@@ -1862,7 +1863,8 @@ body.mobile-mode,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+[role="button"]:focus-visible {
   outline: 2px solid var(--accent-color-1) !important;
   outline-offset: 2px !important;
 }
