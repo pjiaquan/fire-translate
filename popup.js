@@ -1968,11 +1968,20 @@ async function runDiagnosticTest() {
       };
     }
 
-    const response = await fetch(chatEndpointUrl, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify(testPayload)
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+    let response;
+    try {
+      response = await fetch(chatEndpointUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(testPayload),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const latency = Date.now() - startTime;
     const step4El = document.getElementById("step-4");
@@ -2099,10 +2108,13 @@ async function fetchLatestModels(silent = false) {
     const headers = {};
     if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     // 1. Standard /v1/models
     try {
       const modelsUrl = formatModelsEndpointUrl(apiEndpoint);
-      const res = await fetch(modelsUrl, { headers: headers });
+      const res = await fetch(modelsUrl, { headers: headers, signal: controller.signal });
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.data)) {
@@ -2114,7 +2126,7 @@ async function fetchLatestModels(silent = false) {
     // 2. Ollama /api/tags
     if (detectedModels.length === 0) {
       try {
-        const res = await fetch(`${cleanEndpoint}/api/tags`);
+        const res = await fetch(`${cleanEndpoint}/api/tags`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.models)) {
@@ -2127,7 +2139,7 @@ async function fetchLatestModels(silent = false) {
     // 3. Llama.cpp /models
     if (detectedModels.length === 0) {
       try {
-        const res = await fetch(`${cleanEndpoint}/models`);
+        const res = await fetch(`${cleanEndpoint}/models`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
