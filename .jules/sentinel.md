@@ -7,3 +7,8 @@
 **Vulnerability:** Found Stored XSS vulnerabilities where `log.timestamp`, `log.type`, and string properties in translation history were dynamically injected into `.innerHTML` templates without HTML escaping in `popup.js`. Local extension storage was implicitly treated as trusted data.
 **Learning:** Even when reading from ostensibly secure local storage (like `chrome.storage.local`), data might originate from potentially untrusted inputs (e.g. LLM API responses or web content logs).
 **Prevention:** Always wrap dynamically interpolated variables in `escapeHTML()` before assigning them to `innerHTML`, regardless of the data source within the extension.
+
+## 2024-05-22 - [Add Timeouts to Hanging Fetches]
+**Vulnerability:** External fetch calls in extension UI (e.g., `testConnection`, `fetchLatestModels`) lacked explicit timeouts, which could cause the UI to hang indefinitely on unreachable endpoints, leading to resource exhaustion (DoS).
+**Learning:** Browser environments might let fetches hang indefinitely or for very long default timeouts on unreachable local network addresses.
+**Prevention:** Always implement explicit timeouts using `AbortController` for external `fetch` calls. Ensure proper cleanup with `clearTimeout` in a `finally` block to prevent dangling timers. Share the same signal across sequential fallback fetches to enforce a total time bound.
