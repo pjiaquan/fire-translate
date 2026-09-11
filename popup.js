@@ -3202,12 +3202,18 @@ btnCopy.addEventListener("click", () => {
   
   navigator.clipboard.writeText(text).then(() => {
     const originalHTML = btnCopy.innerHTML;
+    const originalTitle = btnCopy.title;
+    const originalAriaLabel = btnCopy.getAttribute("aria-label");
     // Show green check icon
     btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 100%, 40%)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
     btnCopy.style.borderColor = "hsl(140, 100%, 40%)";
+    btnCopy.title = "Copied!";
+    btnCopy.setAttribute("aria-label", "Copied!");
     setTimeout(() => {
       btnCopy.innerHTML = originalHTML;
       btnCopy.style.borderColor = "var(--border-color)";
+      btnCopy.title = originalTitle;
+      btnCopy.setAttribute("aria-label", originalAriaLabel);
     }, 1500);
   }).catch(err => {
     console.error("Copy failed:", err);
@@ -3222,6 +3228,8 @@ btnTts.addEventListener("click", () => {
   if (window.speechSynthesis.speaking) {
     window.speechSynthesis.cancel();
     btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
+    btnTts.title = "Read Aloud";
+    btnTts.setAttribute("aria-label", "Read Aloud");
     return;
   }
 
@@ -3232,10 +3240,14 @@ btnTts.addEventListener("click", () => {
   
   currentUtterance.onend = () => {
     btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
+    btnTts.title = "Read Aloud";
+    btnTts.setAttribute("aria-label", "Read Aloud");
   };
 
   // Turn button into a Stop button (X icon)
   btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+  btnTts.title = "Stop Reading";
+  btnTts.setAttribute("aria-label", "Stop Reading");
   window.speechSynthesis.speak(currentUtterance);
 });
 
