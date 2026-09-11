@@ -31,13 +31,28 @@ function createSandbox() {
     getElementById: (id) => {
       if (!elementsMap[id]) {
         const _classes = new Set();
+        const _attrs = {};
         const el = {
           id: id,
           value: "",
           textContent: "",
           checked: false,
           type: "",
+          title: "",
+          style: {},
+          innerHTML: "",
           listeners: {},
+          attributes: _attrs,
+          getAttribute: function(name) {
+            return _attrs[name] !== undefined ? _attrs[name] : (this[name] || null);
+          },
+          setAttribute: function(name, val) {
+            _attrs[name] = String(val);
+            if (name === "title") this.title = String(val);
+          },
+          removeAttribute: function(name) {
+            delete _attrs[name];
+          },
           addEventListener: function(evt, fn) {
             if (!this.listeners[evt]) this.listeners[evt] = [];
             this.listeners[evt].push(fn);
@@ -55,6 +70,7 @@ function createSandbox() {
           },
           appendChild: () => {},
           removeChild: () => {},
+          remove: () => {},
           focus: () => {},
           blur: () => {},
           querySelector: () => null,
@@ -82,6 +98,8 @@ function createSandbox() {
       textContent: "",
       className: "",
       innerHTML: "",
+      style: {},
+      remove: () => {},
       addEventListener: () => {},
       appendChild: () => {}
     }),
@@ -89,10 +107,47 @@ function createSandbox() {
     addEventListener: () => {}
   };
 
+  class MockSpeechSynthesisUtterance {
+    constructor(text) {
+      this.text = text;
+      this.lang = "";
+      this._onend = null;
+      this._onerror = null;
+    }
+    get onend() {
+      return this._onend;
+    }
+    set onend(fn) {
+      this._onend = (...args) => {
+        mockWindow.speechSynthesis.speaking = false;
+        if (fn) fn(...args);
+      };
+    }
+    get onerror() {
+      return this._onerror;
+    }
+    set onerror(fn) {
+      this._onerror = (...args) => {
+        mockWindow.speechSynthesis.speaking = false;
+        if (fn) fn(...args);
+      };
+    }
+  }
+
   const mockWindow = {
     addEventListener: () => {},
-    SpeechSynthesisUtterance: class {},
-    speechSynthesis: { speak: () => {}, cancel: () => {} },
+    SpeechSynthesisUtterance: MockSpeechSynthesisUtterance,
+    speechSynthesis: {
+      speaking: false,
+      lastUtterance: null,
+      speak: function(utt) {
+        this.speaking = true;
+        this.lastUtterance = utt;
+      },
+      cancel: function() {
+        this.speaking = false;
+      }
+    },
     localStorage: mockLocalStorageObj
   };
 
@@ -152,7 +207,7 @@ function createSandbox() {
       onInstalled: { addListener: () => {} },
       onMessage: { addListener: () => {} },
       onConnect: { addListener: () => {} },
-      sendMessage: () => {}
+      sendMessage: () => Promise.resolve()
     },
     contextMenus: {
       create: () => {},
@@ -172,6 +227,7 @@ function createSandbox() {
     chrome: mockChrome,
     document: mockDocument,
     window: mockWindow,
+    SpeechSynthesisUtterance: MockSpeechSynthesisUtterance,
     navigator: {
       clipboard: { writeText: () => Promise.resolve() }
     },
@@ -1492,6 +1548,123 @@ async function executeTestSuite() {
 
     // Another fallback case: if stateA has standard prompts, stateB has undefined, they are same.
     assert.strictEqual(areSettingsDifferent(stateBWithDefaultPrompts, stateAWithNullPrompts), false);
+  });
+
+  // Test 46: Dynamic ARIA labels and tooltips synchronize with button visual states (Copy and TTS)
+  await runTest("Dynamic ARIA labels and tooltips synchronize with button visual states (Copy and TTS)", async () => {
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+
+    // Verify initial HTML attributes for icon-action buttons
+    assert.match(
+      htmlContent,
+      /id="btn-copy"[^>]*title="Copy Translation"[^>]*aria-label="Copy Translation"/,
+      "btn-copy should have initial title and aria-label 'Copy Translation'"
+    );
+    assert.match(
+      htmlContent,
+      /id="btn-tts"[^>]*title="Read Aloud"[^>]*aria-label="Read Aloud"/,
+      "btn-tts should have initial title and aria-label 'Read Aloud'"
+    );
+
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    const btnCopy = sandbox.document.getElementById("btn-copy");
+    const btnTts = sandbox.document.getElementById("btn-tts");
+
+    // 1. Test btnCopy dynamic state
+    sandbox.currentTranslationText = "Hello world";
+    btnCopy.click();
+    // Wait for clipboard promise resolution
+    await new Promise(r => setTimeout(r, 10));
+
+    assert.strictEqual(btnCopy.title, "Copied!");
+    assert.strictEqual(btnCopy.getAttribute("aria-label"), "Copied!");
+    assert.ok(btnCopy.innerHTML.includes("<polyline"), "btnCopy should display checkmark icon");
+
+    // Fast repeat clicks should be safely debounced and not get stuck
+    btnCopy.click();
+    await new Promise(r => setTimeout(r, 10));
+    assert.strictEqual(btnCopy.title, "Copied!");
+
+    // Advance timer to trigger reset
+    await new Promise(r => setTimeout(r, 1600));
+    assert.strictEqual(btnCopy.title, "Copy Translation");
+    assert.strictEqual(btnCopy.getAttribute("aria-label"), "Copy Translation");
+    assert.ok(btnCopy.innerHTML.includes("<rect"), "btnCopy should restore original copy icon");
+
+    // 2. Test btnTts dynamic state
+    btnTts.click();
+    assert.strictEqual(btnTts.title, "Stop Reading");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "Stop Reading");
+    assert.ok(btnTts.innerHTML.includes("<line"), "btnTts should show Stop X icon");
+
+    // Utterance completion resets to Read Aloud
+    assert.ok(sandbox.currentUtterance && typeof sandbox.currentUtterance.onend === "function");
+    sandbox.currentUtterance.onend();
+    assert.strictEqual(btnTts.title, "Read Aloud");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+    assert.ok(btnTts.innerHTML.includes("<path"), "btnTts should restore speaker icon");
+
+    // Canceling during playback resets to Read Aloud
+    btnTts.click();
+    assert.strictEqual(btnTts.title, "Stop Reading");
+    btnTts.click(); // click while speaking triggers cancel
+    assert.strictEqual(btnTts.title, "Read Aloud");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+
+    // Speech error resets to Read Aloud
+    btnTts.click();
+    assert.strictEqual(btnTts.title, "Stop Reading");
+    sandbox.currentUtterance.onerror();
+    assert.strictEqual(btnTts.title, "Read Aloud");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+  });
+
+  // Test 47: External fetch requests enforce AbortController timeout boundaries and resource cleanup
+  await runTest("External fetch requests enforce AbortController timeout boundaries and resource cleanup", async () => {
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+
+    // Verify presence of AbortController and timeout cleanup
+    assert.ok(
+      popupCodeContent.includes("const controller = new AbortController();"),
+      "popup.js must instantiate AbortController for network requests"
+    );
+    assert.ok(
+      popupCodeContent.includes("setTimeout(() => controller.abort(), 60000)"),
+      "runDiagnosticTest must enforce 60s timeout"
+    );
+    assert.ok(
+      popupCodeContent.includes("setTimeout(() => controller.abort(), 10000)"),
+      "fetchLatestModels must enforce 10s timeout"
+    );
+    assert.ok(
+      popupCodeContent.includes("clearTimeout(timeoutId)"),
+      "popup.js must clean up timeoutId in finally blocks"
+    );
+
+    // Verify signal is passed to fetch in runtime sandbox
+    const sandbox = createSandbox();
+    let capturedSignal = null;
+    sandbox.fetch = async (url, options = {}) => {
+      capturedSignal = options.signal;
+      return {
+        ok: true,
+        json: async () => ({ data: [{ id: "test-model" }] })
+      };
+    };
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    sandbox.document.getElementById("input-api-endpoint").value = "http://localhost:11434";
+    await sandbox.fetchLatestModels(true);
+
+    assert.ok(capturedSignal, "fetchLatestModels must pass AbortSignal to fetch");
+    assert.strictEqual(typeof capturedSignal.aborted, "boolean");
   });
 
   // Summary reporting

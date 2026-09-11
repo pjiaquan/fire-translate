@@ -73,9 +73,9 @@ let grammarAbortController = null;
 const grammarCache = new Map();
 
 // SpeechSynthesis reference
-let currentUtterance = null;
+var currentUtterance = null;
 // Current primary translation text (for copying/TTS)
-let currentTranslationText = "";
+var currentTranslationText = "";
 
 function parseGrammarCorrectionResponse(reply) {
   if (!reply || typeof reply !== "string") {
@@ -2111,44 +2111,48 @@ async function fetchLatestModels(silent = false) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    // 1. Standard /v1/models
     try {
-      const modelsUrl = formatModelsEndpointUrl(apiEndpoint);
-      const res = await fetch(modelsUrl, { headers: headers, signal: controller.signal });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.data)) {
-          detectedModels = data.data.map(m => (m.id || "").replace(/^models\//, "")).filter(Boolean);
+      // 1. Standard /v1/models
+      try {
+        const modelsUrl = formatModelsEndpointUrl(apiEndpoint);
+        const res = await fetch(modelsUrl, { headers: headers, signal: controller.signal });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.data)) {
+            detectedModels = data.data.map(m => (m.id || "").replace(/^models\//, "")).filter(Boolean);
+          }
         }
+      } catch (e) {}
+
+      // 2. Ollama /api/tags
+      if (detectedModels.length === 0) {
+        try {
+          const res = await fetch(`${cleanEndpoint}/api/tags`, { signal: controller.signal });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.models)) {
+              detectedModels = data.models.map(m => m.name);
+            }
+          }
+        } catch (e) {}
       }
-    } catch (e) {}
 
-    // 2. Ollama /api/tags
-    if (detectedModels.length === 0) {
-      try {
-        const res = await fetch(`${cleanEndpoint}/api/tags`, { signal: controller.signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.models)) {
-            detectedModels = data.models.map(m => m.name);
+      // 3. Llama.cpp /models
+      if (detectedModels.length === 0) {
+        try {
+          const res = await fetch(`${cleanEndpoint}/models`, { signal: controller.signal });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              detectedModels = data.map(m => m.id || m.name).filter(Boolean);
+            } else if (data && Array.isArray(data.data)) {
+              detectedModels = data.data.map(m => m.id || m.name).filter(Boolean);
+            }
           }
-        }
-      } catch (e) {}
-    }
-
-    // 3. Llama.cpp /models
-    if (detectedModels.length === 0) {
-      try {
-        const res = await fetch(`${cleanEndpoint}/models`, { signal: controller.signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            detectedModels = data.map(m => m.id || m.name).filter(Boolean);
-          } else if (data && Array.isArray(data.data)) {
-            detectedModels = data.data.map(m => m.id || m.name).filter(Boolean);
-          }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     // Filter and prioritize Flash models for Gemini
@@ -3196,24 +3200,24 @@ document.getElementById("btn-paste").addEventListener("click", async () => {
   }
 });
 
+let copyResetTimeout = null;
 btnCopy.addEventListener("click", () => {
   const text = currentTranslationText;
   if (!text) return;
   
   navigator.clipboard.writeText(text).then(() => {
-    const originalHTML = btnCopy.innerHTML;
-    const originalTitle = btnCopy.title;
-    const originalAriaLabel = btnCopy.getAttribute("aria-label");
+    if (copyResetTimeout) clearTimeout(copyResetTimeout);
     // Show green check icon
     btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 100%, 40%)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
     btnCopy.style.borderColor = "hsl(140, 100%, 40%)";
     btnCopy.title = "Copied!";
     btnCopy.setAttribute("aria-label", "Copied!");
-    setTimeout(() => {
-      btnCopy.innerHTML = originalHTML;
+    copyResetTimeout = setTimeout(() => {
+      btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
       btnCopy.style.borderColor = "var(--border-color)";
-      btnCopy.title = originalTitle;
-      btnCopy.setAttribute("aria-label", originalAriaLabel);
+      btnCopy.title = "Copy Translation";
+      btnCopy.setAttribute("aria-label", "Copy Translation");
+      copyResetTimeout = null;
     }, 1500);
   }).catch(err => {
     console.error("Copy failed:", err);
@@ -3221,15 +3225,19 @@ btnCopy.addEventListener("click", () => {
 });
 
 // Text-to-Speech (TTS)
+const resetTtsBtn = () => {
+  btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
+  btnTts.title = "Read Aloud";
+  btnTts.setAttribute("aria-label", "Read Aloud");
+};
+
 btnTts.addEventListener("click", () => {
   const text = currentTranslationText;
   if (!text) return;
 
   if (window.speechSynthesis.speaking) {
     window.speechSynthesis.cancel();
-    btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
-    btnTts.title = "Read Aloud";
-    btnTts.setAttribute("aria-label", "Read Aloud");
+    resetTtsBtn();
     return;
   }
 
@@ -3238,11 +3246,8 @@ btnTts.addEventListener("click", () => {
   // Handle language mappings for TTS
   currentUtterance.lang = targetLang === "zh-TW" ? "zh-HK" : targetLang === "zh-CN" ? "zh-CN" : targetLang;
   
-  currentUtterance.onend = () => {
-    btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
-    btnTts.title = "Read Aloud";
-    btnTts.setAttribute("aria-label", "Read Aloud");
-  };
+  currentUtterance.onend = resetTtsBtn;
+  currentUtterance.onerror = resetTtsBtn;
 
   // Turn button into a Stop button (X icon)
   btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
