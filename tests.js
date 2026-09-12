@@ -17,7 +17,135 @@ function createSandbox() {
     clear: () => { Object.keys(mockWebLocalStorage).forEach(k => delete mockWebLocalStorage[k]); }
   };
   
-  const elementsMap = {};
+  const elementsMap = {
+    "thinking-block": null,
+    "thinking-content": null,
+    "translation-text": null
+  };
+
+  function createMockElement(tag = "div", initialId = "") {
+    const _classes = new Set();
+    const _attrs = {};
+    const _children = [];
+    let _id = initialId;
+    let _innerHTML = "";
+    const el = {
+      tagName: (tag || "div").toUpperCase(),
+      value: "",
+      textContent: "",
+      checked: false,
+      type: "",
+      title: "",
+      style: {},
+      listeners: {},
+      attributes: _attrs,
+      children: _children,
+      get id() { return _id; },
+      set id(newId) {
+        _id = newId;
+        if (newId) elementsMap[newId] = el;
+      },
+      get innerHTML() { return _innerHTML; },
+      set innerHTML(val) {
+        _innerHTML = String(val);
+        if (val === "") _children.length = 0;
+      },
+      getAttribute: function(name) {
+        return _attrs[name] !== undefined ? _attrs[name] : (this[name] || null);
+      },
+      setAttribute: function(name, val) {
+        _attrs[name] = String(val);
+        if (name === "title") this.title = String(val);
+      },
+      removeAttribute: function(name) {
+        delete _attrs[name];
+      },
+      addEventListener: function(evt, fn) {
+        if (!this.listeners[evt]) this.listeners[evt] = [];
+        this.listeners[evt].push(fn);
+      },
+      dispatchEvent: function(evt) {
+        const evtType = typeof evt === "string" ? evt : (evt && evt.type);
+        const evtObj = typeof evt === "string" ? { target: this, type: evt } : (evt || { target: this });
+        if (!evtObj.target) evtObj.target = this;
+        if (this.listeners[evtType]) {
+          this.listeners[evtType].forEach(fn => fn(evtObj));
+        }
+      },
+      click: function() {
+        this.dispatchEvent({ type: "click", target: this });
+      },
+      appendChild: function(child) {
+        _children.push(child);
+        return child;
+      },
+      removeChild: function(child) {
+        const idx = _children.indexOf(child);
+        if (idx !== -1) _children.splice(idx, 1);
+        return child;
+      },
+      remove: function() {
+        _children.length = 0;
+      },
+      focus: function() {},
+      blur: function() {},
+      querySelector: function(selector) {
+        if (selector === ".chevron-icon" || (_innerHTML && _innerHTML.includes("chevron-icon"))) {
+          return { style: {} };
+        }
+        for (const child of _children) {
+          if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
+            return child;
+          }
+          if (child.querySelector) {
+            const found = child.querySelector(selector);
+            if (found) return found;
+          }
+        }
+        return null;
+      },
+      querySelectorAll: function(selector) {
+        const res = [];
+        for (const child of _children) {
+          if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
+            res.push(child);
+          }
+        }
+        return res;
+      }
+    };
+    Object.defineProperty(el, "className", {
+      get() { return Array.from(_classes).join(" "); },
+      set(v) {
+        _classes.clear();
+        if (v) String(v).split(/\s+/).filter(Boolean).forEach(c => _classes.add(c));
+      }
+    });
+    el.classList = {
+      add: function(...cs) { cs.forEach(c => _classes.add(c)); },
+      remove: function(...cs) { cs.forEach(c => _classes.delete(c)); },
+      contains: function(c) { return _classes.has(c); },
+      toggle: function(c, force) {
+        if (force !== undefined) {
+          if (force) _classes.add(c);
+          else _classes.delete(c);
+          return force;
+        }
+        if (_classes.has(c)) {
+          _classes.delete(c);
+          return false;
+        } else {
+          _classes.add(c);
+          return true;
+        }
+      }
+    };
+    if (initialId) {
+      elementsMap[initialId] = el;
+    }
+    return el;
+  }
+
   const mockDocument = {
     body: {
       classList: {
@@ -29,80 +157,13 @@ function createSandbox() {
       removeChild: () => {}
     },
     getElementById: (id) => {
+      if (elementsMap[id] === null) return null;
       if (!elementsMap[id]) {
-        const _classes = new Set();
-        const _attrs = {};
-        const el = {
-          id: id,
-          value: "",
-          textContent: "",
-          checked: false,
-          type: "",
-          title: "",
-          style: {},
-          innerHTML: "",
-          listeners: {},
-          attributes: _attrs,
-          getAttribute: function(name) {
-            return _attrs[name] !== undefined ? _attrs[name] : (this[name] || null);
-          },
-          setAttribute: function(name, val) {
-            _attrs[name] = String(val);
-            if (name === "title") this.title = String(val);
-          },
-          removeAttribute: function(name) {
-            delete _attrs[name];
-          },
-          addEventListener: function(evt, fn) {
-            if (!this.listeners[evt]) this.listeners[evt] = [];
-            this.listeners[evt].push(fn);
-          },
-          dispatchEvent: function(evt) {
-            const evtType = typeof evt === "string" ? evt : (evt && evt.type);
-            const evtObj = typeof evt === "string" ? { target: this, type: evt } : (evt || { target: this });
-            if (!evtObj.target) evtObj.target = this;
-            if (this.listeners[evtType]) {
-              this.listeners[evtType].forEach(fn => fn(evtObj));
-            }
-          },
-          click: function() {
-            this.dispatchEvent({ type: "click", target: this });
-          },
-          appendChild: () => {},
-          removeChild: () => {},
-          remove: () => {},
-          focus: () => {},
-          blur: () => {},
-          querySelector: () => null,
-          querySelectorAll: () => []
-        };
-        Object.defineProperty(el, "className", {
-          get() { return Array.from(_classes).join(" "); },
-          set(v) {
-            _classes.clear();
-            if (v) String(v).split(/\s+/).filter(Boolean).forEach(c => _classes.add(c));
-          }
-        });
-        el.classList = {
-          add: function(...cs) { cs.forEach(c => _classes.add(c)); },
-          remove: function(...cs) { cs.forEach(c => _classes.delete(c)); },
-          contains: function(c) { return _classes.has(c); }
-        };
-        elementsMap[id] = el;
+        elementsMap[id] = createMockElement("div", id);
       }
       return elementsMap[id];
     },
-    createElement: (tag) => ({
-      tagName: (tag || "").toUpperCase(),
-      value: "",
-      textContent: "",
-      className: "",
-      innerHTML: "",
-      style: {},
-      remove: () => {},
-      addEventListener: () => {},
-      appendChild: () => {}
-    }),
+    createElement: (tag) => createMockElement(tag),
     querySelectorAll: () => [],
     addEventListener: () => {}
   };
@@ -1665,6 +1726,107 @@ async function executeTestSuite() {
 
     assert.ok(capturedSignal, "fetchLatestModels must pass AbortSignal to fetch");
     assert.strictEqual(typeof capturedSignal.aborted, "boolean");
+  });
+
+  // Test 48: Thinking Process accordion headers are accessible with role=button, tabindex=0, aria-expanded, and keyboard navigation
+  await runTest("Thinking Process accordion headers are accessible with role=button, tabindex=0, aria-expanded, and keyboard navigation", async () => {
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+    const paletteMd = fs.readFileSync(__dirname + "/.Jules/palette.md", "utf8");
+
+    // Check .Jules/palette.md documents the learning
+    assert.ok(
+      paletteMd.includes("Accessibility improvements for dynamic accordion headers"),
+      "palette.md must record accordion accessibility learning"
+    );
+
+    // Check popup.js code contains accessibility attributes
+    assert.ok(
+      popupCodeContent.includes('thinkHeader.setAttribute("role", "button");'),
+      "popup.js must set role=button on thinkHeader"
+    );
+    assert.ok(
+      popupCodeContent.includes('thinkHeader.setAttribute("tabindex", "0");'),
+      "popup.js must set tabindex=0 on thinkHeader"
+    );
+    assert.ok(
+      popupCodeContent.includes('thinkHeader.setAttribute("aria-expanded"'),
+      "popup.js must set and update aria-expanded on thinkHeader"
+    );
+
+    // Sandbox runtime testing for renderThinkingAndTranslation
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    const targetContent = sandbox.document.getElementById("target-content");
+
+    // 1. Initial render of thinking process
+    sandbox.renderThinkingAndTranslation("Hello world", "Thinking step 1... step 2...");
+    const thinkBlock = targetContent.children.find(c => c.classList && c.classList.contains("thinking-block"));
+    assert.ok(thinkBlock, "thinking-block must be appended to targetContent");
+    const thinkHeader = thinkBlock.children.find(c => c.classList && c.classList.contains("thinking-header"));
+    assert.ok(thinkHeader, "thinking-header must be appended to thinkBlock");
+
+    assert.strictEqual(thinkHeader.getAttribute("role"), "button");
+    assert.strictEqual(thinkHeader.getAttribute("tabindex"), "0");
+    assert.strictEqual(thinkHeader.getAttribute("aria-expanded"), "true");
+    assert.strictEqual(thinkBlock.classList.contains("collapsed"), false);
+
+    // 2. Click toggles collapsed state and aria-expanded
+    thinkHeader.click();
+    assert.strictEqual(thinkBlock.classList.contains("collapsed"), true);
+    assert.strictEqual(thinkHeader.getAttribute("aria-expanded"), "false");
+    assert.strictEqual(sandbox.localStorage.getItem("thinking-collapsed"), "true");
+
+    // 3. Enter key toggles state and calls preventDefault
+    let enterPrevented = false;
+    thinkHeader.dispatchEvent({
+      type: "keydown",
+      key: "Enter",
+      preventDefault: () => { enterPrevented = true; }
+    });
+    assert.strictEqual(enterPrevented, true, "Enter key on thinkHeader should call preventDefault");
+    assert.strictEqual(thinkBlock.classList.contains("collapsed"), false);
+    assert.strictEqual(thinkHeader.getAttribute("aria-expanded"), "true");
+    assert.strictEqual(sandbox.localStorage.getItem("thinking-collapsed"), "false");
+
+    // 4. Space key toggles state and calls preventDefault
+    let spacePrevented = false;
+    thinkHeader.dispatchEvent({
+      type: "keydown",
+      key: " ",
+      preventDefault: () => { spacePrevented = true; }
+    });
+    assert.strictEqual(spacePrevented, true, "Space key on thinkHeader should call preventDefault");
+    assert.strictEqual(thinkBlock.classList.contains("collapsed"), true);
+    assert.strictEqual(thinkHeader.getAttribute("aria-expanded"), "false");
+    assert.strictEqual(sandbox.localStorage.getItem("thinking-collapsed"), "true");
+
+    // 5. Test renderRichTranslation
+    await sandbox.renderRichTranslation({
+      translation: "<think>Deep model reasoning...</think>Educational explanation"
+    });
+    const richThinkBlock = targetContent.children.find(c => c.classList && c.classList.contains("thinking-block"));
+    assert.ok(richThinkBlock, "renderRichTranslation should create thinking-block");
+    const richThinkHeader = richThinkBlock.children.find(c => c.classList && c.classList.contains("thinking-header"));
+    assert.ok(richThinkHeader, "renderRichTranslation should create thinking-header");
+
+    assert.strictEqual(richThinkHeader.getAttribute("role"), "button");
+    assert.strictEqual(richThinkHeader.getAttribute("tabindex"), "0");
+    assert.strictEqual(richThinkHeader.getAttribute("aria-expanded"), "false"); // retained from previous collapse
+    assert.strictEqual(richThinkBlock.classList.contains("collapsed"), true);
+
+    // Toggle via Enter in rich translation
+    let richEnterPrevented = false;
+    richThinkHeader.dispatchEvent({
+      type: "keydown",
+      key: "Enter",
+      preventDefault: () => { richEnterPrevented = true; }
+    });
+    assert.strictEqual(richEnterPrevented, true);
+    assert.strictEqual(richThinkBlock.classList.contains("collapsed"), false);
+    assert.strictEqual(richThinkHeader.getAttribute("aria-expanded"), "true");
   });
 
   // Summary reporting
