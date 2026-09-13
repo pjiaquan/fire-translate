@@ -1829,6 +1829,102 @@ async function executeTestSuite() {
     assert.strictEqual(richThinkHeader.getAttribute("aria-expanded"), "true");
   });
 
+  // Test 49: Accessibility improvements for interactive chips and icon buttons
+  await runTest("Interactive model chips and list removal buttons support keyboard accessibility and context-specific labels", async () => {
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+    const paletteMd = fs.readFileSync(__dirname + "/.Jules/palette.md", "utf8");
+
+    // Check .Jules/palette.md documents the learning
+    assert.ok(
+      paletteMd.includes("Accessibility improvements for lists and interactive dynamic chips"),
+      "palette.md must record list and dynamic chip accessibility learning"
+    );
+
+    // Verify context-specific aria-label and title attributes in popup.js
+    assert.ok(
+      popupCodeContent.includes('aria-label="Remove exclusion for ${escapeHTML(domain)}"'),
+      "popup.js must set context-specific aria-label on remove-site-btn"
+    );
+    assert.ok(
+      popupCodeContent.includes('aria-label="Remove website exclusion for ${escapeHTML(domain)}"'),
+      "popup.js must set context-specific aria-label on btn-remove-exclusion"
+    );
+    assert.ok(
+      popupCodeContent.includes('aria-label="Delete history item: ${escapeHTML(item.srcText)}"'),
+      "popup.js must set context-specific aria-label on history-delete-btn"
+    );
+
+    // Verify keyboard handlers and ARIA attributes for model chips in popup.js
+    assert.ok(
+      popupCodeContent.includes('chip.setAttribute("role", "button");'),
+      "popup.js must set role=button on quick model chips"
+    );
+    assert.ok(
+      popupCodeContent.includes('chip.setAttribute("tabindex", "0");'),
+      "popup.js must set tabindex=0 on quick model chips"
+    );
+    assert.ok(
+      popupCodeContent.includes('chip.setAttribute("aria-pressed", isActive ? "true" : "false");'),
+      "popup.js must set dynamic aria-pressed on quick model chips"
+    );
+
+    // Sandbox runtime testing for renderQuickModelChips
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    const quickModelsContainer = sandbox.document.getElementById("quick-models-container");
+    const inputModel = sandbox.document.getElementById("input-model");
+    assert.ok(quickModelsContainer, "quickModelsContainer must exist");
+    assert.ok(inputModel, "inputModel must exist");
+
+    inputModel.value = "gemini-2.5-flash";
+    sandbox.renderQuickModelChips(["gemini-2.5-flash", "gemini-2.5-pro", "gpt-4o"]);
+
+    assert.ok(quickModelsContainer.children.length >= 3, "quickModelsContainer should render model chips");
+
+    const activeChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gemini-2.5-flash"));
+    const proChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gemini-2.5-pro"));
+    const gptChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gpt-4o"));
+
+    assert.ok(activeChip, "active chip must exist");
+    assert.ok(proChip, "pro chip must exist");
+    assert.ok(gptChip, "gpt chip must exist");
+
+    // Check accessibility attributes
+    assert.strictEqual(activeChip.getAttribute("role"), "button");
+    assert.strictEqual(activeChip.getAttribute("tabindex"), "0");
+    assert.strictEqual(activeChip.getAttribute("aria-pressed"), "true");
+    assert.ok(activeChip.classList.contains("active"));
+
+    assert.strictEqual(proChip.getAttribute("role"), "button");
+    assert.strictEqual(proChip.getAttribute("tabindex"), "0");
+    assert.strictEqual(proChip.getAttribute("aria-pressed"), "false");
+    assert.strictEqual(proChip.classList.contains("active"), false);
+
+    // Click triggers selection
+    proChip.click();
+    assert.strictEqual(inputModel.value, "gemini-2.5-pro");
+
+    // Enter keydown triggers selection
+    gptChip.dispatchEvent({
+      type: "keydown",
+      key: "Enter"
+    });
+    assert.strictEqual(inputModel.value, "gpt-4o");
+
+    // Space keydown triggers selection and calls preventDefault
+    let spacePrevented = false;
+    activeChip.dispatchEvent({
+      type: "keydown",
+      key: " ",
+      preventDefault: () => { spacePrevented = true; }
+    });
+    assert.strictEqual(spacePrevented, true, "Space key on model chip should call preventDefault");
+    assert.strictEqual(inputModel.value, "gemini-2.5-flash");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);

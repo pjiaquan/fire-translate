@@ -1373,6 +1373,7 @@ const selectModelType = document.getElementById("select-model-type");
 const modelList = document.getElementById("model-list");
 const quickModelsContainer = document.getElementById("quick-models-container");
 const modelCountTag = document.getElementById("model-count-tag");
+const recipeStatusTag = document.getElementById("recipe-status-tag");
 
 
 
