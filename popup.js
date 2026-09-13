@@ -1463,7 +1463,7 @@ async function renderDisabledSitesList() {
         chip.className = "site-chip";
         chip.innerHTML = `
           <span>🚫 ${escapeHTML(domain)}</span>
-          <span class="remove-site-btn" role="button" tabindex="0" aria-label="Remove exclusion" title="Remove exclusion">✕</span>
+          <span class="remove-site-btn" role="button" tabindex="0" aria-label="Remove exclusion for ${escapeHTML(domain)}" title="Remove exclusion for ${escapeHTML(domain)}">✕</span>
         `;
         const removeBtn = chip.querySelector(".remove-site-btn");
         removeBtn.addEventListener("click", () => removeExclusionDomain(domain));
@@ -1513,7 +1513,7 @@ async function renderDisabledSitesList() {
           <span class="exclusion-domain-icon">🌐</span>
           <span>${escapeHTML(domain)}</span>
         </div>
-        <button type="button" class="btn-remove-exclusion" title="Remove website exclusion" aria-label="Remove website exclusion">✕ Remove</button>
+        <button type="button" class="btn-remove-exclusion" title="Remove website exclusion for ${escapeHTML(domain)}" aria-label="Remove website exclusion for ${escapeHTML(domain)}">✕ Remove</button>
       `;
       item.querySelector(".btn-remove-exclusion").addEventListener("click", () => removeExclusionDomain(domain));
       exclusionsListContainer.appendChild(item);
@@ -1732,6 +1732,9 @@ function renderQuickModelChips(models) {
     const chip = document.createElement("div");
     const isActive = m === currentVal;
     chip.className = `model-chip ${isActive ? 'active' : ''}`;
+    chip.setAttribute("role", "button");
+    chip.setAttribute("tabindex", "0");
+    chip.setAttribute("aria-pressed", isActive ? "true" : "false");
     
     let tag = "";
     if (recList.includes(m)) tag = "Preset";
@@ -1739,10 +1742,18 @@ function renderQuickModelChips(models) {
     
     chip.innerHTML = `${escapeHTML(m)}${tag ? ` <span class="chip-tag">${escapeHTML(tag)}</span>` : ''}`;
     
-    chip.addEventListener("click", () => {
+    const triggerSelection = () => {
       inputModel.value = m;
       renderQuickModelChips(combined);
       autoSaveCurrentRecipe();
+    };
+
+    chip.addEventListener("click", triggerSelection);
+    chip.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        if (e.key === " ") e.preventDefault();
+        triggerSelection();
+      }
     });
     
     quickModelsContainer.appendChild(chip);
@@ -3067,7 +3078,7 @@ async function renderHistory() {
         <div class="history-src">${escapeHTML(item.srcText)}</div>
         <div class="history-target">${escapeHTML(item.targetText)}</div>
       </div>
-      <button type="button" class="history-delete-btn" aria-label="Delete history item" data-id="${item.id}" title="Delete item">
+      <button type="button" class="history-delete-btn" aria-label="Delete history item: ${escapeHTML(item.srcText)}" data-id="${item.id}" title="Delete history item: ${escapeHTML(item.srcText)}">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     `;
