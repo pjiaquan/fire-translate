@@ -147,15 +147,7 @@ function createSandbox() {
   }
 
   const mockDocument = {
-    body: {
-      classList: {
-        add: () => {},
-        remove: () => {},
-        contains: () => false
-      },
-      appendChild: () => {},
-      removeChild: () => {}
-    },
+    body: createMockElement("body"),
     getElementById: (id) => {
       if (elementsMap[id] === null) return null;
       if (!elementsMap[id]) {
@@ -1923,6 +1915,93 @@ async function executeTestSuite() {
     });
     assert.strictEqual(spacePrevented, true, "Space key on model chip should call preventDefault");
     assert.strictEqual(inputModel.value, "gemini-2.5-flash");
+  });
+
+  // Test 50: Theme toggle dynamically updates ARIA labels and translate button displays shortcut tooltip
+  await runTest("Theme toggle dynamically updates title and ARIA label based on active theme, and translate button reveals shortcut tooltip", async () => {
+    const popupHtmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+
+    // Check popup.html includes shortcut tooltip on btn-translate
+    assert.ok(
+      popupHtmlContent.includes('id="btn-translate" class="primary-btn" title="Translate (Ctrl/Cmd + Enter)"'),
+      "popup.html must provide shortcut hint in title attribute of btn-translate"
+    );
+
+    // Verify popup.js sets title and aria-label dynamically in applyTheme
+    assert.ok(
+      popupCodeContent.includes('btnTheme.title = "Switch to Dark Mode";'),
+      "popup.js must set title to Switch to Dark Mode in light theme"
+    );
+    assert.ok(
+      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "Switch to Dark Mode");'),
+      "popup.js must set aria-label to Switch to Dark Mode in light theme"
+    );
+    assert.ok(
+      popupCodeContent.includes('btnTheme.title = "Switch to Light Mode";'),
+      "popup.js must set title to Switch to Light Mode in dark theme"
+    );
+    assert.ok(
+      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "Switch to Light Mode");'),
+      "popup.js must set aria-label to Switch to Light Mode in dark theme"
+    );
+
+    // Sandbox runtime testing
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    const btnTheme = sandbox.document.getElementById("btn-theme");
+    const iconSun = sandbox.document.getElementById("icon-sun");
+    const iconMoon = sandbox.document.getElementById("icon-moon");
+
+    // 1. Initial theme loading (default to dark)
+    await sandbox.initTheme();
+    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.ok(sandbox.document.body.classList.contains("dark-theme"));
+    assert.ok(!sandbox.document.body.classList.contains("light-theme"));
+    assert.ok(iconMoon.classList.contains("hidden"));
+    assert.ok(!iconSun.classList.contains("hidden"));
+
+    // 2. Direct call: applyTheme("light")
+    sandbox.applyTheme("light");
+    assert.strictEqual(btnTheme.title, "Switch to Dark Mode");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Dark Mode");
+    assert.ok(sandbox.document.body.classList.contains("light-theme"));
+    assert.ok(!sandbox.document.body.classList.contains("dark-theme"));
+    assert.ok(iconSun.classList.contains("hidden"));
+    assert.ok(!iconMoon.classList.contains("hidden"));
+
+    // 3. Direct call: applyTheme("dark")
+    sandbox.applyTheme("dark");
+    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.ok(sandbox.document.body.classList.contains("dark-theme"));
+    assert.ok(!sandbox.document.body.classList.contains("light-theme"));
+    assert.ok(iconMoon.classList.contains("hidden"));
+    assert.ok(!iconSun.classList.contains("hidden"));
+
+    // 4. Interactive toggle via btnTheme click
+    btnTheme.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    assert.strictEqual(btnTheme.title, "Switch to Dark Mode");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Dark Mode");
+    assert.ok(sandbox.document.body.classList.contains("light-theme"));
+    const storedTheme1 = await sandbox.chrome.storage.local.get("theme");
+    assert.strictEqual(storedTheme1.theme, "light");
+
+    // 5. Click again to toggle back to dark
+    btnTheme.click();
+    await new Promise(r => setTimeout(r, 10));
+
+    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.ok(sandbox.document.body.classList.contains("dark-theme"));
+    const storedTheme2 = await sandbox.chrome.storage.local.get("theme");
+    assert.strictEqual(storedTheme2.theme, "dark");
   });
 
   // Summary reporting
