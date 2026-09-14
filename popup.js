@@ -610,11 +610,19 @@ function applyTheme(theme) {
     document.body.classList.add("light-theme");
     iconSun.classList.add("hidden");
     iconMoon.classList.remove("hidden");
+    if (btnTheme) {
+      btnTheme.title = "Switch to Dark Mode";
+      btnTheme.setAttribute("aria-label", "Switch to Dark Mode");
+    }
   } else {
     document.body.classList.remove("light-theme");
     document.body.classList.add("dark-theme");
     iconMoon.classList.add("hidden");
     iconSun.classList.remove("hidden");
+    if (btnTheme) {
+      btnTheme.title = "Switch to Light Mode";
+      btnTheme.setAttribute("aria-label", "Switch to Light Mode");
+    }
   }
 }
 
