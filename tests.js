@@ -2004,6 +2004,105 @@ async function executeTestSuite() {
     assert.strictEqual(storedTheme2.theme, "dark");
   });
 
+  // Test 51: Grammar check network fetch enforces 20s timeout boundary and resource cleanup
+  await runTest("Grammar check network fetch enforces 20s timeout boundary and resource cleanup", async () => {
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+
+    // 1. Static code verification
+    assert.ok(
+      popupCodeContent.includes("setTimeout(() => {"),
+      "popup.js must set a timeout for grammar fetch"
+    );
+    assert.ok(
+      popupCodeContent.includes("20000);"),
+      "checkGrammarAndTypo must enforce a 20s timeout boundary"
+    );
+    assert.ok(
+      popupCodeContent.includes("grammarAbortController.abort();"),
+      "timeout callback must abort grammarAbortController"
+    );
+    assert.ok(
+      popupCodeContent.includes("clearTimeout(timeoutId);"),
+      "checkGrammarAndTypo must clear timeout in finally block"
+    );
+
+    // 2. Runtime verification in sandbox
+    const sandbox = createSandbox();
+    let setTimeoutDelay = null;
+    let timeoutCallback = null;
+    let clearedTimerId = null;
+    let timerIdCounter = 100;
+
+    sandbox.setTimeout = (fn, delay) => {
+      setTimeoutDelay = delay;
+      timeoutCallback = fn;
+      return ++timerIdCounter;
+    };
+    sandbox.clearTimeout = (id) => {
+      clearedTimerId = id;
+    };
+
+    let fetchSignal = null;
+    sandbox.fetch = async (url, options = {}) => {
+      fetchSignal = options.signal;
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  has_error: true,
+                  corrected: "I went to school",
+                  explanation: "Fixed verb tense"
+                })
+              }
+            }
+          ]
+        })
+      };
+    };
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // Ensure grammarCheck is enabled
+    await sandbox.chrome.storage.local.set({ grammarCheck: true });
+
+    // Trigger checkGrammarAndTypo
+    await sandbox.checkGrammarAndTypo("I goes to school");
+
+    // Verify timeout parameters and signal
+    assert.strictEqual(setTimeoutDelay, 20000, "Grammar check timeout must be exactly 20000ms (20s)");
+    assert.strictEqual(clearedTimerId, timerIdCounter, "clearTimeout must be called with timeoutId in finally block");
+    assert.ok(fetchSignal, "fetch must receive grammarAbortController signal");
+    assert.strictEqual(typeof fetchSignal.aborted, "boolean");
+
+    // Verify timer abort callback triggers abort
+    assert.strictEqual(typeof timeoutCallback, "function");
+    assert.strictEqual(fetchSignal.aborted, false);
+    timeoutCallback();
+    assert.strictEqual(fetchSignal.aborted, true, "timeout callback must abort the signal");
+
+    // Verify finally block cleans up even when fetch throws an error
+    let clearedOnErr = null;
+    sandbox.clearTimeout = (id) => {
+      clearedOnErr = id;
+    };
+    sandbox.fetch = async () => {
+      throw new Error("Network connection lost");
+    };
+    const origWarn = sandbox.console.warn;
+    sandbox.console.warn = () => {};
+    try {
+      await sandbox.checkGrammarAndTypo("Another text with error");
+    } finally {
+      sandbox.console.warn = origWarn;
+    }
+    assert.strictEqual(clearedOnErr, timerIdCounter, "clearTimeout must execute in finally block even if fetch throws");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
