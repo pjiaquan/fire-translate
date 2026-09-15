@@ -211,12 +211,23 @@ async function checkGrammarAndTypo(rawText) {
       headers["Authorization"] = `Bearer ${apiKey}`;
     }
 
-    const response = await fetch(endpointUrl, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify(payload),
-      signal: grammarAbortController.signal
-    });
+    const timeoutId = setTimeout(() => {
+      if (grammarAbortController) {
+        grammarAbortController.abort();
+      }
+    }, 20000);
+
+    let response;
+    try {
+      response = await fetch(endpointUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+        signal: grammarAbortController.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) return;
 
