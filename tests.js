@@ -2107,6 +2107,61 @@ async function executeTestSuite() {
     assert.strictEqual(clearedOnErr, timerIdCounter, "clearTimeout must execute in finally block even if fetch throws");
   });
 
+  // Test 52: Telegram Chat ID input security, masked password type, and draft exclusion protection
+  await runTest("Telegram Chat ID input security, masked password type, and draft exclusion protection", async () => {
+    const popupHtmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+    const sentinelMdContent = fs.readFileSync(__dirname + "/.jules/sentinel.md", "utf8");
+
+    // 1. Static file verifications
+    assert.ok(
+      popupHtmlContent.includes('<input type="password" id="input-telegram-chatid" placeholder="-100123456789">'),
+      "popup.html must render input-telegram-chatid with type=password to prevent plaintext exposure"
+    );
+    assert.ok(
+      popupCodeContent.includes('const DRAFT_SECRET_KEYS = ["apiKey", "telegramBotToken", "telegramChatId"];'),
+      "popup.js must include telegramChatId in DRAFT_SECRET_KEYS"
+    );
+    assert.ok(
+      sentinelMdContent.includes("Telegram Chat ID Input Exposure"),
+      ".jules/sentinel.md must document the Telegram Chat ID exposure vulnerability"
+    );
+
+    // 2. Runtime verification: Legacy draft scrubbing
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.telegramChatId = "saved-chat-12345";
+    sandbox.mockWebLocalStorage["settings_draft"] = JSON.stringify({
+      model: "test-model-legacy",
+      telegramChatId: "leaked-legacy-chat-id"
+    });
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.loadSettingsToUI();
+
+    const rawDraft = sandbox.localStorage.getItem("settings_draft");
+    assert.ok(rawDraft !== null, "non-secret part of draft should survive");
+    assert.ok(!rawDraft.includes("leaked-legacy-chat-id"), "legacy telegramChatId must be scrubbed from localStorage draft");
+    assert.strictEqual(JSON.parse(rawDraft).model, "test-model-legacy");
+
+    // 3. Runtime verification: In-progress session storage restoration across popup reopens
+    const reopened = createSandbox();
+    reopened.mockLocalStorage.telegramChatId = "saved-chat-12345";
+    reopened.mockSessionStorage["settings_draft_secrets"] = { telegramChatId: "unsaved-draft-chat-id" };
+    vm.createContext(reopened);
+    vm.runInContext(sharedCode, reopened);
+    vm.runInContext(popupCode, reopened);
+
+    await reopened.loadSettingsToUI();
+    assert.strictEqual(
+      reopened.document.getElementById("input-telegram-chatid").value,
+      "unsaved-draft-chat-id",
+      "unsaved telegramChatId draft in session storage should be restored to input"
+    );
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
