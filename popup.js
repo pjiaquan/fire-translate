@@ -2294,7 +2294,7 @@ const DRAFT_SECRET_STORAGE_KEY = "settings_draft_secrets";
 // only, never written to disk, dropped on browser restart, and unreachable from content
 // scripts. Where session storage is unavailable (Firefox < 115) the key simply is not
 // restored, which is the safe direction to fail in.
-const DRAFT_SECRET_KEYS = ["apiKey", "telegramBotToken"];
+const DRAFT_SECRET_KEYS = ["apiKey", "telegramBotToken", "telegramChatId"];
 
 let lastServerSettings = null;
 let settingsDraftListenersInitialized = false;

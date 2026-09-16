@@ -12,3 +12,8 @@
 **Vulnerability:** External fetch calls in extension UI (e.g., `testConnection`, `fetchLatestModels`) lacked explicit timeouts, which could cause the UI to hang indefinitely on unreachable endpoints, leading to resource exhaustion (DoS).
 **Learning:** Browser environments might let fetches hang indefinitely or for very long default timeouts on unreachable local network addresses.
 **Prevention:** Always implement explicit timeouts using `AbortController` for external `fetch` calls. Ensure proper cleanup with `clearTimeout` in a `finally` block to prevent dangling timers. Share the same signal across sequential fallback fetches to enforce a total time bound.
+
+## 2024-05-24 - [Telegram Chat ID Input Exposure]
+**Vulnerability:** Telegram Chat ID input was displayed in plaintext and leaked into localStorage during auto-drafting.
+**Learning:** Third party IDs or configurations, even if seemingly less sensitive than tokens, can still be considered sensitive configuration data and should be protected.
+**Prevention:** Treat sensitive configuration values (like Chat IDs) with `type="password"` in the UI and ensure they are added to `DRAFT_SECRET_KEYS` to avoid insecure local storage persistence.

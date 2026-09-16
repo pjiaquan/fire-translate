@@ -1052,6 +1052,7 @@ async function executeTestSuite() {
     sandbox.document.getElementById("input-model").value = "draft-model-xyz";
     sandbox.document.getElementById("input-api-key").value = "gsk_draft_secret_123456";
     sandbox.document.getElementById("input-telegram-token").value = "123456789:draft-bot-token";
+    sandbox.document.getElementById("input-telegram-chatid").value = "draft-chat-id";
 
     await sandbox.saveSettingsDraft();
 
@@ -1062,8 +1063,10 @@ async function executeTestSuite() {
     assert.strictEqual(draft.model, "draft-model-xyz", "non-secret fields should persist");
     assert.strictEqual(draft.apiKey, undefined, "apiKey must not be persisted to localStorage");
     assert.strictEqual(draft.telegramBotToken, undefined, "telegramBotToken must not be persisted");
+    assert.strictEqual(draft.telegramChatId, undefined, "telegramChatId must not be persisted");
     assert.ok(!rawDraft.includes("gsk_draft_secret_123456"), "raw draft must not contain the API key");
     assert.ok(!rawDraft.includes("draft-bot-token"), "raw draft must not contain the bot token");
+    assert.ok(!rawDraft.includes("draft-chat-id"), "raw draft must not contain the chat ID");
 
     // The badge still tracks credential edits even though they are not persisted
     assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
@@ -1072,6 +1075,7 @@ async function executeTestSuite() {
     const pending = sandbox.mockSessionStorage["settings_draft_secrets"];
     assert.strictEqual(pending.apiKey, "gsk_draft_secret_123456");
     assert.strictEqual(pending.telegramBotToken, "123456789:draft-bot-token");
+    assert.strictEqual(pending.telegramChatId, "draft-chat-id");
   });
 
   // Test 22b: A credential-only edit leaves nothing to persist on disk
