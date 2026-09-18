@@ -565,17 +565,21 @@ async function sendToTelegram(srcText, translatedText) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: htmlMessage,
-        parse_mode: "HTML"
-      }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: htmlMessage,
+          parse_mode: "HTML"
+        }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const responseText = await response.text();
@@ -801,14 +805,17 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  const response = await fetch(endpointUrl, {
-    method: "POST",
-    headers: headers,
-    body: JSON.stringify(payload),
-    signal: controller.signal
-  });
-
-  clearTimeout(timeoutId);
+  let response;
+  try {
+    response = await fetch(endpointUrl, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     throw new Error(`Phase 1 HTTP error ${response.status}`);
@@ -887,22 +894,25 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  const response = await fetch(endpointUrl, {
-    method: "POST",
-    headers: headers,
-    body: JSON.stringify({
-      model: model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Original Text: "${srcText}"\nTranslation: "${translationText}"` }
-      ],
-      temperature: temp,
-      stream: false
-    }),
-    signal: controller.signal
-  });
-
-  clearTimeout(timeoutId);
+  let response;
+  try {
+    response = await fetch(endpointUrl, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Original Text: "${srcText}"\nTranslation: "${translationText}"` }
+        ],
+        temperature: temp,
+        stream: false
+      }),
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     throw new Error(`Phase 2 HTTP error ${response.status}`);
