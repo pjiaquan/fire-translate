@@ -3094,7 +3094,7 @@ async function renderHistory() {
         <span class="history-meta">${escapeHTML(srcLangText)} &rarr; ${escapeHTML(targetLangText)}</span>
         <span class="history-time" title="${escapeHTML(new Date(item.timestamp).toLocaleString())}">${escapeHTML(timeText)}</span>
       </div>
-      <div class="history-texts">
+      <div class="history-texts" role="button" tabindex="0" aria-label="Load history item: ${escapeHTML(item.srcText)}" title="Load history item">
         <div class="history-src">${escapeHTML(item.srcText)}</div>
         <div class="history-target">${escapeHTML(item.targetText)}</div>
       </div>
@@ -3103,11 +3103,19 @@ async function renderHistory() {
       </button>
     `;
     
-    card.addEventListener("click", (e) => {
-      if (e.target.closest(".history-delete-btn")) return;
+    const historyTextsDiv = card.querySelector(".history-texts");
+
+    historyTextsDiv.addEventListener("click", (e) => {
       loadHistoryItem(item);
     });
     
+    historyTextsDiv.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        if (e.key === " ") e.preventDefault();
+        loadHistoryItem(item);
+      }
+    });
+
     listContainer.appendChild(card);
   });
   
