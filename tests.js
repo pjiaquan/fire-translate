@@ -48,7 +48,26 @@ function createSandbox() {
       get innerHTML() { return _innerHTML; },
       set innerHTML(val) {
         _innerHTML = String(val);
-        if (val === "") _children.length = 0;
+        _children.length = 0;
+        if (!val) return;
+        const elementRegex = /<([a-zA-Z0-9\-]+)([^>]*)>/g;
+        let match;
+        while ((match = elementRegex.exec(_innerHTML)) !== null) {
+          const tagName = match[1];
+          const rawAttrs = match[2];
+          if (["svg", "path", "line", "polyline", "circle"].includes(tagName.toLowerCase())) continue;
+          const childEl = createMockElement(tagName);
+          const attrRegex = /([a-zA-Z0-9\-]+)(?:=["']([^"']*)["'])?/g;
+          let attrMatch;
+          while ((attrMatch = attrRegex.exec(rawAttrs)) !== null) {
+            const attrName = attrMatch[1];
+            const attrVal = attrMatch[2] !== undefined ? attrMatch[2] : "";
+            if (attrName === "class") childEl.className = attrVal;
+            else if (attrName === "id") childEl.id = attrVal;
+            else childEl.setAttribute(attrName, attrVal);
+          }
+          _children.push(childEl);
+        }
       },
       getAttribute: function(name) {
         return _attrs[name] !== undefined ? _attrs[name] : (this[name] || null);
@@ -106,11 +125,15 @@ function createSandbox() {
       },
       querySelectorAll: function(selector) {
         const res = [];
-        for (const child of _children) {
-          if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
-            res.push(child);
+        function search(parent) {
+          for (const child of parent.children) {
+            if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
+              res.push(child);
+            }
+            if (child.children && child.children.length > 0) search(child);
           }
         }
+        search(this);
         return res;
       }
     };
@@ -2160,6 +2183,106 @@ async function executeTestSuite() {
       "unsaved-draft-chat-id",
       "unsaved telegramChatId draft in session storage should be restored to input"
     );
+  });
+
+  // Test 53: Translation history items provide keyboard accessibility (role=button, tabindex=0, Enter/Space keydown) without nested interactive elements
+  await runTest("Translation history items provide keyboard accessibility (role=button, tabindex=0, Enter/Space keydown) without nested interactive elements", async () => {
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+    const paletteMd = fs.readFileSync(__dirname + "/.Jules/palette.md", "utf8");
+
+    // 1. Static file verifications
+    assert.ok(
+      paletteMd.includes("Accessibility improvements for translation history items"),
+      ".Jules/palette.md must document history item accessibility learning"
+    );
+    assert.ok(
+      paletteMd.includes("nested interactive controls must be avoided by applying role=\"button\" directly to the inner text div"),
+      ".Jules/palette.md must document avoiding nested interactive elements"
+    );
+
+    // Verify role, tabindex, aria-label and keydown handlers in popup.js
+    assert.ok(
+      popupCodeContent.includes('class="history-texts" role="button" tabindex="0" aria-label="Load history item: ${escapeHTML(item.srcText)}"'),
+      "popup.js must set role=button, tabindex=0 and descriptive aria-label on .history-texts"
+    );
+    assert.ok(
+      popupCodeContent.includes('historyTextsDiv.addEventListener("keydown", (e) => {'),
+      "popup.js must attach keydown listener to historyTextsDiv"
+    );
+    assert.ok(
+      popupCodeContent.includes('if (e.key === "Enter" || e.key === " ")'),
+      "popup.js must handle Enter and Space keys for loading history"
+    );
+    assert.ok(
+      popupCodeContent.includes('if (e.key === " ") e.preventDefault();'),
+      "popup.js must prevent default scrolling on Space key"
+    );
+
+    // 2. Runtime verification in sandbox
+    const sandbox = createSandbox();
+    const testItem = {
+      id: "history-item-uuid-1",
+      srcLang: "en",
+      targetLang: "zh-TW",
+      srcText: "Hello world",
+      targetText: "你好世界",
+      timestamp: Date.now()
+    };
+    sandbox.mockLocalStorage.history = [testItem];
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.renderHistory();
+
+    const historyList = sandbox.document.getElementById("history-list");
+    assert.strictEqual(historyList.children.length, 1, "history-list must contain 1 rendered card");
+
+    const card = historyList.children[0];
+    assert.ok(card.classList.contains("history-item"), "card must have history-item class");
+    // Ensure parent card does not have role="button" to avoid nested interactive controls (delete button is child)
+    assert.strictEqual(card.getAttribute("role"), null, "parent card must not have role=button");
+
+    const historyTextsDiv = card.querySelector(".history-texts");
+    assert.ok(historyTextsDiv, "card must contain .history-texts element");
+    assert.strictEqual(historyTextsDiv.getAttribute("role"), "button", ".history-texts must have role=button");
+    assert.strictEqual(historyTextsDiv.getAttribute("tabindex"), "0", ".history-texts must have tabindex=0");
+    assert.strictEqual(
+      historyTextsDiv.getAttribute("aria-label"),
+      "Load history item: Hello world",
+      ".history-texts must have descriptive aria-label"
+    );
+
+    // Test Enter key activates loading
+    let historyLoadedWith = null;
+    sandbox.loadHistoryItem = (item) => {
+      historyLoadedWith = item;
+    };
+
+    historyTextsDiv.dispatchEvent({
+      type: "keydown",
+      key: "Enter"
+    });
+    assert.deepStrictEqual(historyLoadedWith, testItem, "Enter key on .history-texts must trigger loadHistoryItem with item");
+
+    // Test Space key activates loading and calls preventDefault
+    historyLoadedWith = null;
+    let spacePrevented = false;
+    historyTextsDiv.dispatchEvent({
+      type: "keydown",
+      key: " ",
+      preventDefault: () => { spacePrevented = true; }
+    });
+    assert.strictEqual(spacePrevented, true, "Space key on .history-texts must call preventDefault");
+    assert.deepStrictEqual(historyLoadedWith, testItem, "Space key on .history-texts must trigger loadHistoryItem with item");
+
+    // Test click activates loading
+    historyLoadedWith = null;
+    historyTextsDiv.dispatchEvent({
+      type: "click"
+    });
+    assert.deepStrictEqual(historyLoadedWith, testItem, "Click on .history-texts must trigger loadHistoryItem with item");
   });
 
   // Summary reporting
