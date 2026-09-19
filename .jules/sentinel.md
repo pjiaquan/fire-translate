@@ -17,3 +17,8 @@
 **Vulnerability:** Telegram Chat ID input was displayed in plaintext and leaked into localStorage during auto-drafting.
 **Learning:** Third party IDs or configurations, even if seemingly less sensitive than tokens, can still be considered sensitive configuration data and should be protected.
 **Prevention:** Treat sensitive configuration values (like Chat IDs) with `type="password"` in the UI and ensure they are added to `DRAFT_SECRET_KEYS` to avoid insecure local storage persistence.
+
+## YYYY-MM-DD - [Resource Exhaustion via Dangling Timers]
+**Vulnerability:** External fetch calls used AbortController for timeouts, but `clearTimeout` was placed sequentially after the fetch without a `try...finally` block. If the fetch threw an error (e.g., network failure, or the abort itself), the error would bubble up, skipping the `clearTimeout` execution and leaving a dangling timer.
+**Learning:** In asynchronous JavaScript, cleanup tasks for external resources or timers must be guaranteed to run regardless of success or failure of the awaited promise. Unhandled rejections skip subsequent lines in the same block.
+**Prevention:** Always wrap external fetch calls (or any async operation with a paired cleanup action) in a `try...finally` block and execute the cleanup (e.g., `clearTimeout`) inside the `finally` block to ensure execution under all conditions.

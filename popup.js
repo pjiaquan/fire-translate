@@ -1012,14 +1012,17 @@ function showLearningLoader() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
 
-    const response = await fetch(endpointUrl, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
+    let response;
+    try {
+      response = await fetch(endpointUrl, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
