@@ -24,26 +24,14 @@ jobs:
       - name: Run Extension Unit Tests
         run: npm test
 
-      - name: Create Extension Package (.zip)
-        run: |
-          mkdir -p dist
-          zip -r dist/fire-translate-extension.zip \
-            manifest.json \
-            background.js \
-            content.js \
-            popup.html \
-            popup.css \
-            popup.js \
-            icons/ \
-            README.md \
-            package.json \
-            -x "*.git*" "*node_modules*" "*.github*" "tests.js" "test-api.js"
+      - name: Build Extension Package (.zip)
+        run: npm run build
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v5
         with:
           name: fire-translate-extension-zip
-          path: dist/fire-translate-extension.zip
+          path: dist/fire-translate-v*.zip
 
   publish-chrome:
     name: Publish to Chrome Web Store
@@ -75,8 +63,9 @@ jobs:
           EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
         run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
           npx chrome-webstore-upload-cli@4.0.1 upload \
-            --source dist/fire-translate-extension.zip \
+            --source "dist/fire-translate-v${PACKAGE_VERSION}.zip" \
             --auto-publish
 
   publish-firefox:
@@ -104,7 +93,7 @@ jobs:
       - name: Unpack Extension Source for Firefox Submit
         run: |
           mkdir -p dist-source
-          unzip dist/fire-translate-extension.zip -d dist-source
+          unzip dist/fire-translate-v*.zip -d dist-source
 
       - name: Build & Submit to Firefox Add-ons (AMO)
         env:
@@ -146,5 +135,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: dist/fire-translate-extension.zip
+          files: dist/fire-translate-v*.zip
           generate_release_notes: true

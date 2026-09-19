@@ -5,7 +5,9 @@
   "main": "background.js",
   "scripts": {
     "test": "node tests.js",
-    "build": "zip -r fire-translate-v1.2.0.zip manifest.json background.js content.js popup.html popup.css popup.js icons PRIVACY_POLICY.md README.md"
+    "build": "node scripts/build.mjs",
+    "version:bump": "node scripts/version-bump.mjs",
+    "release": "node scripts/release.mjs"
   },
   "keywords": [],
   "author": "",

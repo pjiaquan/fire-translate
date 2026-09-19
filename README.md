@@ -56,6 +56,20 @@ If you are running your own local LLM engine, open the **Settings** drawer (cog 
 * **Model Name**: The exact name of the loaded model (e.g. `qwen`, `llama3`, `mistral`).
 * **System Prompt Template**: You can customize how the LLM translates. The `{target_lang}` placeholder will automatically update based on your target language selection.
 
+## 📦 Release & Chrome Web Store Deployment
+
+The repository includes GitHub Actions for testing, packaging, and publishing to the Chrome Web Store. The release script keeps the version in `package.json` and `manifest.json` synchronized:
+
+```bash
+# Bump only the version files
+npm run version:bump -- patch   # or minor / major
+
+# Test, bump, build, commit, tag, and push; pushing the tag triggers deployment
+npm run release -- patch --push
+```
+
+By default releases push to the `github` remote. Set `RELEASE_REMOTE` to use another remote. The GitHub repository must define `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN`, and `CHROME_EXTENSION_ID` secrets; `CHROME_PUBLISHER_ID` may also be provided when required by the Chrome Web Store account.
+
 ### Payload Structure Example
 The extension posts requests to `${API_ENDPOINT}/v1/chat/completions` with the following body:
 ```json
