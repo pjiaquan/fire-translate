@@ -256,18 +256,21 @@ async function translateInlineText(srcText, contextSentence = "") {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  const response = await fetch(endpointUrl, {
-    method: "POST",
-    headers: headers,
-    body: JSON.stringify({
-      model: model,
-      messages: messagesPayload,
-      temperature: targetTemp
-    }),
-    signal: controller.signal
-  });
-
-  clearTimeout(timeoutId);
+  let response;
+  try {
+    response = await fetch(endpointUrl, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({
+        model: model,
+        messages: messagesPayload,
+        temperature: targetTemp
+      }),
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     throw new Error(`Phase 1 HTTP error ${response.status}`);

@@ -2285,6 +2285,125 @@ async function executeTestSuite() {
     assert.deepStrictEqual(historyLoadedWith, testItem, "Click on .history-texts must trigger loadHistoryItem with item");
   });
 
+  // Test 54: External fetch requests in background script and popup enforce try...finally AbortController timer cleanup on errors
+  await runTest("External fetch requests in background script and popup enforce try...finally AbortController timer cleanup on errors", async () => {
+    const sentinelMd = fs.readFileSync(__dirname + "/.jules/sentinel.md", "utf8");
+    const bgCodeContent = fs.readFileSync(__dirname + "/background.js", "utf8");
+    const popupCodeContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+
+    // 1. Static file verifications
+    assert.ok(
+      sentinelMd.includes("Resource Exhaustion via Dangling Timers"),
+      ".jules/sentinel.md must document Resource Exhaustion via Dangling Timers"
+    );
+    assert.ok(
+      !sentinelMd.includes("YYYY-MM-DD"),
+      ".jules/sentinel.md must replace YYYY-MM-DD with a concrete date"
+    );
+    assert.ok(
+      sentinelMd.includes("try...finally"),
+      ".jules/sentinel.md must document try...finally pattern for timer cleanup"
+    );
+
+    // Verify background.js contains try...finally for all fetch calls
+    const bgFinallyCount = (bgCodeContent.match(/try\s*\{\s*response\s*=\s*await\s*fetch[\s\S]*?\}\s*finally\s*\{\s*clearTimeout\(timeoutId\);?\s*\}/g) || []).length;
+    assert.strictEqual(
+      bgFinallyCount,
+      4,
+      "background.js must wrap all 4 external fetch calls (translateInlineText, sendToTelegram, runStreamTranslationPhase1, fetchLearningInsights) in try...finally timer cleanup"
+    );
+
+    // Verify popup.js contains try...finally timer cleanup for translate()
+    assert.ok(
+      popupCodeContent.includes('try {\n      response = await fetch(endpointUrl, {\n        method: "POST",\n        headers: headers,\n        body: JSON.stringify(payload),\n        signal: controller.signal\n      });\n    } finally {\n      clearTimeout(timeoutId);\n    }'),
+      "popup.js translate() must wrap fetch in try...finally timer cleanup"
+    );
+
+    // 2. Runtime verification in background script sandbox
+    const bgSandbox = createSandbox();
+    const bgClearedTimers = [];
+    let bgTimerIdCounter = 500;
+    bgSandbox.setTimeout = (fn, delay) => {
+      return ++bgTimerIdCounter;
+    };
+    bgSandbox.clearTimeout = (id) => {
+      bgClearedTimers.push(id);
+    };
+    bgSandbox.fetch = async () => {
+      throw new Error("Simulated network timeout/abort error");
+    };
+
+    vm.createContext(bgSandbox);
+    vm.runInContext(sharedCode, bgSandbox);
+    vm.runInContext(bgCodeContent, bgSandbox);
+
+    // Test translateInlineText error cleanup
+    let inlineThrew = false;
+    try {
+      await bgSandbox.translateInlineText("Test inline sentence");
+    } catch (e) {
+      inlineThrew = true;
+    }
+    assert.strictEqual(inlineThrew, true, "translateInlineText should propagate network error");
+    assert.ok(
+      bgClearedTimers.includes(501),
+      "translateInlineText must clear timer in finally block even when fetch fails"
+    );
+
+    // Test sendToTelegram error cleanup
+    await bgSandbox.chrome.storage.local.set({
+      enableTelegram: true,
+      telegramBotToken: "123456:ABC-DEF",
+      telegramChatId: "-100123456"
+    });
+    const origBgWarn = bgSandbox.console.warn;
+    const origBgError = bgSandbox.console.error;
+    bgSandbox.console.warn = () => {};
+    bgSandbox.console.error = () => {};
+    const preTgCleared = bgClearedTimers.length;
+    try {
+      await bgSandbox.sendToTelegram("Hello", "你好");
+    } finally {
+      bgSandbox.console.warn = origBgWarn;
+      bgSandbox.console.error = origBgError;
+    }
+    assert.ok(
+      bgClearedTimers.length > preTgCleared,
+      "sendToTelegram must clear timer in finally block even when fetch fails"
+    );
+
+    // 3. Runtime verification in popup script sandbox
+    const popupSandbox = createSandbox();
+    const popupClearedTimers = [];
+    let popupTimerIdCounter = 700;
+    popupSandbox.setTimeout = (fn, delay) => {
+      return ++popupTimerIdCounter;
+    };
+    popupSandbox.clearTimeout = (id) => {
+      popupClearedTimers.push(id);
+    };
+    popupSandbox.fetch = async () => {
+      throw new Error("Simulated popup fetch network error");
+    };
+
+    vm.createContext(popupSandbox);
+    vm.runInContext(sharedCode, popupSandbox);
+    vm.runInContext(popupCodeContent, popupSandbox);
+
+    popupSandbox.document.getElementById("src-textarea").value = "Testing popup timer cleanup";
+    const origPopupError = popupSandbox.console.error;
+    popupSandbox.console.error = () => {};
+    try {
+      await popupSandbox.translate();
+    } finally {
+      popupSandbox.console.error = origPopupError;
+    }
+    assert.ok(
+      popupClearedTimers.includes(701),
+      "popup.js translate() must execute clearTimeout in finally block even when fetch fails"
+    );
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
