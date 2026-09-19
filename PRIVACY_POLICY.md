@@ -31,7 +31,7 @@ All user preferences, operational data, and active drafts are saved **strictly l
 ### 3. Text Translation, Endpoint Network Traffic & Telegram Integration
 
 When you select text on a webpage or type text into the Fire Translate popup/sidepanel:
-- **Selected AI Endpoint**: The text is sent directly to the **AI translation service endpoint configured by you** (e.g., OpenAI API, Groq API, DeepSeek API, Google Gemini API, or your local LLM gateway at `http://localhost:11434` / `http://192.168.3.202:4090`).
+- **Selected AI Endpoint**: The text is sent directly to the **AI translation service endpoint configured by you** (e.g., OpenAI API, Groq API, DeepSeek API, Google Gemini API, or a local LLM gateway).
 - **Network Protocol Notice**: Secure HTTPS endpoints (`https://`) encrypt all transmitted text and API credentials in transit. If you configure a custom endpoint using unencrypted HTTP (`http://`), transmission travels in cleartext over your local or target network.
 - **Optional Telegram Forwarding**: If you explicitly enable the optional Telegram integration in Settings, your translation source text and generated translation results will be sent to your configured Telegram Bot/Chat via `https://api.telegram.org`. This feature is disabled by default and runs strictly on user opt-in.
 - **Third-Party AI Service Privacy Policies**:

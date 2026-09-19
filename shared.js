@@ -1,3 +1,7 @@
+const DEFAULT_PROVIDER = "gemini";
+const DEFAULT_API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai";
+const DEFAULT_MODEL = "gemini-3.6-flash";
+
 function getGemmaLangCode(lang) {
   if (!lang) return "en";
   if (lang === "auto") return "en";
@@ -73,7 +77,7 @@ function getBilingualLangName(lang) {
 }
 
 function formatChatEndpointUrl(apiEndpoint) {
-  if (!apiEndpoint) return "http://192.168.3.202:4090/v1/chat/completions";
+  if (!apiEndpoint) return `${DEFAULT_API_ENDPOINT}/v1/chat/completions`;
   let clean = apiEndpoint.trim().replace(/\/$/, "");
   if (clean.includes("googleapis.com") && !clean.includes("/openai")) {
     clean = `${clean}/openai`;
@@ -88,7 +92,7 @@ function formatChatEndpointUrl(apiEndpoint) {
 }
 
 function formatModelsEndpointUrl(apiEndpoint) {
-  if (!apiEndpoint) return "http://192.168.3.202:4090/v1/models";
+  if (!apiEndpoint) return `${DEFAULT_API_ENDPOINT}/v1/models`;
   let clean = apiEndpoint.trim().replace(/\/$/, "");
   if (clean.includes("googleapis.com") && !clean.includes("/openai")) {
     clean = `${clean}/openai`;

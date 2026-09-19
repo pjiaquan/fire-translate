@@ -40,9 +40,9 @@ chrome.runtime.onInstalled.addListener(() => {
     "telegramChatId"
   ], (result) => {
     const defaults = {};
-    if (result.apiEndpoint === undefined) defaults.apiEndpoint = "http://192.168.3.202:4090";
+    if (result.apiEndpoint === undefined) defaults.apiEndpoint = DEFAULT_API_ENDPOINT;
     if (result.apiKey === undefined) defaults.apiKey = "";
-    if (result.model === undefined) defaults.model = "qwen";
+    if (result.model === undefined) defaults.model = DEFAULT_MODEL;
     if (result.temperature === undefined) defaults.temperature = 0.1;
     if (result.systemPrompt === undefined) {
       defaults.systemPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
@@ -170,9 +170,9 @@ async function translateInlineText(srcText, contextSentence = "") {
     "sourceLang"
   ]);
 
-  const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+  const apiEndpoint = config.apiEndpoint || DEFAULT_API_ENDPOINT;
   const apiKey = config.apiKey || "";
-  const model = config.model || "qwen";
+  const model = config.model || DEFAULT_MODEL;
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
   const targetLang = config.targetLang || "zh-TW";
@@ -723,9 +723,9 @@ async function runStreamTranslationPhase1(srcText, onChunk, contextSentence = ""
     "sourceLang"
   ]);
 
-  const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+  const apiEndpoint = config.apiEndpoint || DEFAULT_API_ENDPOINT;
   const apiKey = config.apiKey || "";
-  const model = config.model || "qwen";
+  const model = config.model || DEFAULT_MODEL;
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
   const targetLang = config.targetLang || "zh-TW";
@@ -865,7 +865,7 @@ async function fetchLearningInsights(srcText, translationText, targetLang, model
     "systemPromptLearning"
   ]);
 
-  const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+  const apiEndpoint = config.apiEndpoint || DEFAULT_API_ENDPOINT;
   const apiKey = config.apiKey || "";
   const temp = parseFloat(config.temperature ?? 0.1);
   const rawSystemPrompt = config.systemPromptLearning || "你是一個專業的語言學習助手。";
@@ -972,7 +972,7 @@ chrome.runtime.onConnect.addListener((port) => {
           const targetLang = config.targetLang || "zh-TW";
           const sourceLang = config.sourceLang || "auto";
           const richLearningMode = config.richLearningMode !== false;
-          const model = config.model || "qwen";
+          const model = config.model || DEFAULT_MODEL;
           
           const cached = await getCachedTranslation(cleanedText, sourceLang, targetLang, model, richLearningMode, msg.contextSentence);
           if (cached) {

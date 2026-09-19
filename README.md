@@ -1,14 +1,14 @@
 # Fire Translate 🌐🔥
 
-A sleek, modern Chrome extension for instant, local-LLM-powered translations. Inspired by Gikken Mate, it features a responsive split-pane UI, robust API customizations, real-time debugging logs, and full-featured translation history.
+A sleek, modern Chrome extension for instant AI-powered translations. Inspired by Gikken Mate, it features a responsive split-pane UI, robust API customizations, real-time debugging logs, and full-featured translation history.
 
 ## 🚀 Key Features
 
 * **Sleek Split-Pane Layout**: Source text on the left, instant translation on the right (collapses to stacked layout in the Chrome Side Panel).
-* **Local LLM Integration**: Connects to any OpenAI-compatible Chat Completion API (e.g. Ollama, LM Studio, vLLM, Llama.cpp, or custom local gateways).
+* **OpenAI-Compatible Providers**: Uses Google Gemini by default and can connect to any compatible cloud or local Chat Completion API.
 * **Highly Customizable Settings**:
-  * API Endpoint URL (default: `http://192.168.3.202:4090`)
-  * Target Model Name (default: `qwen`)
+  * API Endpoint URL (default: Google Gemini OpenAI-compatible endpoint)
+  * Target Model Name (default: `gemini-3.6-flash`)
   * Temperature Control slider (default: `0.1` for precise translation)
   * Dynamic System Prompt Template (with `{target_lang}` substitution)
 * **Streaming Outputs**: Streams translation results in real-time (word-by-word) for both the popup/side-panel workspace and the webpage double-click translation bubble (features a user toggle in Settings).
@@ -49,7 +49,7 @@ Follow these steps to load the extension into Google Chrome:
 
 ## ⚙️ Backend API Setup
 
-The extension is pre-configured to communicate with an OpenAI-compatible server at `http://192.168.3.202:4090`. 
+The extension defaults to Google Gemini's OpenAI-compatible endpoint.
 
 If you are running your own local LLM engine, open the **Settings** drawer (cog icon) in the extension header and configure:
 * **Server API Endpoint**: e.g. `http://localhost:11434` (Ollama), `http://localhost:1234` (LM Studio), or your specific network IP.

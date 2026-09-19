@@ -656,7 +656,7 @@ async function executeTestSuite() {
     assert.strictEqual(formatChatEndpointUrl("https://generativelanguage.googleapis.com/v1beta/openai"), "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions");
     assert.strictEqual(formatChatEndpointUrl("https://generativelanguage.googleapis.com/v1beta"), "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions");
     assert.strictEqual(formatChatEndpointUrl("https://api.deepseek.com/v1/chat/completions"), "https://api.deepseek.com/v1/chat/completions");
-    assert.strictEqual(formatChatEndpointUrl("http://192.168.3.202:4090/"), "http://192.168.3.202:4090/v1/chat/completions");
+    assert.strictEqual(formatChatEndpointUrl("http://example.test:4090/"), "http://example.test:4090/v1/chat/completions");
   });
 
   // Test 12: Provider recipes configuration validation
@@ -668,7 +668,7 @@ async function executeTestSuite() {
       gemini: { name: "Google Gemini", endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.6-flash", keyRequired: true },
       ollama: { name: "Ollama Local", endpoint: "http://localhost:11434", model: "qwen2.5:7b", keyRequired: false },
       lmstudio: { name: "LM Studio Local", endpoint: "http://localhost:1234", model: "qwen2.5-7b-instruct", keyRequired: false },
-      vllm: { name: "Local Gateway / vLLM", endpoint: "http://192.168.3.202:4090", model: "qwen", keyRequired: false }
+      vllm: { name: "Local Gateway / vLLM", endpoint: "", model: "qwen", keyRequired: false }
     };
 
     assert.strictEqual(DEFAULT_RECIPES.groq.model, "llama-3.3-70b-versatile");
@@ -708,7 +708,7 @@ async function executeTestSuite() {
   await runTest("Provider recipe switching retains previously configured working model for each provider recipe", () => {
     const loadedRecipes = {
       gemini: { endpoint: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.5-flash" },
-      vllm: { endpoint: "http://192.168.3.202:4090", model: "qwen" }
+      vllm: { endpoint: "", model: "qwen" }
     };
 
     function selectModelForProvider(providerKey, existingInputModel, recipes) {
@@ -2412,7 +2412,6 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
-
 
 
 

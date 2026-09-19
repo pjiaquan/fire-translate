@@ -7,10 +7,6 @@
     "test": "node tests.js",
     "build": "zip -r fire-translate-v1.2.0.zip manifest.json background.js content.js popup.html popup.css popup.js icons PRIVACY_POLICY.md README.md"
   },
-  "repository": {
-    "type": "git",
-    "url": "git@192.168.3.170:risc4/fire-translate.git"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",

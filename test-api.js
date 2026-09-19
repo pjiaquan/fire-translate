@@ -1,6 +1,9 @@
 // test-api.js - Direct local API translation verification script
 const { getGemmaLangCode } = require('./shared.js');
-const apiEndpoint = "http://192.168.3.202:4090";
+const apiEndpoint = process.env.API_ENDPOINT;
+if (!apiEndpoint) {
+  throw new Error("Set API_ENDPOINT before running test-api.js");
+}
 const srcText = "example";
 const targetLang = "zh-TW";
 

@@ -187,9 +187,9 @@ async function checkGrammarAndTypo(rawText) {
       return;
     }
 
-    const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+    const apiEndpoint = config.apiEndpoint || DEFAULT_API_ENDPOINT;
     const apiKey = config.apiKey || "";
-    const model = config.model || "qwen";
+    const model = config.model || DEFAULT_MODEL;
     const endpointUrl = formatChatEndpointUrl(apiEndpoint);
 
     const systemPrompt = "You are a smart grammar and spell-checker assistant. Analyze the user's input text for typos, misspellings, or grammatical errors in whatever language it is written in.\\nIf there is any typo, misspelling, punctuation issue, or grammatical mistake, provide the corrected version.\\nRespond ONLY in the following JSON format without markdown code blocks:\\n{\\\"has_error\\\": true, \\\"corrected\\\": \\\"<the fully corrected sentence/text>\\\", \\\"explanation\\\": \\\"<brief reason, e.g. Fixed typo>\\\"}\\nIf the input is already correct, natural, or has no errors, respond ONLY in this JSON format:\\n{\\\"has_error\\\": false, \\\"corrected\\\": \\\"\\\", \\\"explanation\\\": \\\"\\\"}";
@@ -860,9 +860,9 @@ async function translate() {
     "showThinking"
   ]);
 
-  const apiEndpoint = config.apiEndpoint || "http://192.168.3.202:4090";
+  const apiEndpoint = config.apiEndpoint || DEFAULT_API_ENDPOINT;
   const apiKey = config.apiKey || "";
-  const model = config.model || "qwen";
+  const model = config.model || DEFAULT_MODEL;
   const modelType = config.modelType || "qwen";
   const temp = parseFloat(config.temperature ?? 0.1);
   const srcLang = config.sourceLang || "auto";
@@ -1345,11 +1345,11 @@ const DEFAULT_RECIPES = {
   vllm: {
     id: "vllm",
     name: "Local Gateway / vLLM",
-    endpoint: "http://192.168.3.202:4090",
+    endpoint: "",
     apiKey: "",
     model: "qwen",
     modelType: "qwen",
-    stdUrl: "http://192.168.3.202:4090",
+    stdUrl: "",
     recommendedModels: ["qwen", "translategemma"],
     keyRequired: false,
     helpText: "Optional for custom local server"
@@ -1357,7 +1357,7 @@ const DEFAULT_RECIPES = {
   custom: {
     id: "custom",
     name: "Custom Recipe",
-    endpoint: "http://192.168.3.202:4090",
+    endpoint: "",
     apiKey: "",
     model: "qwen",
     modelType: "qwen",
@@ -2393,7 +2393,7 @@ function getFormSettingsState() {
   const tgChatInput = document.getElementById("input-telegram-chatid");
 
   return {
-    currentProvider: selectProvider ? selectProvider.value : "vllm",
+    currentProvider: selectProvider ? selectProvider.value : DEFAULT_PROVIDER,
     apiEndpoint: inputApiEndpoint ? inputApiEndpoint.value.trim() : "",
     apiKey: inputApiKey ? inputApiKey.value.trim() : "",
     model: inputModel ? inputModel.value.trim() : "",
@@ -2666,7 +2666,7 @@ async function loadSettingsToUI() {
     else if (ep.includes("11434")) activeProv = "ollama";
     else if (ep.includes("1234")) activeProv = "lmstudio";
     else if (ep.includes("4090")) activeProv = "vllm";
-    else activeProv = "vllm";
+    else activeProv = DEFAULT_PROVIDER;
   }
 
   const defaultPrompt = "你是一個專業的翻譯引擎。請將使用者輸入的任何文字精準翻譯成流暢的{target_lang}。請直接輸出翻譯後的結果，不要包含任何解釋、引號、前言或問候語。";
@@ -2843,9 +2843,9 @@ btnResetSettings.addEventListener("click", async () => {
     await clearDraftSecrets();
 
     const defaultState = {
-      apiEndpoint: "http://192.168.3.202:4090",
+      apiEndpoint: DEFAULT_API_ENDPOINT,
       apiKey: "",
-      model: "qwen",
+      model: DEFAULT_MODEL,
       modelType: "qwen",
       temperature: 0.1,
       maxHistory: 100,
