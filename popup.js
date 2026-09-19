@@ -1626,9 +1626,45 @@ if (btnToggleKeyVis) {
     if (inputApiKey.type === "password") {
       inputApiKey.type = "text";
       btnToggleKeyVis.textContent = "Hide";
+      btnToggleKeyVis.setAttribute("aria-label", "Hide API Key");
     } else {
       inputApiKey.type = "password";
       btnToggleKeyVis.textContent = "Show";
+      btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
+    }
+  });
+}
+
+// Toggle Telegram Bot Token password visibility
+const btnToggleTelegramTokenVis = document.getElementById("btn-toggle-telegram-token-vis");
+const inputTelegramToken = document.getElementById("input-telegram-token");
+if (btnToggleTelegramTokenVis && inputTelegramToken) {
+  btnToggleTelegramTokenVis.addEventListener("click", () => {
+    if (inputTelegramToken.type === "password") {
+      inputTelegramToken.type = "text";
+      btnToggleTelegramTokenVis.textContent = "Hide";
+      btnToggleTelegramTokenVis.setAttribute("aria-label", "Hide Telegram Bot Token");
+    } else {
+      inputTelegramToken.type = "password";
+      btnToggleTelegramTokenVis.textContent = "Show";
+      btnToggleTelegramTokenVis.setAttribute("aria-label", "Show Telegram Bot Token");
+    }
+  });
+}
+
+// Toggle Telegram Chat ID password visibility
+const btnToggleTelegramChatidVis = document.getElementById("btn-toggle-telegram-chatid-vis");
+const inputTelegramChatid = document.getElementById("input-telegram-chatid");
+if (btnToggleTelegramChatidVis && inputTelegramChatid) {
+  btnToggleTelegramChatidVis.addEventListener("click", () => {
+    if (inputTelegramChatid.type === "password") {
+      inputTelegramChatid.type = "text";
+      btnToggleTelegramChatidVis.textContent = "Hide";
+      btnToggleTelegramChatidVis.setAttribute("aria-label", "Hide Telegram Chat ID");
+    } else {
+      inputTelegramChatid.type = "password";
+      btnToggleTelegramChatidVis.textContent = "Show";
+      btnToggleTelegramChatidVis.setAttribute("aria-label", "Show Telegram Chat ID");
     }
   });
 }

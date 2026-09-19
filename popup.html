@@ -237,7 +237,7 @@
         <div class="form-group margin-bottom-10" id="api-key-group">
           <div class="label-with-action">
             <label for="input-api-key">API Key</label>
-            <button id="btn-toggle-key-vis" class="btn-text-link" type="button">Show</button>
+            <button id="btn-toggle-key-vis" class="btn-text-link" type="button" aria-label="Show API Key">Show</button>
           </div>
           <input type="password" id="input-api-key" placeholder="Enter API Key (sk-...)">
           <small id="api-key-help" class="form-help">Required for cloud providers, optional for local endpoints.</small>
@@ -424,11 +424,17 @@
         </div>
         <div id="telegram-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="input-telegram-token">Telegram Bot Token</label>
+            <div class="label-with-action">
+              <label for="input-telegram-token">Telegram Bot Token</label>
+              <button id="btn-toggle-telegram-token-vis" class="btn-text-link" type="button" aria-label="Show Telegram Bot Token">Show</button>
+            </div>
             <input type="password" id="input-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label for="input-telegram-chatid">Telegram Chat ID / Group ID</label>
+            <div class="label-with-action">
+              <label for="input-telegram-chatid">Telegram Chat ID / Group ID</label>
+              <button id="btn-toggle-telegram-chatid-vis" class="btn-text-link" type="button" aria-label="Show Telegram Chat ID">Show</button>
+            </div>
             <input type="password" id="input-telegram-chatid" placeholder="-100123456789">
           </div>
         </div>
