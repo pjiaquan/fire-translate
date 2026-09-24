@@ -2285,6 +2285,61 @@ async function executeTestSuite() {
     assert.deepStrictEqual(historyLoadedWith, testItem, "Click on .history-texts must trigger loadHistoryItem with item");
   });
 
+  // Test 55: Password visibility toggle updates ARIA labels
+  await runTest("Password visibility toggle correctly updates aria-label and text content", async () => {
+    const sandbox = createSandbox();
+
+    // Create elements that popup.js expects
+    const inputApiKey = sandbox.document.createElement("input");
+    inputApiKey.id = "input-api-key";
+    inputApiKey.type = "password";
+    sandbox.document.body.appendChild(inputApiKey);
+
+    const btnToggleKeyVis = sandbox.document.createElement("button");
+    btnToggleKeyVis.id = "btn-toggle-key-vis";
+    btnToggleKeyVis.textContent = "Show";
+    btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
+    sandbox.document.body.appendChild(btnToggleKeyVis);
+
+    // Provide missing stubs required by popup.js on load
+    sandbox.document.getElementById = (id) => {
+      if (id === "input-api-key") return inputApiKey;
+      if (id === "btn-toggle-key-vis") return btnToggleKeyVis;
+      // return a dummy element for other required elements
+      return sandbox.document.createElement("div");
+    };
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+
+    // We only need to run the snippet of popup.js that sets up the listener,
+    // or run popup.js entirely, but running the whole popup.js might fail if some elements are not stubbed.
+    // Let's run the whole popupCode in sandbox.
+    // Our dummy element returned by getElementById handles missing elements.
+    vm.runInContext(popupCode, sandbox);
+
+    // The initial state
+    assert.strictEqual(inputApiKey.type, "password");
+    assert.strictEqual(btnToggleKeyVis.textContent, "Show");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "Show API Key");
+
+    // Click to show password
+    btnToggleKeyVis.click();
+
+    // Verify it changed to text and Hide
+    assert.strictEqual(inputApiKey.type, "text");
+    assert.strictEqual(btnToggleKeyVis.textContent, "Hide");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "Hide API Key");
+
+    // Click to hide password
+    btnToggleKeyVis.click();
+
+    // Verify it changed back to password and Show
+    assert.strictEqual(inputApiKey.type, "password");
+    assert.strictEqual(btnToggleKeyVis.textContent, "Show");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "Show API Key");
+  });
+
   // Test 54: External fetch requests in background script and popup enforce try...finally AbortController timer cleanup on errors
   await runTest("External fetch requests in background script and popup enforce try...finally AbortController timer cleanup on errors", async () => {
     const sentinelMd = fs.readFileSync(__dirname + "/.jules/sentinel.md", "utf8");
