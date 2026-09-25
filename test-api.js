@@ -22,12 +22,21 @@ async function runTest() {
   console.log(`Sending translation request to: ${url}`);
   console.log(`Prompt: "${gemmaPrompt}"`);
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
