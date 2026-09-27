@@ -1457,11 +1457,14 @@ async function renderDisabledSitesList() {
     if (currentDomain) {
       const isDisabled = isDomainDisabled(currentDomain, disabledDomains);
       const targetName = (baseDomain && baseDomain !== currentDomain) ? `${baseDomain} (*.${baseDomain})` : currentDomain;
-      btnToggleCurrentSite.textContent = isDisabled
+      const text = isDisabled
         ? `✅ Enable on ${targetName}`
         : `🚫 Disable on ${targetName}`;
+      btnToggleCurrentSite.textContent = text;
+      btnToggleCurrentSite.setAttribute("aria-label", text);
     } else {
       btnToggleCurrentSite.textContent = "Toggle Current Site";
+      btnToggleCurrentSite.setAttribute("aria-label", "Toggle Current Site");
     }
   }
 
@@ -1626,9 +1629,11 @@ if (btnToggleKeyVis) {
     if (inputApiKey.type === "password") {
       inputApiKey.type = "text";
       btnToggleKeyVis.textContent = "Hide";
+      btnToggleKeyVis.setAttribute("aria-label", "Hide API Key");
     } else {
       inputApiKey.type = "password";
       btnToggleKeyVis.textContent = "Show";
+      btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
     }
   });
 }
