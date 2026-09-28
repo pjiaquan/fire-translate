@@ -20,6 +20,16 @@ function loadDotEnv(path) {
 	return out;
 }
 
+function escapeHTML(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const env = loadDotEnv(process.env.CWS_ENV_FILE || '.env');
 
 const CLIENT_ID = process.env.CWS_CLIENT_ID || env.CLIENT_ID;
@@ -80,7 +90,7 @@ const server = createServer(async (request, response) => {
 	if (searchParams.has('error')) {
 		const error = searchParams.get('error');
 		response.writeHead(200, {'Content-Type': 'text/html'});
-		response.end(`<h1>Authorization denied</h1><p>${error}</p>`);
+		response.end(`<h1>Authorization denied</h1><p>${escapeHTML(error)}</p>`);
 		console.error(`AUTH_ERROR ${error}`);
 		server.close();
 		process.exit(2);
