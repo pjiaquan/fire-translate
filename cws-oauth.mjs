@@ -79,8 +79,9 @@ const server = createServer(async (request, response) => {
 
 	if (searchParams.has('error')) {
 		const error = searchParams.get('error');
+		const safeError = String(error).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 		response.writeHead(200, {'Content-Type': 'text/html'});
-		response.end(`<h1>Authorization denied</h1><p>${error}</p>`);
+		response.end(`<h1>Authorization denied</h1><p>${safeError}</p>`);
 		console.error(`AUTH_ERROR ${error}`);
 		server.close();
 		process.exit(2);
