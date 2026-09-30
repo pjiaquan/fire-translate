@@ -16,3 +16,6 @@
 ## 2024-05-25 - Accessibility improvements for translation history items
 **Learning:** Found that custom layout blocks (e.g., `<div class="history-texts">`) designed to act as interactive list items were implemented using a click listener on a parent container. This made the items completely inaccessible to keyboard users, violating WCAG standards. The elements were missing interactive semantics, focus states, and keyboard event handlers. Also, nested interactive controls must be avoided by applying role="button" directly to the inner text div instead of the parent card which already contains a delete button.
 **Action:** Always add `role="button"`, `tabindex="0"`, `aria-label`, and full keyboard handlers (`Enter` and `Space` with `e.preventDefault()`) to dynamically created interactive divs acting as list options, avoiding nested interactive elements.
+## 2024-09-30 - Contextual Labels for Text Toggle Buttons
+**Learning:** Text-based toggle buttons (like "Show" / "Hide" for a password field) can lack sufficient context for screen reader users when read in isolation. Simply reading "Show" doesn't explain *what* is being shown.
+**Action:** When implementing text-based toggle buttons, dynamically update the `aria-label` attribute (e.g., "Show API Key" / "Hide API Key") alongside the visible text to ensure full context is provided.
