@@ -22,3 +22,8 @@
 **Vulnerability:** External fetch calls used AbortController for timeouts, but `clearTimeout` was placed sequentially after the fetch without a `try...finally` block. If the fetch threw an error (e.g., network failure, or the abort itself), the error would bubble up, skipping the `clearTimeout` execution and leaving a dangling timer.
 **Learning:** In asynchronous JavaScript, cleanup tasks for external resources or timers must be guaranteed to run regardless of success or failure of the awaited promise. Unhandled rejections skip subsequent lines in the same block.
 **Prevention:** Always wrap external fetch calls (or any async operation with a paired cleanup action) in a `try...finally` block and execute the cleanup (e.g., `clearTimeout`) inside the `finally` block to ensure execution under all conditions.
+
+## 2024-05-28 - [Reflected XSS in Local Dev Server]
+**Vulnerability:** Reflected XSS vulnerability in `cws-oauth.mjs` where the `error` query parameter was directly interpolated into the HTML response.
+**Learning:** Even local loopback servers used for development or OAuth flows are susceptible to XSS if they reflect unescaped URL parameters. An attacker could craft a malicious link to the local server.
+**Prevention:** Always HTML-escape untrusted input (such as URL parameters) before rendering it in HTTP responses, even in local developer scripts or utility web servers.
