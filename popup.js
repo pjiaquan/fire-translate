@@ -1626,9 +1626,11 @@ if (btnToggleKeyVis) {
     if (inputApiKey.type === "password") {
       inputApiKey.type = "text";
       btnToggleKeyVis.textContent = "Hide";
+      btnToggleKeyVis.setAttribute("aria-label", "Hide API Key");
     } else {
       inputApiKey.type = "password";
       btnToggleKeyVis.textContent = "Show";
+      btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
     }
   });
 }
