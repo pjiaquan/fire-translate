@@ -87,7 +87,7 @@
           <button type="button" id="btn-paste" class="icon-action-btn" title="Paste Clipboard" aria-label="Paste Clipboard">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
           </button>
-          <button type="button" id="btn-clear-src" class="icon-action-btn" title="Clear text" aria-label="Clear text">
+          <button type="button" id="btn-clear-src" class="icon-action-btn" title="Clear text" aria-label="Clear text" disabled>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
@@ -250,7 +250,7 @@
         <div class="form-group margin-bottom-10" id="api-key-group">
           <div class="label-with-action">
             <label for="input-api-key">API Key</label>
-            <button id="btn-toggle-key-vis" class="btn-text-link" type="button">Show</button>
+            <button id="btn-toggle-key-vis" class="btn-text-link" type="button" aria-label="Show API Key">Show</button>
           </div>
           <input type="password" id="input-api-key" placeholder="Enter API Key (sk-...)">
           <small id="api-key-help" class="form-help">Required for cloud providers, optional for local endpoints.</small>
