@@ -354,6 +354,50 @@ const bgCode = fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {
+  await runTest("Connection edits stay in draft until saved and saving does not trigger translation", async () => {
+    const sandbox = createSandbox();
+    Object.assign(sandbox.mockLocalStorage, {
+      currentProvider: "ollama", apiEndpoint: "http://localhost:11434",
+      model: "original-model", apiKey: "", autoTranslate: false
+    });
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    await sandbox.loadSettingsToUI();
+    sandbox.document.getElementById("input-model").value = "new-model";
+    await sandbox.autoSaveCurrentRecipe();
+    assert.strictEqual(sandbox.mockLocalStorage.model, "original-model");
+    const provider = sandbox.document.getElementById("select-provider");
+    provider.value = "lmstudio";
+    for (const listener of provider.listeners.change) await listener();
+    assert.strictEqual(sandbox.mockLocalStorage.apiEndpoint, "http://localhost:11434");
+    assert.strictEqual(sandbox.mockLocalStorage.currentProvider, "ollama");
+    sandbox.document.getElementById("src-textarea").value = "Hello world";
+    let translations = 0;
+    sandbox.translate = () => { translations++; };
+    for (const listener of sandbox.document.getElementById("btn-save-settings").listeners.click) await listener();
+    assert.strictEqual(sandbox.mockLocalStorage.currentProvider, "lmstudio");
+    assert.strictEqual(translations, 0);
+    assert.strictEqual(sandbox.document.getElementById("settings-feedback").textContent, "設定已儲存");
+  });
+
+  await runTest("Setup notice is shown for cloud services without a key and hidden for local servers", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    await sandbox.updateSetupNotice();
+    const notice = sandbox.document.getElementById("setup-notice");
+    assert.strictEqual(notice.classList.contains("hidden"), false);
+    sandbox.mockLocalStorage.apiKey = "test-key";
+    await sandbox.updateSetupNotice();
+    assert.strictEqual(notice.classList.contains("hidden"), true);
+    sandbox.mockLocalStorage.apiKey = "";
+    sandbox.mockLocalStorage.apiEndpoint = "http://localhost:11434";
+    await sandbox.updateSetupNotice();
+    assert.strictEqual(notice.classList.contains("hidden"), true);
+  });
+
   // Test 1: Cache initialization & key hashing
   await runTest("Cache utility should store and retrieve translations", async () => {
     const sandbox = createSandbox();
@@ -1092,7 +1136,7 @@ async function executeTestSuite() {
     assert.ok(!rawDraft.includes("draft-chat-id"), "raw draft must not contain the chat ID");
 
     // The badge still tracks credential edits even though they are not persisted
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
 
     // The credentials go to the in-memory session area instead, so nothing is lost
     const pending = sandbox.mockSessionStorage["settings_draft_secrets"];
@@ -1115,7 +1159,7 @@ async function executeTestSuite() {
     await sandbox.saveSettingsDraft();
 
     assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
     assert.strictEqual(
       sandbox.mockSessionStorage["settings_draft_secrets"].apiKey,
       "gsk_only_the_key_changed"
@@ -1149,7 +1193,7 @@ async function executeTestSuite() {
 
     assert.strictEqual(reopened.document.getElementById("input-model").value, "half-typed-model");
     assert.strictEqual(reopened.document.getElementById("input-api-key").value, "gsk_half_typed_key");
-    assert.strictEqual(reopened.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(reopened.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
   });
 
   // Test 22d: Saving clears the in-memory credential draft
@@ -1185,7 +1229,7 @@ async function executeTestSuite() {
     const btnDiscard = sandbox.document.getElementById("btn-discard-draft");
 
     // Initially Synced
-    assert.strictEqual(badge.textContent, "🟢 Synced");
+    assert.strictEqual(badge.textContent, "已儲存（此瀏覽器）");
     assert.strictEqual(btnDiscard.classList.contains("hidden"), true);
 
     // Edit an input
@@ -1194,7 +1238,7 @@ async function executeTestSuite() {
     await sandbox.saveSettingsDraft();
 
     // Should update badge to Unsaved Draft and show Discard Draft button
-    assert.strictEqual(badge.textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(badge.textContent, "有未儲存的變更");
     assert.strictEqual(badge.classList.contains("badge-unsaved"), true);
     assert.strictEqual(btnDiscard.classList.contains("hidden"), false);
 
@@ -1206,7 +1250,7 @@ async function executeTestSuite() {
     }
 
     // After save, should reset badge to Synced and hide Discard Draft
-    assert.strictEqual(badge.textContent, "🟢 Synced");
+    assert.strictEqual(badge.textContent, "已儲存（此瀏覽器）");
     assert.strictEqual(btnDiscard.classList.contains("hidden"), true);
     assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
   });
@@ -1225,7 +1269,7 @@ async function executeTestSuite() {
     apiKeyInput.value = "dirty-un saved-key";
     await sandbox.saveSettingsDraft();
 
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
 
     // Click Discard Draft
     const btnDiscard = sandbox.document.getElementById("btn-discard-draft");
@@ -1236,7 +1280,7 @@ async function executeTestSuite() {
 
     assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
     assert.strictEqual(apiKeyInput.value, "original-key");
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟢 Synced");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "已儲存（此瀏覽器）");
   });
 
   // Test 25: Protection Against Overwriting: loadSettingsToUI preserves active draft
@@ -1279,7 +1323,7 @@ async function executeTestSuite() {
 
     // Inputs should be restored from draft rather than wiped by background loadSettings
     assert.strictEqual(String(tempInput.value), "0.7");
-    assert.strictEqual(badge.textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(badge.textContent, "有未儲存的變更");
 
     // Credentials are never taken from a draft. This draft also switches provider to
     // groq, so the key field is owned by that provider's saved recipe (empty here) —
@@ -1637,12 +1681,12 @@ async function executeTestSuite() {
     // Verify initial HTML attributes for icon-action buttons
     assert.match(
       htmlContent,
-      /id="btn-copy"[^>]*title="Copy Translation"[^>]*aria-label="Copy Translation"/,
+      /id="btn-copy"[^>]*title="複製譯文"[^>]*aria-label="複製譯文"/,
       "btn-copy should have initial title and aria-label 'Copy Translation'"
     );
     assert.match(
       htmlContent,
-      /id="btn-tts"[^>]*title="Read Aloud"[^>]*aria-label="Read Aloud"/,
+      /id="btn-tts"[^>]*title="朗讀"[^>]*aria-label="朗讀"/,
       "btn-tts should have initial title and aria-label 'Read Aloud'"
     );
 
@@ -1660,47 +1704,47 @@ async function executeTestSuite() {
     // Wait for clipboard promise resolution
     await new Promise(r => setTimeout(r, 10));
 
-    assert.strictEqual(btnCopy.title, "Copied!");
-    assert.strictEqual(btnCopy.getAttribute("aria-label"), "Copied!");
+    assert.strictEqual(btnCopy.title, "已複製");
+    assert.strictEqual(btnCopy.getAttribute("aria-label"), "已複製");
     assert.ok(btnCopy.innerHTML.includes("<polyline"), "btnCopy should display checkmark icon");
 
     // Fast repeat clicks should be safely debounced and not get stuck
     btnCopy.click();
     await new Promise(r => setTimeout(r, 10));
-    assert.strictEqual(btnCopy.title, "Copied!");
+    assert.strictEqual(btnCopy.title, "已複製");
 
     // Advance timer to trigger reset
     await new Promise(r => setTimeout(r, 1600));
-    assert.strictEqual(btnCopy.title, "Copy Translation");
-    assert.strictEqual(btnCopy.getAttribute("aria-label"), "Copy Translation");
+    assert.strictEqual(btnCopy.title, "複製譯文");
+    assert.strictEqual(btnCopy.getAttribute("aria-label"), "複製譯文");
     assert.ok(btnCopy.innerHTML.includes("<rect"), "btnCopy should restore original copy icon");
 
     // 2. Test btnTts dynamic state
     btnTts.click();
-    assert.strictEqual(btnTts.title, "Stop Reading");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Stop Reading");
+    assert.strictEqual(btnTts.title, "停止朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "停止朗讀");
     assert.ok(btnTts.innerHTML.includes("<line"), "btnTts should show Stop X icon");
 
     // Utterance completion resets to Read Aloud
     assert.ok(sandbox.currentUtterance && typeof sandbox.currentUtterance.onend === "function");
     sandbox.currentUtterance.onend();
-    assert.strictEqual(btnTts.title, "Read Aloud");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+    assert.strictEqual(btnTts.title, "朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "朗讀");
     assert.ok(btnTts.innerHTML.includes("<path"), "btnTts should restore speaker icon");
 
     // Canceling during playback resets to Read Aloud
     btnTts.click();
-    assert.strictEqual(btnTts.title, "Stop Reading");
+    assert.strictEqual(btnTts.title, "停止朗讀");
     btnTts.click(); // click while speaking triggers cancel
-    assert.strictEqual(btnTts.title, "Read Aloud");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+    assert.strictEqual(btnTts.title, "朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "朗讀");
 
     // Speech error resets to Read Aloud
     btnTts.click();
-    assert.strictEqual(btnTts.title, "Stop Reading");
+    assert.strictEqual(btnTts.title, "停止朗讀");
     sandbox.currentUtterance.onerror();
-    assert.strictEqual(btnTts.title, "Read Aloud");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+    assert.strictEqual(btnTts.title, "朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "朗讀");
   });
 
   // Test 47: External fetch requests enforce AbortController timeout boundaries and resource cleanup
@@ -1957,19 +2001,19 @@ async function executeTestSuite() {
 
     // Verify popup.js sets title and aria-label dynamically in applyTheme
     assert.ok(
-      popupCodeContent.includes('btnTheme.title = "Switch to Dark Mode";'),
+      popupCodeContent.includes('btnTheme.title = "切換為深色模式";'),
       "popup.js must set title to Switch to Dark Mode in light theme"
     );
     assert.ok(
-      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "Switch to Dark Mode");'),
+      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "切換為深色模式");'),
       "popup.js must set aria-label to Switch to Dark Mode in light theme"
     );
     assert.ok(
-      popupCodeContent.includes('btnTheme.title = "Switch to Light Mode";'),
+      popupCodeContent.includes('btnTheme.title = "切換為亮色模式";'),
       "popup.js must set title to Switch to Light Mode in dark theme"
     );
     assert.ok(
-      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "Switch to Light Mode");'),
+      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "切換為亮色模式");'),
       "popup.js must set aria-label to Switch to Light Mode in dark theme"
     );
 
@@ -1985,8 +2029,8 @@ async function executeTestSuite() {
 
     // 1. Initial theme loading (default to dark)
     await sandbox.initTheme();
-    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.strictEqual(btnTheme.title, "切換為亮色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為亮色模式");
     assert.ok(sandbox.document.body.classList.contains("dark-theme"));
     assert.ok(!sandbox.document.body.classList.contains("light-theme"));
     assert.ok(iconMoon.classList.contains("hidden"));
@@ -1994,8 +2038,8 @@ async function executeTestSuite() {
 
     // 2. Direct call: applyTheme("light")
     sandbox.applyTheme("light");
-    assert.strictEqual(btnTheme.title, "Switch to Dark Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Dark Mode");
+    assert.strictEqual(btnTheme.title, "切換為深色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為深色模式");
     assert.ok(sandbox.document.body.classList.contains("light-theme"));
     assert.ok(!sandbox.document.body.classList.contains("dark-theme"));
     assert.ok(iconSun.classList.contains("hidden"));
@@ -2003,8 +2047,8 @@ async function executeTestSuite() {
 
     // 3. Direct call: applyTheme("dark")
     sandbox.applyTheme("dark");
-    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.strictEqual(btnTheme.title, "切換為亮色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為亮色模式");
     assert.ok(sandbox.document.body.classList.contains("dark-theme"));
     assert.ok(!sandbox.document.body.classList.contains("light-theme"));
     assert.ok(iconMoon.classList.contains("hidden"));
@@ -2014,8 +2058,8 @@ async function executeTestSuite() {
     btnTheme.click();
     await new Promise(r => setTimeout(r, 10));
 
-    assert.strictEqual(btnTheme.title, "Switch to Dark Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Dark Mode");
+    assert.strictEqual(btnTheme.title, "切換為深色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為深色模式");
     assert.ok(sandbox.document.body.classList.contains("light-theme"));
     const storedTheme1 = await sandbox.chrome.storage.local.get("theme");
     assert.strictEqual(storedTheme1.theme, "light");
@@ -2024,8 +2068,8 @@ async function executeTestSuite() {
     btnTheme.click();
     await new Promise(r => setTimeout(r, 10));
 
-    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.strictEqual(btnTheme.title, "切換為亮色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為亮色模式");
     assert.ok(sandbox.document.body.classList.contains("dark-theme"));
     const storedTheme2 = await sandbox.chrome.storage.local.get("theme");
     assert.strictEqual(storedTheme2.theme, "dark");
@@ -2412,7 +2456,6 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
-
 
 
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -52,6 +52,15 @@
     </div>
   </header>
 
+  <div id="setup-notice" class="setup-notice hidden" role="status">
+    <span>開始前，請先設定翻譯服務與 API 金鑰。</span>
+    <button type="button" id="btn-setup" class="secondary-btn">設定翻譯服務</button>
+  </div>
+  <div class="quick-preferences" aria-label="翻譯偏好">
+    <label><input type="checkbox" id="quick-auto-translate"> 自動翻譯</label>
+    <label title="額外產生詞彙與其他譯法，會增加 AI 用量"><input type="checkbox" id="quick-learning"> 學習模式</label>
+    <span id="quick-preferences-status" role="status" aria-live="polite"></span>
+  </div>
   <!-- Main Grid Workspace -->
   <main class="workspace">
     <!-- Left Column (Source Input) -->
@@ -141,10 +150,10 @@
         </div>
         
         <div class="col-actions">
-          <button type="button" id="btn-tts" class="icon-action-btn" title="Read Aloud" aria-label="Read Aloud" disabled>
+          <button type="button" id="btn-tts" class="icon-action-btn" title="朗讀" aria-label="朗讀" disabled>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
           </button>
-          <button type="button" id="btn-copy" class="icon-action-btn" title="Copy Translation" aria-label="Copy Translation" disabled>
+          <button type="button" id="btn-copy" class="icon-action-btn" title="複製譯文" aria-label="複製譯文" disabled>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
           </button>
         </div>
@@ -173,25 +182,26 @@
   <!-- Sliding Drawer Panels (Settings, History, Logs) -->
   
   <!-- 1. Settings Panel -->
-  <div id="drawer-settings" class="drawer">
+  <div id="drawer-settings" class="drawer" inert>
     <div class="drawer-header">
       <div style="display: flex; align-items: center; gap: 8px;">
-        <h3>Translation Settings</h3>
-        <span id="settings-draft-badge" class="settings-draft-badge badge-synced">🟢 Synced</span>
+        <h3>設定</h3>
+        <span id="settings-draft-badge" class="settings-draft-badge badge-synced">已儲存</span>
       </div>
       <button type="button" class="drawer-close" title="Close Settings" aria-label="Close Settings">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
     <div class="drawer-body">
+      <p class="settings-intro">先設定翻譯服務，再依需要調整偏好。變更後請按下方「儲存設定」。</p>
       <!-- AI Provider & Recipe Settings Container Card -->
       <div class="provider-card">
         <div class="provider-card-header">
           <div class="provider-title-wrapper">
             <span class="provider-card-icon">⚡</span>
-            <span class="provider-card-title">AI Provider & Recipe</span>
+            <span class="provider-card-title">翻譯服務</span>
           </div>
-          <button id="btn-save-recipe" class="recipe-save-btn" type="button" title="Save current parameters to selected provider recipe" aria-label="Save current parameters to selected provider recipe">
+          <button id="btn-save-recipe" class="recipe-save-btn hidden" type="button" title="儲存設定" aria-label="儲存設定">
             <span>💾</span> Save Recipe
           </button>
         </div>
@@ -200,7 +210,7 @@
         <div class="form-group margin-bottom-10">
           <div class="label-with-badge">
             <label for="select-provider">AI Provider Preset</label>
-            <span id="recipe-status-tag" class="status-tag tag-saved">Recipe Active</span>
+            <span id="recipe-status-tag" class="status-tag tag-saved hidden">目前連線設定</span>
           </div>
           <select id="select-provider" aria-label="AI Provider Preset" class="provider-select">
             <optgroup label="Cloud Providers">
@@ -221,6 +231,8 @@
           </select>
         </div>
 
+        <details id="connection-details" class="settings-section">
+        <summary>連線網址（本機／自訂服務）</summary>
         <!-- Server API Endpoint Input with Auto Fix -->
         <div class="form-group margin-bottom-10">
           <div class="label-with-action">
@@ -233,6 +245,7 @@
           <small id="url-recommendation-help" class="form-help">OpenAI-compatible Chat Completion endpoint.</small>
         </div>
 
+        </details>
         <!-- API Key Input -->
         <div class="form-group margin-bottom-10" id="api-key-group">
           <div class="label-with-action">
@@ -282,6 +295,8 @@
           <small class="form-help">Type model ID or click chip to select.</small>
         </div>
 
+        <details class="settings-section">
+        <summary>進階：模型請求格式</summary>
         <!-- Model Format / Prompt Mode Selector -->
         <div class="form-group margin-bottom-0">
           <label for="select-model-type">Model Format / Prompt Mode</label>
@@ -290,8 +305,11 @@
             <option value="translategemma">TranslateGemma (Structured Format)</option>
           </select>
         </div>
+        </details>
       </div>
 
+      <details class="settings-section">
+      <summary>用量統計</summary>
       <!-- Monthly Token Spending & Usage Card -->
       <div class="token-usage-card" style="margin-bottom: 14px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -317,6 +335,8 @@
         </div>
       </div>
 
+      </details>
+      <h4 class="settings-section-title">使用偏好</h4>
       <div class="flex-row gap-12">
         <div class="form-group flex-1">
           <label for="input-temperature">Temperature: <span id="val-temperature">0.1</span></label>
@@ -383,6 +403,9 @@
         </div>
       </div>
 
+      <details class="settings-section">
+      <summary>進階設定：自訂提示詞</summary>
+      <p class="form-help">一般翻譯可使用預設值。學習提示詞需維持指定的 JSON 格式。</p>
       <div class="form-group" id="group-simple-prompt">
         <label for="input-system-prompt">Phase 1: Translation System Prompt</label>
         <textarea id="input-system-prompt" class="small-textarea" placeholder="Enter simple translation prompt..."></textarea>
@@ -395,6 +418,9 @@
         <small class="form-help">Must instruct the model to return JSON containing <code>alternatives</code> and <code>vocabulary</code> fields based on original and translated text inputs.</small>
       </div>
 
+      </details>
+      <details class="settings-section">
+      <summary>備份與還原</summary>
       <!-- Backup & Transfer Settings Card -->
       <div class="export-import-card">
         <div class="export-import-header">
@@ -416,6 +442,9 @@
         </div>
       </div>
 
+      </details>
+      <details class="settings-section">
+      <summary>Telegram 整合</summary>
       <!-- Telegram Section -->
       <div style="margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
         <div class="checkbox-row" style="margin-bottom: 8px;">
@@ -434,17 +463,23 @@
         </div>
       </div>
 
+      </details>
+      <details class="settings-section">
+        <summary>外觀與診斷</summary>
+        <div id="appearance-actions" class="appearance-actions"></div>
+      </details>
+    </div>
       <div class="settings-actions">
+        <span id="settings-feedback" role="status" aria-live="polite"></span>
         <button type="button" id="btn-clear-cache" class="secondary-btn" style="margin-right: auto; color: var(--danger-color); border-color: var(--border-color);">Clear Cache</button>
         <button type="button" id="btn-reset-settings" class="secondary-btn">Reset Defaults</button>
         <button type="button" id="btn-discard-draft" class="secondary-btn hidden" style="color: #eab308; border-color: rgba(234, 179, 8, 0.4);">↩ Discard Draft</button>
         <button type="button" id="btn-save-settings" class="primary-btn">💾 Save Configs</button>
       </div>
-    </div>
   </div>
 
   <!-- 2. History Panel -->
-  <div id="drawer-history" class="drawer">
+  <div id="drawer-history" class="drawer" inert>
     <div class="drawer-header">
       <h3>Translation History</h3>
       <div class="header-actions-inline">
@@ -464,7 +499,7 @@
   </div>
 
   <!-- 3. Logs Panel -->
-  <div id="drawer-logs" class="drawer">
+  <div id="drawer-logs" class="drawer" inert>
     <div class="drawer-header">
       <h3>System Debug Logs</h3>
       <div class="header-actions-inline">
@@ -481,8 +516,9 @@
         <p>Log is empty.</p>
       </div>
     </div>
+  </div>
   <!-- 4. Website Exclusions Panel -->
-  <div id="drawer-exclusions" class="drawer">
+  <div id="drawer-exclusions" class="drawer" inert>
     <div class="drawer-header">
       <h3>🌐 Website Exclusions</h3>
       <div class="header-actions-inline">
@@ -517,6 +553,7 @@
 
   <!-- Scripts -->
   <script src="shared.js"></script>
+  <script src="ui.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

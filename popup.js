@@ -142,7 +142,7 @@ function applyGrammarSuggestion() {
   const corrected = grammarSuggestionText.textContent;
   if (corrected) {
     srcTextarea.value = corrected;
-    charCounter.textContent = `${corrected.length} characters`;
+    charCounter.textContent = `${corrected.length} 字`;
     hideGrammarSuggestion();
     if (srcTextarea && typeof srcTextarea.focus === "function") {
       srcTextarea.focus();
@@ -622,8 +622,8 @@ function applyTheme(theme) {
     iconSun.classList.add("hidden");
     iconMoon.classList.remove("hidden");
     if (btnTheme) {
-      btnTheme.title = "Switch to Dark Mode";
-      btnTheme.setAttribute("aria-label", "Switch to Dark Mode");
+      btnTheme.title = "切換為深色模式";
+      btnTheme.setAttribute("aria-label", "切換為深色模式");
     }
   } else {
     document.body.classList.remove("light-theme");
@@ -631,8 +631,8 @@ function applyTheme(theme) {
     iconMoon.classList.add("hidden");
     iconSun.classList.remove("hidden");
     if (btnTheme) {
-      btnTheme.title = "Switch to Light Mode";
-      btnTheme.setAttribute("aria-label", "Switch to Light Mode");
+      btnTheme.title = "切換為亮色模式";
+      btnTheme.setAttribute("aria-label", "切換為亮色模式");
     }
   }
 }
@@ -890,7 +890,7 @@ function showLearningLoader() {
   // Check cache first
   const cached = await getCachedTranslation(srcText, srcLang, targetLang, model, richLearningMode);
   if (cached) {
-    await addLog("info", "Translation loaded from cache", { text: srcText });
+    await addLog("info", "已載入快取譯文", { text: srcText });
     
     if (cached.rich) {
       await renderRichTranslation(cached.parsed);
@@ -904,7 +904,7 @@ function showLearningLoader() {
       
       btnCopy.disabled = false;
       btnTts.disabled = false;
-      statusMessage.textContent = "Completed (Loaded from cache)";
+      statusMessage.textContent = "翻譯完成（快取）";
       await addHistoryItem(srcText, JSON.stringify(cached.parsed), srcLang, targetLang);
       return;
     } else {
@@ -925,7 +925,7 @@ function showLearningLoader() {
       currentTranslationText = finalTranslation.trim();
       btnCopy.disabled = false;
       btnTts.disabled = false;
-      statusMessage.textContent = "Translation loaded from cache";
+      statusMessage.textContent = "已載入快取譯文";
       
       if (richLearningMode) {
         showLearningLoader();
@@ -952,7 +952,7 @@ function showLearningLoader() {
   // UI state for loading
   loader.classList.remove("hidden");
   btnTranslate.disabled = true;
-  statusMessage.textContent = "Translating...";
+  statusMessage.textContent = "翻譯中…";
   
   const endpointUrl = formatChatEndpointUrl(apiEndpoint);
 
@@ -1136,7 +1136,7 @@ function showLearningLoader() {
 
     btnCopy.disabled = false;
     btnTts.disabled = false;
-    statusMessage.textContent = `Completed (${new Date().toLocaleTimeString()})`;
+    statusMessage.textContent = `翻譯完成（${new Date().toLocaleTimeString()}）`;
 
     // Save Phase 1 result to Cache and History first
     const cacheData = { rich: false, text: translatedText };
@@ -1180,7 +1180,7 @@ function showLearningLoader() {
     
     btnCopy.disabled = true;
     btnTts.disabled = true;
-    statusMessage.textContent = "Error occurred";
+    statusMessage.textContent = "翻譯失敗，請檢查連線設定";
   } finally {
     loader.classList.add("hidden");
     btnTranslate.disabled = false;
@@ -1190,11 +1190,12 @@ function showLearningLoader() {
 // Drawer Drawer UI Mechanics
 function openDrawer(name) {
   // Close all first
-  Object.values(drawers).forEach(d => d.classList.remove("open"));
+  Object.values(drawers).forEach(d => { d.classList.remove("open"); d.inert = true; });
   backdrop.classList.add("hidden");
   
   if (drawers[name]) {
     drawers[name].classList.add("open");
+    drawers[name].inert = false;
     backdrop.classList.remove("hidden");
     
     if (name === "history") {
@@ -1211,7 +1212,7 @@ function openDrawer(name) {
 }
 
 function closeAllDrawers() {
-  Object.values(drawers).forEach(d => d.classList.remove("open"));
+  Object.values(drawers).forEach(d => { d.classList.remove("open"); d.inert = true; });
   backdrop.classList.add("hidden");
 }
 
@@ -1458,8 +1459,8 @@ async function renderDisabledSitesList() {
       const isDisabled = isDomainDisabled(currentDomain, disabledDomains);
       const targetName = (baseDomain && baseDomain !== currentDomain) ? `${baseDomain} (*.${baseDomain})` : currentDomain;
       btnToggleCurrentSite.textContent = isDisabled
-        ? `✅ Enable on ${targetName}`
-        : `🚫 Disable on ${targetName}`;
+        ? `在 ${targetName} 啟用浮窗`
+        : `在 ${targetName} 停用浮窗`;
     } else {
       btnToggleCurrentSite.textContent = "Toggle Current Site";
     }
@@ -1469,17 +1470,17 @@ async function renderDisabledSitesList() {
   if (exclusionsCountText) {
     const count = disabledDomains.length;
     exclusionsCountText.textContent = count === 0
-      ? "0 websites excluded"
+      ? "尚未停用任何網站"
       : count === 1
         ? "1 website excluded"
-        : `${count} websites excluded`;
+        : `已停用 ${count} 個網站`;
   }
 
   // Legacy fallback if chips container exists
   if (disabledSitesChips) {
     disabledSitesChips.innerHTML = "";
     if (disabledDomains.length === 0) {
-      disabledSitesChips.innerHTML = `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">No websites excluded (translating everywhere)</span>`;
+      disabledSitesChips.innerHTML = `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">尚未停用任何網站的翻譯浮窗</span>`;
     } else {
       disabledDomains.forEach(domain => {
         const chip = document.createElement("div");
@@ -1513,7 +1514,7 @@ async function renderDisabledSitesList() {
       exclusionsListContainer.innerHTML = `
         <div class="empty-state" style="text-align: center; padding: 30px 10px; color: var(--text-muted);">
           <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-          <p style="font-size: 12px; margin: 0;">No websites excluded (translating everywhere).</p>
+          <p style="font-size: 12px; margin: 0;">尚未停用任何網站的翻譯浮窗.</p>
         </div>
       `;
       return;
@@ -1618,6 +1619,7 @@ if (btnToggleCurrentSite) {
 }
 
 let loadedRecipes = JSON.parse(JSON.stringify(DEFAULT_RECIPES));
+let formProvider = null;
 let activeProviderKey = "vllm";
 
 // Toggle API Key password visibility
@@ -1625,42 +1627,18 @@ if (btnToggleKeyVis) {
   btnToggleKeyVis.addEventListener("click", () => {
     if (inputApiKey.type === "password") {
       inputApiKey.type = "text";
-      btnToggleKeyVis.textContent = "Hide";
+      btnToggleKeyVis.textContent = "隱藏";
     } else {
       inputApiKey.type = "password";
-      btnToggleKeyVis.textContent = "Show";
+      btnToggleKeyVis.textContent = "顯示";
     }
   });
 }
 
-let autoSaveTimer = null;
-
-// Auto save active form values to current provider's recipe and chrome storage
+// Keep connection edits in the draft until the user saves the settings.
 function autoSaveCurrentRecipe() {
   syncFormToCurrentRecipe();
-  const currentProvider = selectProvider.value;
-
-  if (recipeStatusTag) {
-    recipeStatusTag.textContent = "Saving...";
-    recipeStatusTag.className = "status-tag tag-saved";
-  }
-
-  if (autoSaveTimer) clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(async () => {
-    await chrome.storage.local.set({
-      currentProvider: currentProvider,
-      providerRecipes: loadedRecipes,
-      apiEndpoint: inputApiEndpoint.value.trim(),
-      apiKey: inputApiKey.value.trim(),
-      model: inputModel.value.trim(),
-      modelType: selectModelType.value
-    });
-
-    if (recipeStatusTag) {
-      recipeStatusTag.textContent = "Auto-saved ✓";
-      setTimeout(() => { if (recipeStatusTag) recipeStatusTag.textContent = "Recipe Active"; }, 2000);
-    }
-  }, 400);
+  saveSettingsDraft();
 }
 
 // Auto Fix URL listener
@@ -1748,7 +1726,7 @@ function renderQuickModelChips(models) {
   const combined = Array.from(new Set([...(models || []), ...recList])).filter(Boolean);
 
   if (modelCountTag) {
-    modelCountTag.textContent = `${combined.length} models`;
+    modelCountTag.textContent = `${combined.length} 個模型`;
   }
 
   combined.forEach(m => {
@@ -1825,6 +1803,7 @@ function cleanGeminiModel(modelName) {
 
 // Load recipe for selected provider into form
 function applyRecipeToForm(providerKey) {
+  formProvider = providerKey;
   activeProviderKey = providerKey;
   const defaultRecipe = DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom;
   const recipe = loadedRecipes[providerKey] || Object.assign({}, defaultRecipe);
@@ -1850,8 +1829,12 @@ function applyRecipeToForm(providerKey) {
   selectModelType.value = recipe.modelType || "qwen";
 
   if (apiKeyHelp) {
-    apiKeyHelp.textContent = recipe.helpText || "Required for cloud providers, optional for local endpoints.";
+    apiKeyHelp.textContent = recipe.keyRequired === false
+      ? "本機服務通常不需要 API 金鑰。"
+      : "貼上所選服務商提供的 API 金鑰。金鑰儲存在此瀏覽器。";
   }
+  const connectionDetails = document.getElementById("connection-details");
+  if (connectionDetails) connectionDetails.open = recipe.keyRequired === false || providerKey === "custom";
 
   if (apiKeyGroup) {
     if (recipe.keyRequired === false) {
@@ -1879,7 +1862,7 @@ function applyRecipeToForm(providerKey) {
 
 // Save active form values to current provider's recipe
 function syncFormToCurrentRecipe() {
-  const providerKey = selectProvider.value;
+  const providerKey = formProvider || selectProvider.value;
   if (!loadedRecipes[providerKey]) {
     loadedRecipes[providerKey] = Object.assign({}, DEFAULT_RECIPES[providerKey] || DEFAULT_RECIPES.custom);
   }
@@ -1900,15 +1883,8 @@ if (selectProvider) {
     const newProvider = selectProvider.value;
     applyRecipeToForm(newProvider);
     
-    // Save updated provider recipes in storage
-    await chrome.storage.local.set({
-      currentProvider: newProvider,
-      providerRecipes: loadedRecipes,
-      apiEndpoint: inputApiEndpoint.value.trim(),
-      apiKey: inputApiKey.value.trim(),
-      model: inputModel.value.trim(),
-      modelType: selectModelType.value
-    });
+    // Switching a provider edits the draft; only Save Settings activates it.
+    await saveSettingsDraft();
 
     // Automatically fetch latest models if Gemini or cloud provider is selected with an API key
     if (newProvider === "gemini" && inputApiKey.value.trim()) {
@@ -1924,28 +1900,7 @@ if (selectProvider) {
 
 // Save Recipe button listener
 if (btnSaveRecipe) {
-  btnSaveRecipe.addEventListener("click", async () => {
-    syncFormToCurrentRecipe();
-    const currentProvider = selectProvider.value;
-    
-    await chrome.storage.local.set({
-      currentProvider: currentProvider,
-      providerRecipes: loadedRecipes,
-      apiEndpoint: inputApiEndpoint.value.trim(),
-      apiKey: inputApiKey.value.trim(),
-      model: inputModel.value.trim(),
-      modelType: selectModelType.value
-    });
-
-    if (recipeStatusTag) {
-      recipeStatusTag.textContent = "Saved! ✓";
-      recipeStatusTag.className = "status-tag tag-saved";
-      setTimeout(() => { if (recipeStatusTag) recipeStatusTag.textContent = "Recipe Active"; }, 2000);
-    }
-    
-    await addLog("info", `Saved recipe for provider: ${currentProvider}`);
-    alert(`Recipe saved successfully for ${loadedRecipes[currentProvider]?.name || currentProvider}!`);
-  });
+  btnSaveRecipe.addEventListener("click", () => btnSaveSettings.click());
 }
 
 // Dismiss diagnostic panel
@@ -2465,11 +2420,13 @@ function updateSettingsDraftUI() {
   const btnDiscard = document.getElementById("btn-discard-draft");
   const currentState = getFormSettingsState();
   const isDiff = areSettingsDifferent(currentState, lastServerSettings);
+  const feedback = document.getElementById("settings-feedback");
+  if (feedback && isDiff) feedback.textContent = "";
 
   const storage = getLocalStorageSafe();
   if (isDiff) {
     if (badge) {
-      badge.textContent = "🟡 Unsaved Draft";
+      badge.textContent = "有未儲存的變更";
       badge.className = "settings-draft-badge badge-unsaved";
     }
     if (btnDiscard) {
@@ -2477,7 +2434,7 @@ function updateSettingsDraftUI() {
     }
   } else {
     if (badge) {
-      badge.textContent = "🟢 Synced";
+      badge.textContent = "已儲存（此瀏覽器）";
       badge.className = "settings-draft-badge badge-synced";
     }
     if (btnDiscard) {
@@ -2827,11 +2784,9 @@ btnSaveSettings.addEventListener("click", async () => {
   updateSettingsDraftUI();
   updateTextSizeClass(textSize);
   await addLog("info", "Settings saved successfully");
-  closeAllDrawers();
-  
-  if (srcTextarea.value.trim()) {
-    translate();
-  }
+  await updateSetupNotice();
+  const feedback = document.getElementById("settings-feedback");
+  if (feedback) feedback.textContent = "設定已儲存";
 });
 
 btnResetSettings.addEventListener("click", async () => {
@@ -3136,7 +3091,7 @@ async function loadHistoryItem(item) {
   selectSource.value = item.srcLang;
   selectTarget.value = item.targetLang;
   srcTextarea.value = item.srcText;
-  charCounter.textContent = `${item.srcText.length} characters`;
+  charCounter.textContent = `${item.srcText.length} 字`;
   
   const config = await chrome.storage.local.get("showThinking");
   const showThinking = config.showThinking !== false;
@@ -3234,7 +3189,7 @@ document.getElementById("btn-clear-history").addEventListener("click", async () 
 // Clipboard and text box helpers
 document.getElementById("btn-clear-src").addEventListener("click", () => {
   srcTextarea.value = "";
-  charCounter.textContent = "0 characters";
+  charCounter.textContent = "0 字";
   targetContent.textContent = "";
   targetContent.classList.add("empty");
   btnCopy.disabled = true;
@@ -3248,7 +3203,7 @@ document.getElementById("btn-paste").addEventListener("click", async () => {
   try {
     const text = await navigator.clipboard.readText();
     srcTextarea.value = text;
-    charCounter.textContent = `${text.length} characters`;
+    charCounter.textContent = `${text.length} 字`;
     srcTextarea.focus();
     
     // Check grammar on paste
@@ -3276,13 +3231,13 @@ btnCopy.addEventListener("click", () => {
     // Show green check icon
     btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 100%, 40%)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
     btnCopy.style.borderColor = "hsl(140, 100%, 40%)";
-    btnCopy.title = "Copied!";
-    btnCopy.setAttribute("aria-label", "Copied!");
+    btnCopy.title = "已複製";
+    btnCopy.setAttribute("aria-label", "已複製");
     copyResetTimeout = setTimeout(() => {
       btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
       btnCopy.style.borderColor = "var(--border-color)";
-      btnCopy.title = "Copy Translation";
-      btnCopy.setAttribute("aria-label", "Copy Translation");
+      btnCopy.title = "複製譯文";
+      btnCopy.setAttribute("aria-label", "複製譯文");
       copyResetTimeout = null;
     }, 1500);
   }).catch(err => {
@@ -3293,8 +3248,8 @@ btnCopy.addEventListener("click", () => {
 // Text-to-Speech (TTS)
 const resetTtsBtn = () => {
   btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
-  btnTts.title = "Read Aloud";
-  btnTts.setAttribute("aria-label", "Read Aloud");
+  btnTts.title = "朗讀";
+  btnTts.setAttribute("aria-label", "朗讀");
 };
 
 btnTts.addEventListener("click", () => {
@@ -3317,8 +3272,8 @@ btnTts.addEventListener("click", () => {
 
   // Turn button into a Stop button (X icon)
   btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-  btnTts.title = "Stop Reading";
-  btnTts.setAttribute("aria-label", "Stop Reading");
+  btnTts.title = "停止朗讀";
+  btnTts.setAttribute("aria-label", "停止朗讀");
   window.speechSynthesis.speak(currentUtterance);
 });
 
@@ -3354,7 +3309,7 @@ document.getElementById("btn-swap-lang").addEventListener("click", async () => {
   if (currentSrcText.trim() && !isTargetEmpty && loader.classList.contains("hidden")) {
     srcTextarea.value = currentTargetText;
     targetContent.textContent = currentSrcText;
-    charCounter.textContent = `${srcTextarea.value.length} characters`;
+    charCounter.textContent = `${srcTextarea.value.length} 字`;
     translate();
   } else if (currentSrcText.trim()) {
     translate();
@@ -3385,7 +3340,7 @@ selectTarget.addEventListener("change", async () => {
 // Keypress translate / typing auto-translate & live grammar check
 srcTextarea.addEventListener("input", () => {
   const text = srcTextarea.value;
-  charCounter.textContent = `${text.length} characters`;
+  charCounter.textContent = `${text.length} 字`;
   
   if (text.trim() === "") {
     targetContent.textContent = "";
@@ -3508,7 +3463,7 @@ async function initApp() {
   // Handle selection texts sent from contextMenus
   if (res.pendingTranslationText) {
     srcTextarea.value = res.pendingTranslationText;
-    charCounter.textContent = `${res.pendingTranslationText.length} characters`;
+    charCounter.textContent = `${res.pendingTranslationText.length} 字`;
     await chrome.storage.local.remove("pendingTranslationText");
     translate();
   } else {
@@ -3516,14 +3471,44 @@ async function initApp() {
   }
 
   await loadSettingsToUI();
+  await updateSetupNotice();
   await addLog("info", "App loaded and ready");
+}
+
+async function updateSetupNotice() {
+  const config = await chrome.storage.local.get(["apiEndpoint", "apiKey", "autoTranslate", "richLearningMode"]);
+  const endpoint = config.apiEndpoint || DEFAULT_API_ENDPOINT;
+  const needsKey = /(?:googleapis\.com|api\.openai\.com|api\.groq\.com|api\.deepseek\.com|openrouter\.ai)/i.test(endpoint);
+  const notice = document.getElementById("setup-notice");
+  if (notice) notice.classList.toggle("hidden", !needsKey || !!config.apiKey?.trim());
+  const quickAuto = document.getElementById("quick-auto-translate");
+  const quickLearning = document.getElementById("quick-learning");
+  if (quickAuto) quickAuto.checked = config.autoTranslate !== false;
+  if (quickLearning) quickLearning.checked = config.richLearningMode !== false;
+}
+
+const setupButton = document.getElementById("btn-setup");
+if (setupButton) setupButton.addEventListener("click", () => openDrawer("settings"));
+
+for (const [id, key] of [["quick-auto-translate", "autoTranslate"], ["quick-learning", "richLearningMode"]]) {
+  const control = document.getElementById(id);
+  if (control) control.addEventListener("change", async () => {
+    if (key === "autoTranslate") clearTimeout(debounceTimer);
+    await chrome.storage.local.set({ [key]: control.checked });
+    const settingsControl = document.getElementById(key === "autoTranslate" ? "check-auto-translate" : "check-rich-learning");
+    if (settingsControl) settingsControl.checked = control.checked;
+    lastServerSettings[key] = control.checked;
+    await saveSettingsDraft();
+    const message = document.getElementById("quick-preferences-status");
+    if (message) message.textContent = "已套用，下次翻譯生效";
+  });
 }
 
 // Listen to background updates and contextMenu events in real-time
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "translateText" && message.text) {
     srcTextarea.value = message.text;
-    charCounter.textContent = `${message.text.length} characters`;
+    charCounter.textContent = `${message.text.length} 字`;
     translate();
   } else if (message.action === "phase2Completed") {
     const currentSrc = srcTextarea.value.trim();

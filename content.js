@@ -181,6 +181,9 @@ async function showBubble(text, selection) {
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
   const contextSentence = getSentenceForSelection(selection);
+  // A click on Retry can collapse the page selection. Keep the original anchor.
+  const retryRange = typeof range.cloneRange === "function" ? range.cloneRange() : range;
+  const retrySelection = { rangeCount: 1, getRangeAt: () => retryRange, toString: () => text };
 
   const settings = await chrome.storage.local.get("textSize");
   const textSize = settings.textSize || "medium";
@@ -399,7 +402,7 @@ async function showBubble(text, selection) {
     <div class="bubble-content">
       <div class="bubble-loader">
         <div class="spinner"></div>
-        Translating selection...
+        翻譯中…
       </div>
     </div>
   `;
@@ -507,7 +510,7 @@ async function showBubble(text, selection) {
           setupFooter(bubble, accumulatedText);
           port.disconnect();
         } else if (msg.type === "error") {
-          content.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Error: ${escapeHTML(msg.error)}</span>`;
+          showBubbleError(content, msg.error, () => { removeBubble(); showBubble(text, retrySelection); });
           port.disconnect();
         }
       });
@@ -522,7 +525,7 @@ async function showBubble(text, selection) {
         
         if (chrome.runtime.lastError || !response || !response.success) {
           const errorMsg = response?.error || chrome.runtime.lastError?.message || "Server connection failed";
-          content.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Error: ${escapeHTML(errorMsg)}</span>`;
+          showBubbleError(content, errorMsg, () => { removeBubble(); showBubble(text, retrySelection); });
           return;
         }
         
@@ -541,13 +544,31 @@ async function showBubble(text, selection) {
   });
 }
 
+function showBubbleError(content, error, retry) {
+  content.textContent = "翻譯失敗，請確認連線與 API 金鑰。";
+  const detail = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.textContent = "查看錯誤詳細資訊";
+  detail.appendChild(summary);
+  const message = document.createElement("p");
+  message.textContent = String(error || "無法連線至翻譯服務");
+  detail.appendChild(message);
+  content.appendChild(detail);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "bubble-copy-btn";
+  button.textContent = "重試";
+  button.addEventListener("click", retry);
+  content.appendChild(button);
+}
+
 function setupFooter(bubble, textToCopy) {
   const footer = document.createElement("div");
   footer.className = "bubble-footer";
   footer.innerHTML = `
     <button type="button" class="bubble-copy-btn" title="Copy Translation" aria-label="Copy Translation">
       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-      Copy
+      複製
     </button>
   `;
   
@@ -558,12 +579,12 @@ function setupFooter(bubble, textToCopy) {
     navigator.clipboard.writeText(textToCopy).then(() => {
       copyBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        Copied
+        已複製
       `;
       setTimeout(() => {
         copyBtn.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          Copy
+          複製
         `;
       }, 1500);
     });
@@ -637,5 +658,3 @@ function renderInlineVocab(content, vocabulary) {
     content.appendChild(synContainer);
   }
 }
-
-

@@ -9,7 +9,7 @@ const outputDir = resolve(root, "dist");
 const output = resolve(outputDir, `fire-translate-v${packageJson.version}.zip`);
 const files = [
   "manifest.json", "background.js", "content.js", "shared.js",
-  "popup.html", "popup.css", "popup.js", "icons",
+  "popup.html", "popup.css", "popup.js", "ui.js", "icons",
   "PRIVACY_POLICY.md", "README.md"
 ];
 

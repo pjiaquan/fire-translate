@@ -93,6 +93,12 @@ The extension posts requests to `${API_ENDPOINT}/v1/chat/completions` with the f
 
 ## ⌨️ Shortcuts & UX
 
+### 介面與設定
+
+主畫面提供「自動翻譯」與「學習模式」開關，切換後會立即儲存，於下次翻譯使用。首次使用雲端服務時，請從「設定翻譯服務」選擇服務商、填入 API 金鑰並測試連線。
+
+設定頁的連線與偏好變更先保留為草稿，按底部固定的「儲存設定」才會生效；儲存不會自動重新翻譯原文。API 網址、模型格式、用量統計、提示詞、備份、Telegram、主題及診斷日誌依用途收合，設定儲存在目前瀏覽器。網頁浮窗連線失敗時可查看詳細資訊並重試。
+
 * **Ctrl + Enter** / **Cmd + Enter** (Mac): Press within the source text input area to trigger a translation instantly.
 * **Escape**: Closes any active drawer panel (Settings, History, or Logs).
 * **Right Click Extension Icon**: Select **Open Side Panel** to dock the translator to the side.
