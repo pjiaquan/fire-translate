@@ -423,7 +423,7 @@ async function executeTestSuite() {
     }
   });
   await runTest("Firefox package uses ordered background scripts and starts without importScripts", async () => {
-    const { createBrowserManifest } = await import('./scripts/browser-manifest.mjs');
+    const { createBrowserManifest, createBrowserScript } = await import('./scripts/browser-manifest.mjs');
     const original = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
     const firefox = createBrowserManifest(original, 'firefox');
     assert.deepStrictEqual(firefox.background, { scripts: ['shared.js', 'background.js'] });
@@ -441,11 +441,18 @@ async function executeTestSuite() {
     assert.strictEqual(firefox.minimum_chrome_version, undefined);
     assert.deepStrictEqual(createBrowserManifest(original), original);
     assert.strictEqual(original.background.service_worker, 'background.js');
+    for (const file of ['background.js', 'popup.js']) {
+      const source = fs.readFileSync(file, 'utf8');
+      const firefoxSource = createBrowserScript(source, 'firefox');
+      assert.ok(!firefoxSource.includes('sidePanel.open'));
+      assert.strictEqual(createBrowserScript(source, 'chrome'), source);
+      new vm.Script(firefoxSource);
+    }
     const sandbox = createSandbox();
     delete sandbox.importScripts;
     vm.createContext(sandbox);
     for (const script of firefox.background.scripts) {
-      vm.runInContext(fs.readFileSync(script, 'utf8'), sandbox);
+      vm.runInContext(createBrowserScript(fs.readFileSync(script, 'utf8'), 'firefox'), sandbox);
     }
     assert.strictEqual(vm.runInContext('DEFAULT_PROVIDER', sandbox), 'gemini');
     assert.strictEqual(typeof sandbox.translateInlineText, 'function');

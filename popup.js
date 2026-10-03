@@ -3878,6 +3878,7 @@ srcTextarea.addEventListener("keydown", (e) => {
 
 btnTranslate.addEventListener("click", translate);
 
+// #chrome-only-start
 // Open sidepanel button click handler
 btnSidepanel.addEventListener("click", async () => {
   if (chrome.sidePanel && typeof chrome.sidePanel.open === "function") {
@@ -3895,6 +3896,8 @@ btnSidepanel.addEventListener("click", async () => {
     alert("Chrome Side Panel is not supported or enabled in this browser.");
   }
 });
+
+// #chrome-only-end
 
 // Setup ESC handler to close drawers
 window.addEventListener("keydown", (e) => {

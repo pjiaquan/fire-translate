@@ -647,6 +647,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // Save selection to storage so the popup or sidepanel can load it on launch
     await chrome.storage.local.set({ pendingTranslationText: text });
 
+    // #chrome-only-start
     // Open the side panel if supported
     if (chrome.sidePanel && typeof chrome.sidePanel.open === "function") {
       try {
@@ -655,6 +656,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         console.warn("Could not open side panel via API:", err);
       }
     }
+
+    // #chrome-only-end
 
     // Broadcast the selection immediately in case popup/sidepanel is already open
     chrome.runtime.sendMessage({

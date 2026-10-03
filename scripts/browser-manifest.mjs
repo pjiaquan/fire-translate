@@ -1,3 +1,10 @@
+// Build-time conditionals keep unsupported Chromium calls out of the AMO package.
+export function createBrowserScript(source, browser = "chrome") {
+  if (browser === "chrome") return source;
+  if (browser !== "firefox") throw new Error(`Unsupported browser target: ${browser}`);
+  return source.replace(/^[ \t]*\/\/ #chrome-only-start\r?\n[\s\S]*?^[ \t]*\/\/ #chrome-only-end\r?\n/gm, "");
+}
+
 export function createBrowserManifest(manifest, browser = "chrome") {
   const result = structuredClone(manifest);
   if (browser === "firefox") {

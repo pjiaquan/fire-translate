@@ -1,8 +1,10 @@
-# AMO submission text — Fire Translate 1.2.7
+# AMO submission text — Fire Translate 1.2.8
 
-Upload `fire-translate-firefox-v1.2.7.zip` from the release assets. The GitHub source archive and Chrome package are different files.
+Upload `fire-translate-firefox-v1.2.8.zip` from the release assets. The GitHub source archive and Chrome package are different files.
 
 ## Version notes
+
+The Firefox build now excludes Chromium-only side panel opening code. Its manifest omits the `sidePanel` permission, `side_panel`, and `background.service_worker`; ordered background scripts are used instead. Chrome keeps its side panel functionality unchanged.
 
 Replaced HTML string rendering with DOM elements and text nodes throughout the translator, webpage bubbles, vocabulary and alternative translations, translation history, diagnostic logs, provider/model lists, connection diagnostics, and utility icons. AI responses, webpage text, imported/stored settings, and error messages are rendered as text rather than parsed as HTML. SVG icons, bullet formatting, streaming output, copy/read-aloud controls, and keyboard accessibility are preserved.
 
@@ -19,7 +21,7 @@ Local test path:
 3. Test the connection, then click Save Settings. The connection test sends a short prompt to the selected local model.
 4. Enter `Hello, how are you?`, select Traditional Chinese, and click Translate. Test copy/read-aloud controls and History. Toggle learning mode for vocabulary and alternative translations; output quality and structured responses depend on the chosen model.
 5. On an ordinary webpage, enable double-click translation in Settings and double-click a word. Verify the translation bubble, copying, closing, and retry behavior. Site exclusions can disable these bubbles per website.
-6. If requests fail, confirm the local server is running and permits requests from the extension. View Settings → Appearance and Diagnostics → Diagnostic Logs for connection details. Chromium side panel API calls are feature-guarded; Firefox uses the popup instead.
+6. If requests fail, confirm the local server is running and permits requests from the extension. View Settings → Appearance and Diagnostics → Diagnostic Logs for connection details. Chromium side panel opening code is excluded from the Firefox package; Firefox uses the popup instead.
 
 Data transmission: chosen text and, for contextual webpage translation, the surrounding sentence are sent to the configured AI endpoint. API credentials authenticate requests when configured. Grammar checking and learning mode can make additional requests. No developer-operated server, telemetry, or analytics is used. Firefox declares `websiteContent`, `authenticationInfo`, and `personalCommunications` and shows built-in installation consent.
 
