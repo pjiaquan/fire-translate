@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "121",
   "name": "Fire Translate",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Sleek local-LLM translation extension powered by Qwen and other models.",
   "icons": {
     "16": "icons/icon16.png",
@@ -19,7 +19,10 @@
   },
   "background": {
     "service_worker": "background.js",
-    "scripts": ["shared.js", "background.js"]
+    "scripts": [
+      "shared.js",
+      "background.js"
+    ]
   },
   "content_scripts": [
     {
@@ -49,7 +52,11 @@
       "id": "fire-translate@local.extension",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
-        "required": ["websiteContent", "authenticationInfo", "personalCommunications"]
+        "required": [
+          "websiteContent",
+          "authenticationInfo",
+          "personalCommunications"
+        ]
       }
     },
     "gecko_android": {
