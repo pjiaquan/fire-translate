@@ -37,6 +37,7 @@ if (typeof window !== "undefined") {
 // UI Element selections
 const srcTextarea = document.getElementById("src-textarea");
 const targetContent = document.getElementById("target-content");
+const btnClearSrc = document.getElementById("btn-clear-src");
 const selectSource = document.getElementById("select-source");
 const selectTarget = document.getElementById("select-target");
 const charCounter = document.getElementById("char-counter");
@@ -1864,9 +1865,11 @@ if (btnToggleKeyVis) {
     if (inputApiKey.type === "password") {
       inputApiKey.type = "text";
       btnToggleKeyVis.textContent = "隱藏";
+      btnToggleKeyVis.setAttribute("aria-label", "Hide API Key");
     } else {
       inputApiKey.type = "password";
       btnToggleKeyVis.textContent = "顯示";
+      btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
     }
   });
 }
@@ -3505,6 +3508,7 @@ async function loadHistoryItem(item) {
   selectTarget.value = item.targetLang;
   srcTextarea.value = item.srcText;
   charCounter.textContent = `${item.srcText.length} 字`;
+  btnClearSrc.disabled = item.srcText.length === 0;
   
   const config = await chrome.storage.local.get("showThinking");
   const showThinking = config.showThinking !== false;
@@ -3600,13 +3604,14 @@ document.getElementById("btn-clear-history").addEventListener("click", async () 
 });
 
 // Clipboard and text box helpers
-document.getElementById("btn-clear-src").addEventListener("click", () => {
+btnClearSrc.addEventListener("click", () => {
   srcTextarea.value = "";
   charCounter.textContent = "0 字";
   targetContent.textContent = "";
   targetContent.classList.add("empty");
   btnCopy.disabled = true;
   btnTts.disabled = true;
+  btnClearSrc.disabled = true;
   hideGrammarSuggestion();
   if (grammarAbortController) grammarAbortController.abort();
   srcTextarea.focus();
@@ -3617,6 +3622,9 @@ document.getElementById("btn-paste").addEventListener("click", async () => {
     const text = await navigator.clipboard.readText();
     srcTextarea.value = text;
     charCounter.textContent = `${text.length} 字`;
+    if (text.length > 0) {
+      btnClearSrc.disabled = false;
+    }
     srcTextarea.focus();
     
     // Check grammar on paste
@@ -3792,6 +3800,7 @@ document.getElementById("btn-swap-lang").addEventListener("click", async () => {
     srcTextarea.value = currentTargetText;
     targetContent.textContent = currentSrcText;
     charCounter.textContent = `${srcTextarea.value.length} 字`;
+    btnClearSrc.disabled = srcTextarea.value.length === 0;
     translate();
   } else if (currentSrcText.trim()) {
     translate();
@@ -3823,6 +3832,7 @@ selectTarget.addEventListener("change", async () => {
 srcTextarea.addEventListener("input", () => {
   const text = srcTextarea.value;
   charCounter.textContent = `${text.length} 字`;
+  btnClearSrc.disabled = text.length === 0;
   
   if (text.trim() === "") {
     targetContent.textContent = "";
@@ -3949,6 +3959,7 @@ async function initApp() {
   if (res.pendingTranslationText) {
     srcTextarea.value = res.pendingTranslationText;
     charCounter.textContent = `${res.pendingTranslationText.length} 字`;
+    btnClearSrc.disabled = false;
     await chrome.storage.local.remove("pendingTranslationText");
     translate();
   } else {
