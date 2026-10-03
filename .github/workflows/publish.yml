@@ -25,13 +25,22 @@ jobs:
         run: npm test
 
       - name: Build Extension Package (.zip)
-        run: npm run build
+        run: |
+          npm run build
+          npm run build:firefox
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v5
         with:
           name: fire-translate-extension-zip
-          path: dist/fire-translate-v*.zip
+          path: dist/fire-translate*.zip
+
+      - name: Validate Firefox Package
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          mkdir -p dist-firefox-lint
+          unzip "dist/fire-translate-firefox-v${PACKAGE_VERSION}.zip" -d dist-firefox-lint
+          npx --yes web-ext@8.4.0 lint --source-dir dist-firefox-lint
 
   publish-chrome:
     name: Publish to Chrome Web Store
@@ -93,7 +102,8 @@ jobs:
       - name: Unpack Extension Source for Firefox Submit
         run: |
           mkdir -p dist-source
-          unzip dist/fire-translate-v*.zip -d dist-source
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          unzip "dist/fire-translate-firefox-v${PACKAGE_VERSION}.zip" -d dist-source
 
       - name: Build & Submit to Firefox Add-ons (AMO)
         env:
@@ -135,5 +145,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: dist/fire-translate-v*.zip
+          files: dist/fire-translate*.zip
           generate_release_notes: true

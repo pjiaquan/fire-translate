@@ -354,6 +354,24 @@ const bgCode = fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {
+  await runTest("Firefox package uses ordered background scripts and starts without importScripts", async () => {
+    const { createBrowserManifest } = await import('./scripts/browser-manifest.mjs');
+    const original = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+    const firefox = createBrowserManifest(original, 'firefox');
+    assert.deepStrictEqual(firefox.background, { scripts: ['shared.js', 'background.js'] });
+    assert.ok(!firefox.permissions.includes('sidePanel'));
+    assert.strictEqual(firefox.side_panel, undefined);
+    assert.deepStrictEqual(createBrowserManifest(original), original);
+    assert.strictEqual(original.background.service_worker, 'background.js');
+    const sandbox = createSandbox();
+    delete sandbox.importScripts;
+    vm.createContext(sandbox);
+    for (const script of firefox.background.scripts) {
+      vm.runInContext(fs.readFileSync(script, 'utf8'), sandbox);
+    }
+    assert.strictEqual(vm.runInContext('DEFAULT_PROVIDER', sandbox), 'gemini');
+    assert.strictEqual(typeof sandbox.translateInlineText, 'function');
+  });
   await runTest("Connection edits stay in draft until saved and saving does not trigger translation", async () => {
     const sandbox = createSandbox();
     Object.assign(sandbox.mockLocalStorage, {
@@ -2456,6 +2474,4 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
-
-
 

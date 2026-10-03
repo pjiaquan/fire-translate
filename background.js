@@ -1,5 +1,6 @@
 // background.js for Fire Translate
-importScripts("shared.js");
+// Firefox loads shared.js first through background.scripts; Chrome uses a worker.
+if (typeof importScripts === "function") importScripts("shared.js");
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
