@@ -283,19 +283,18 @@ function renderFormattedTranslation(text) {
   const hasBullets = lines.some(line => /^[•\-\*]\s+/.test(line.trim()) || /^\d+[\.\)]\s+/.test(line.trim()));
   
   if (hasBullets) {
-    let html = "<ul class='translation-bullet-list' style='margin: 4px 0 4px 18px; padding: 0; list-style-type: disc; text-align: left;'>";
+    const items = [];
     lines.forEach(line => {
       const trimmed = line.trim();
       if (trimmed) {
         const cleaned = trimmed.replace(/^[•\-\*]\s+/, "").replace(/^\d+[\.\)]\s+/, "");
-        html += `<li style='margin-bottom: 4px; line-height: 1.5;'>${escapeHTML(cleaned)}</li>`;
+        items.push(domElement("li", { style: "margin-bottom: 4px; line-height: 1.5;" }, cleaned));
       }
     });
-    html += "</ul>";
-    return html;
+    return domElement("ul", { class: "translation-bullet-list", style: "margin: 4px 0 4px 18px; padding: 0; list-style-type: disc; text-align: left;" }, items);
   }
   
-  return escapeHTML(text);
+  return text;
 }
 
 function renderThinkingAndTranslation(translationText, thinkingText) {
@@ -304,7 +303,7 @@ function renderThinkingAndTranslation(translationText, thinkingText) {
   let transBlock = document.getElementById("translation-text");
   
   if (!thinkBlock) {
-    targetContent.innerHTML = "";
+    targetContent.replaceChildren();
     targetContent.classList.remove("empty");
     
     thinkBlock = document.createElement("div");
@@ -321,13 +320,54 @@ function renderThinkingAndTranslation(translationText, thinkingText) {
     thinkHeader.setAttribute("role", "button");
     thinkHeader.setAttribute("tabindex", "0");
     thinkHeader.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
-    thinkHeader.innerHTML = `
-      <span style="display: flex; align-items: center; gap: 6px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        Thinking Process
-      </span>
-      <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: ${isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)'}; transition: transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    `;
+    setDomContent(thinkHeader, [
+      "\n      ",
+      domElement(
+        "span",
+        { style: "display: flex; align-items: center; gap: 6px;" },
+        "\n        ",
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "14",
+            height: "14",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "2",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("circle", { cx: "12", cy: "12", r: "10" }),
+          domElement("path", { d: "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" }),
+          domElement("line", { x1: "12", y1: "17", x2: "12.01", y2: "17" }),
+        ),
+        "\n        Thinking Process\n      ",
+      ),
+      "\n      ",
+      domElement(
+        "svg",
+        {
+          class: "chevron-icon",
+          xmlns: "http://www.w3.org/2000/svg",
+          width: "14",
+          height: "14",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+          style:
+            "transform: " +
+            (isCollapsed ? "rotate(0deg)" : "rotate(180deg)") +
+            "; transition: transform 0.2s;",
+        },
+        domElement("polyline", { points: "6 9 12 15 18 9" }),
+      ),
+      "\n    ",
+    ]);
     
     thinkContent = document.createElement("div");
     thinkContent.id = "thinking-content";
@@ -368,7 +408,7 @@ function renderThinkingAndTranslation(translationText, thinkingText) {
   }
   if (transBlock) {
     if (translationText && (/^[•\-\*]\s+/m.test(translationText) || /^\d+[\.\)]\s+/m.test(translationText))) {
-      transBlock.innerHTML = renderFormattedTranslation(translationText);
+      setDomContent(transBlock, renderFormattedTranslation(translationText));
     } else {
       transBlock.textContent = translationText || "...";
     }
@@ -491,7 +531,7 @@ async function renderMonthlyTokenUsageUI() {
 
   if (selectUsageMonth) {
     const activeSelectedMonth = selectUsageMonth.value || currentMonth;
-    selectUsageMonth.innerHTML = "";
+    selectUsageMonth.replaceChildren();
     availableMonths.forEach(m => {
       const opt = document.createElement("option");
       opt.value = m;
@@ -512,19 +552,32 @@ async function renderMonthlyTokenUsageUI() {
     const byProv = monthData.byProvider || {};
     const provKeys = Object.keys(byProv);
     if (provKeys.length === 0) {
-      containerBreakdown.innerHTML = `<span style="color:var(--text-muted); font-style:italic;">No AI requests recorded for ${escapeHTML(selectedMonthKey)}.</span>`;
+      setDomContent(containerBreakdown, [
+        domElement(
+          "span",
+          { style: "color:var(--text-muted); font-style:italic;" },
+          "No AI requests recorded for ",
+          selectedMonthKey,
+          ".",
+        ),
+      ]);
     } else {
-      let html = `<div style="display:flex; flex-direction:column; gap:4px; margin-top: 4px;">`;
+      const rows = [];
       provKeys.forEach(pk => {
         const pData = byProv[pk];
         const provName = DEFAULT_RECIPES[pk]?.name || pk.toUpperCase();
-        html += `<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:4px 8px; border-radius:6px; font-size:11px;">
-          <span><strong>${escapeHTML(provName)}</strong> (${Number(pData.requestCount || 0)} reqs)</span>
-          <span style="font-weight:600; color:var(--accent-color-1);">${Number(pData.totalTokens || 0).toLocaleString()} tokens</span>
-        </div>`;
+        rows.push(domElement("div", { style: "display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:4px 8px; border-radius:6px; font-size:11px;" },
+          domElement("span", {}, domElement("strong", {}, provName), ` (${Number(pData.requestCount || 0)} reqs)`),
+          domElement("span", { style: "font-weight:600; color:var(--accent-color-1);" }, `${Number(pData.totalTokens || 0).toLocaleString()} tokens`)));
       });
-      html += `</div>`;
-      containerBreakdown.innerHTML = html;
+      setDomContent(
+        containerBreakdown,
+        domElement(
+          "div",
+          { style: "display:flex; flex-direction:column; gap:4px; margin-top: 4px;" },
+          rows,
+        ),
+      );
     }
   }
 }
@@ -647,7 +700,7 @@ btnTheme.addEventListener("click", async () => {
 
 // Render rich educational cards for learning mode
 async function renderRichTranslation(data) {
-  targetContent.innerHTML = "";
+  targetContent.replaceChildren();
   targetContent.classList.remove("empty");
 
   const config = await chrome.storage.local.get("showThinking");
@@ -676,13 +729,54 @@ async function renderRichTranslation(data) {
     thinkHeader.setAttribute("role", "button");
     thinkHeader.setAttribute("tabindex", "0");
     thinkHeader.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
-    thinkHeader.innerHTML = `
-      <span style="display: flex; align-items: center; gap: 6px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        Thinking Process
-      </span>
-      <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: ${isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)'}; transition: transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    `;
+    setDomContent(thinkHeader, [
+      "\n      ",
+      domElement(
+        "span",
+        { style: "display: flex; align-items: center; gap: 6px;" },
+        "\n        ",
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "14",
+            height: "14",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "2",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("circle", { cx: "12", cy: "12", r: "10" }),
+          domElement("path", { d: "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" }),
+          domElement("line", { x1: "12", y1: "17", x2: "12.01", y2: "17" }),
+        ),
+        "\n        Thinking Process\n      ",
+      ),
+      "\n      ",
+      domElement(
+        "svg",
+        {
+          class: "chevron-icon",
+          xmlns: "http://www.w3.org/2000/svg",
+          width: "14",
+          height: "14",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+          style:
+            "transform: " +
+            (isCollapsed ? "rotate(0deg)" : "rotate(180deg)") +
+            "; transition: transform 0.2s;",
+        },
+        domElement("polyline", { points: "6 9 12 15 18 9" }),
+      ),
+      "\n    ",
+    ]);
     
     const thinkContent = document.createElement("div");
     thinkContent.className = "thinking-content";
@@ -721,10 +815,25 @@ async function renderRichTranslation(data) {
   if (data.alternatives && data.alternatives.length > 0) {
     const altTitle = document.createElement("div");
     altTitle.className = "learning-section-title";
-    altTitle.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.82 2.82 0 1 1 4 4L7 21H3v-4L17 3z"></path></svg>
-      Alternative Expressions
-    `;
+    setDomContent(altTitle, [
+      "\n      ",
+      domElement(
+        "svg",
+        {
+          xmlns: "http://www.w3.org/2000/svg",
+          width: "14",
+          height: "14",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        },
+        domElement("path", { d: "M17 3a2.82 2.82 0 1 1 4 4L7 21H3v-4L17 3z" }),
+      ),
+      "\n      Alternative Expressions\n    ",
+    ]);
     targetContent.appendChild(altTitle);
 
     const altList = document.createElement("div");
@@ -736,10 +845,13 @@ async function renderRichTranslation(data) {
       
       const altHeader = document.createElement("div");
       altHeader.className = "alt-header";
-      altHeader.innerHTML = `
-        <span class="alt-text">${escapeHTML(alt.text)}</span>
-        <span class="alt-tone">${escapeHTML(alt.tone)}</span>
-      `;
+      setDomContent(altHeader, [
+        "\n        ",
+        domElement("span", { class: "alt-text" }, alt.text),
+        "\n        ",
+        domElement("span", { class: "alt-tone" }, alt.tone),
+        "\n      ",
+      ]);
       altCard.appendChild(altHeader);
       
       if (alt.explanation) {
@@ -758,10 +870,28 @@ async function renderRichTranslation(data) {
   if (data.vocabulary && data.vocabulary.length > 0) {
     const vocabTitle = document.createElement("div");
     vocabTitle.className = "learning-section-title";
-    vocabTitle.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-      Key Vocabulary
-    `;
+    setDomContent(vocabTitle, [
+      "\n      ",
+      domElement(
+        "svg",
+        {
+          xmlns: "http://www.w3.org/2000/svg",
+          width: "14",
+          height: "14",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        },
+        domElement("path", { d: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20" }),
+        domElement("path", {
+          d: "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z",
+        }),
+      ),
+      "\n      Key Vocabulary\n    ",
+    ]);
     targetContent.appendChild(vocabTitle);
 
     const vocabList = document.createElement("div");
@@ -774,12 +904,16 @@ async function renderRichTranslation(data) {
       const vocabHeader = document.createElement("div");
       vocabHeader.className = "vocab-header";
       
-      const posHtml = vocab.pos ? `<span class="vocab-pos">(${escapeHTML(vocab.pos)})</span>` : "";
-      vocabHeader.innerHTML = `
-        <span class="vocab-word">${escapeHTML(vocab.word)}</span>
-        ${posHtml}
-        <span class="vocab-translation">${escapeHTML(vocab.translation)}</span>
-      `;
+      const posHtml = vocab.pos ? [domElement("span", {"class": "vocab-pos"}, "(", (vocab.pos), ")")] : "";
+      setDomContent(vocabHeader, [
+        "\n        ",
+        domElement("span", { class: "vocab-word" }, vocab.word),
+        "\n        ",
+        posHtml,
+        "\n        ",
+        domElement("span", { class: "vocab-translation" }, vocab.translation),
+        "\n      ",
+      ]);
       vocabCard.appendChild(vocabHeader);
 
       // Similar Words List (Bullet List)
@@ -818,10 +952,17 @@ async function renderRichTranslation(data) {
       if (vocab.example_sentence_source) {
         const example = document.createElement("div");
         example.className = "vocab-example";
-        example.innerHTML = `
-          <div class="vocab-example-src">${escapeHTML(vocab.example_sentence_source)}</div>
-          <div class="vocab-example-target">${escapeHTML(vocab.example_sentence_target || "")}</div>
-        `;
+        setDomContent(example, [
+          "\n          ",
+          domElement("div", { class: "vocab-example-src" }, vocab.example_sentence_source),
+          "\n          ",
+          domElement(
+            "div",
+            { class: "vocab-example-target" },
+            vocab.example_sentence_target || "",
+          ),
+          "\n        ",
+        ]);
         vocabCard.appendChild(example);
       }
 
@@ -878,12 +1019,26 @@ function showLearningLoader() {
   const loaderContainer = document.createElement("div");
   loaderContainer.id = "learning-loader";
   loaderContainer.style.cssText = "margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--text-muted);";
-  loaderContainer.innerHTML = `
-    <svg class="spinner-svg" style="width: 16px; height: 16px;" viewBox="0 0 50 50">
-      <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
-    </svg>
-    <span>Loading vocabulary & suggestions...</span>
-  `;
+  setDomContent(loaderContainer, [
+    "\n    ",
+    domElement(
+      "svg",
+      { class: "spinner-svg", style: "width: 16px; height: 16px;", viewBox: "0 0 50 50" },
+      "\n      ",
+      domElement("circle", {
+        class: "path",
+        cx: "25",
+        cy: "25",
+        r: "20",
+        fill: "none",
+        "stroke-width": "5",
+      }),
+      "\n    ",
+    ),
+    "\n    ",
+    domElement("span", {}, "Loading vocabulary & suggestions..."),
+    "\n  ",
+  ]);
   targetContent.appendChild(loaderContainer);
 }
 
@@ -1478,17 +1633,36 @@ async function renderDisabledSitesList() {
 
   // Legacy fallback if chips container exists
   if (disabledSitesChips) {
-    disabledSitesChips.innerHTML = "";
+    disabledSitesChips.replaceChildren();
     if (disabledDomains.length === 0) {
-      disabledSitesChips.innerHTML = `<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">尚未停用任何網站的翻譯浮窗</span>`;
+      setDomContent(disabledSitesChips, [
+        domElement(
+          "span",
+          { style: "font-size: 11px; color: var(--text-muted); font-style: italic;" },
+          "尚未停用任何網站的翻譯浮窗",
+        ),
+      ]);
     } else {
       disabledDomains.forEach(domain => {
         const chip = document.createElement("div");
         chip.className = "site-chip";
-        chip.innerHTML = `
-          <span>🚫 ${escapeHTML(domain)}</span>
-          <span class="remove-site-btn" role="button" tabindex="0" aria-label="Remove exclusion for ${escapeHTML(domain)}" title="Remove exclusion for ${escapeHTML(domain)}">✕</span>
-        `;
+        setDomContent(chip, [
+          "\n          ",
+          domElement("span", {}, "🚫 ", domain),
+          "\n          ",
+          domElement(
+            "span",
+            {
+              class: "remove-site-btn",
+              role: "button",
+              tabindex: "0",
+              "aria-label": "Remove exclusion for " + domain,
+              title: "Remove exclusion for " + domain,
+            },
+            "✕",
+          ),
+          "\n        ",
+        ]);
         const removeBtn = chip.querySelector(".remove-site-btn");
         removeBtn.addEventListener("click", () => removeExclusionDomain(domain));
         removeBtn.addEventListener("keydown", (e) => {
@@ -1504,41 +1678,103 @@ async function renderDisabledSitesList() {
 
   // Render dedicated drawer list
   if (exclusionsListContainer) {
-    exclusionsListContainer.innerHTML = "";
+    exclusionsListContainer.replaceChildren();
     const filterQuery = (inputSearchExclusions?.value || "").toLowerCase().trim();
     const filteredList = filterQuery
       ? disabledDomains.filter(d => d.toLowerCase().includes(filterQuery))
       : disabledDomains;
 
     if (disabledDomains.length === 0) {
-      exclusionsListContainer.innerHTML = `
-        <div class="empty-state" style="text-align: center; padding: 30px 10px; color: var(--text-muted);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-          <p style="font-size: 12px; margin: 0;">尚未停用任何網站的翻譯浮窗.</p>
-        </div>
-      `;
+      setDomContent(exclusionsListContainer, [
+        "\n        ",
+        domElement(
+          "div",
+          {
+            class: "empty-state",
+            style: "text-align: center; padding: 30px 10px; color: var(--text-muted);",
+          },
+          "\n          ",
+          domElement(
+            "svg",
+            {
+              xmlns: "http://www.w3.org/2000/svg",
+              width: "36",
+              height: "36",
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "currentColor",
+              "stroke-width": "1.5",
+              "stroke-linecap": "round",
+              "stroke-linejoin": "round",
+              style: "margin-bottom: 8px; opacity: 0.5;",
+            },
+            domElement("circle", { cx: "12", cy: "12", r: "10" }),
+            domElement("line", { x1: "4.93", y1: "4.93", x2: "19.07", y2: "19.07" }),
+          ),
+          "\n          ",
+          domElement(
+            "p",
+            { style: "font-size: 12px; margin: 0;" },
+            "尚未停用任何網站的翻譯浮窗.",
+          ),
+          "\n        ",
+        ),
+        "\n      ",
+      ]);
       return;
     }
 
     if (filteredList.length === 0) {
-      exclusionsListContainer.innerHTML = `
-        <div class="empty-state" style="text-align: center; padding: 20px 10px; color: var(--text-muted);">
-          <p style="font-size: 12px; margin: 0;">No domains match "${escapeHTML(filterQuery)}".</p>
-        </div>
-      `;
+      setDomContent(exclusionsListContainer, [
+        "\n        ",
+        domElement(
+          "div",
+          {
+            class: "empty-state",
+            style: "text-align: center; padding: 20px 10px; color: var(--text-muted);",
+          },
+          "\n          ",
+          domElement(
+            "p",
+            { style: "font-size: 12px; margin: 0;" },
+            'No domains match "',
+            filterQuery,
+            '".',
+          ),
+          "\n        ",
+        ),
+        "\n      ",
+      ]);
       return;
     }
 
     filteredList.forEach(domain => {
       const item = document.createElement("div");
       item.className = "exclusion-item";
-      item.innerHTML = `
-        <div class="exclusion-domain-info">
-          <span class="exclusion-domain-icon">🌐</span>
-          <span>${escapeHTML(domain)}</span>
-        </div>
-        <button type="button" class="btn-remove-exclusion" title="Remove website exclusion for ${escapeHTML(domain)}" aria-label="Remove website exclusion for ${escapeHTML(domain)}">✕ Remove</button>
-      `;
+      setDomContent(item, [
+        "\n        ",
+        domElement(
+          "div",
+          { class: "exclusion-domain-info" },
+          "\n          ",
+          domElement("span", { class: "exclusion-domain-icon" }, "🌐"),
+          "\n          ",
+          domElement("span", {}, domain),
+          "\n        ",
+        ),
+        "\n        ",
+        domElement(
+          "button",
+          {
+            type: "button",
+            class: "btn-remove-exclusion",
+            title: "Remove website exclusion for " + domain,
+            "aria-label": "Remove website exclusion for " + domain,
+          },
+          "✕ Remove",
+        ),
+        "\n      ",
+      ]);
       item.querySelector(".btn-remove-exclusion").addEventListener("click", () => removeExclusionDomain(domain));
       exclusionsListContainer.appendChild(item);
     });
@@ -1665,13 +1901,16 @@ function checkUrlFormat() {
   if (urlVal.toLowerCase().startsWith("http://")) {
     const isLocalhost = urlVal.includes("localhost") || urlVal.includes("127.0.0.1");
     if (keyVal || !isLocalhost) {
-      httpWarning = `<br><span style="color:var(--warning-color); font-weight:600;">⚠️ Insecure HTTP endpoint: API key and translation text will be transmitted unencrypted over cleartext HTTP.</span>`;
+      httpWarning = [domElement("br", {}), domElement("span", {"style": "color:var(--warning-color); font-weight:600;"}, "⚠️ Insecure HTTP endpoint: API key and translation text will be transmitted unencrypted over cleartext HTTP.")];
     }
   }
 
   if (!urlVal) {
     if (btnFixUrl) btnFixUrl.classList.add("hidden");
-    if (urlRecommendationHelp) urlRecommendationHelp.innerHTML = "Base URL for OpenAI-compatible completions API." + httpWarning;
+    if (urlRecommendationHelp) setDomContent(urlRecommendationHelp, [
+      "Base URL for OpenAI-compatible completions API.",
+      httpWarning,
+    ]);
     return;
   }
 
@@ -1681,17 +1920,31 @@ function checkUrlFormat() {
     if (cleanInput !== cleanStd && !cleanInput.startsWith(cleanStd)) {
       if (btnFixUrl) btnFixUrl.classList.remove("hidden");
       if (urlRecommendationHelp) {
-        urlRecommendationHelp.innerHTML = `💡 Standard URL for ${escapeHTML(currentRec.name)}: <code style="color:var(--accent-color-1);">${escapeHTML(currentRec.stdUrl)}</code>` + httpWarning;
+        setDomContent(urlRecommendationHelp, [
+          [
+            "💡 Standard URL for ",
+            currentRec.name,
+            ": ",
+            domElement("code", { style: "color:var(--accent-color-1);" }, currentRec.stdUrl),
+          ],
+          httpWarning,
+        ]);
       }
     } else {
       if (btnFixUrl) btnFixUrl.classList.add("hidden");
       if (urlRecommendationHelp) {
-        urlRecommendationHelp.innerHTML = `✓ Standard base URL for ${escapeHTML(currentRec.name)}.` + httpWarning;
+        setDomContent(urlRecommendationHelp, [
+          ["✓ Standard base URL for ", currentRec.name, "."],
+          httpWarning,
+        ]);
       }
     }
   } else {
     if (btnFixUrl) btnFixUrl.classList.add("hidden");
-    if (urlRecommendationHelp) urlRecommendationHelp.innerHTML = "OpenAI-compatible Chat Completion endpoint." + httpWarning;
+    if (urlRecommendationHelp) setDomContent(urlRecommendationHelp, [
+      "OpenAI-compatible Chat Completion endpoint.",
+      httpWarning,
+    ]);
   }
 }
 
@@ -1717,7 +1970,7 @@ if (selectModelType) {
 // Render Quick Model Chips
 function renderQuickModelChips(models) {
   if (!quickModelsContainer) return;
-  quickModelsContainer.innerHTML = "";
+  quickModelsContainer.replaceChildren();
   
   const currentVal = inputModel.value.trim();
   const currentRec = loadedRecipes[selectProvider.value] || DEFAULT_RECIPES[selectProvider.value];
@@ -1741,7 +1994,7 @@ function renderQuickModelChips(models) {
     if (recList.includes(m)) tag = "Preset";
     if (m.includes("3.3") || m.includes("gpt-4o") || m.includes("reasoner") || m.includes("2.5")) tag = "Latest";
     
-    chip.innerHTML = `${escapeHTML(m)}${tag ? ` <span class="chip-tag">${escapeHTML(tag)}</span>` : ''}`;
+    setDomContent(chip, m, tag ? domElement("span", { class: "chip-tag" }, tag) : "");
     
     const triggerSelection = () => {
       inputModel.value = m;
@@ -1848,7 +2101,7 @@ function applyRecipeToForm(providerKey) {
 
   // Populate datalist
   if (modelList) {
-    modelList.innerHTML = "";
+    modelList.replaceChildren();
     const recs = recipe.recommendedModels || [];
     recs.forEach(m => {
       const opt = document.createElement("option");
@@ -1935,12 +2188,33 @@ async function runDiagnosticTest() {
   if (testDetailMsg) testDetailMsg.textContent = "Running 4-step connection diagnostic...";
   
   if (testStepsList) {
-    testStepsList.innerHTML = `
-      <div class="test-step-item" id="step-1">⏳ Step 1: Validating API Endpoint URL...</div>
-      <div class="test-step-item" id="step-2">⏳ Step 2: Checking Server Reachability & Auth...</div>
-      <div class="test-step-item" id="step-3">⏳ Step 3: Sending Chat Completion Test Request...</div>
-      <div class="test-step-item" id="step-4">⏳ Step 4: Verifying LLM Response & Latency...</div>
-    `;
+    setDomContent(testStepsList, [
+      "\n      ",
+      domElement(
+        "div",
+        { class: "test-step-item", id: "step-1" },
+        "⏳ Step 1: Validating API Endpoint URL...",
+      ),
+      "\n      ",
+      domElement(
+        "div",
+        { class: "test-step-item", id: "step-2" },
+        "⏳ Step 2: Checking Server Reachability & Auth...",
+      ),
+      "\n      ",
+      domElement(
+        "div",
+        { class: "test-step-item", id: "step-3" },
+        "⏳ Step 3: Sending Chat Completion Test Request...",
+      ),
+      "\n      ",
+      domElement(
+        "div",
+        { class: "test-step-item", id: "step-4" },
+        "⏳ Step 4: Verifying LLM Response & Latency...",
+      ),
+      "\n    ",
+    ]);
   }
 
   const chatEndpointUrl = formatChatEndpointUrl(apiEndpoint);
@@ -1949,7 +2223,10 @@ async function runDiagnosticTest() {
   try {
     // Step 1: URL format validation
     const step1El = document.getElementById("step-1");
-    if (step1El) step1El.innerHTML = `✓ Step 1: Endpoint URL formatted → <code style="color:var(--accent-color-1);">${escapeHTML(chatEndpointUrl)}</code>`;
+    if (step1El) setDomContent(step1El, [
+      "✓ Step 1: Endpoint URL formatted → ",
+      domElement("code", { style: "color:var(--accent-color-1);" }, chatEndpointUrl),
+    ]);
     if (step1El) step1El.className = "test-step-item success";
 
     // Step 2: Prepare Auth headers
@@ -1957,9 +2234,13 @@ async function runDiagnosticTest() {
     const headers = { "Content-Type": "application/json" };
     if (apiKey) {
       headers["Authorization"] = `Bearer ${apiKey}`;
-      if (step2El) step2El.innerHTML = `✓ Step 2: Authorization Header set (Bearer ${escapeHTML(apiKey.substring(0, 6))}...)`;
+      if (step2El) setDomContent(step2El, [
+        "✓ Step 2: Authorization Header set (Bearer ",
+        apiKey.substring(0, 6),
+        "...)",
+      ]);
     } else {
-      if (step2El) step2El.innerHTML = `✓ Step 2: No API key provided (Local Server / Anonymous mode)`;
+      if (step2El) setDomContent(step2El, ["✓ Step 2: No API key provided (Local Server / Anonymous mode)"]);
     }
     if (step2El) step2El.className = "test-step-item success";
 
@@ -2006,10 +2287,16 @@ async function runDiagnosticTest() {
         responseText = data.choices[0].message.content.trim();
       }
 
-      if (step3El) step3El.innerHTML = `✓ Step 3: Server responded HTTP ${response.status} OK!`;
+      if (step3El) setDomContent(step3El, ["✓ Step 3: Server responded HTTP ", response.status, " OK!"]);
       if (step3El) step3El.className = "test-step-item success";
 
-      if (step4El) step4El.innerHTML = `✓ Step 4: Test response received: "${escapeHTML(responseText) || 'OK'}" (${latency}ms)`;
+      if (step4El) setDomContent(step4El, [
+        '✓ Step 4: Test response received: "',
+        responseText || "OK",
+        '" (',
+        latency,
+        "ms)",
+      ]);
       if (step4El) step4El.className = "test-step-item success";
 
       if (testStatusPill) {
@@ -2021,7 +2308,13 @@ async function runDiagnosticTest() {
         testLatencyBadge.classList.remove("hidden");
       }
       if (testDetailMsg) {
-        testDetailMsg.innerHTML = `<strong>✔ Connection Test Passed!</strong><br>Provider server is responsive and model <code>${escapeHTML(model)}</code> answered correctly.`;
+        setDomContent(testDetailMsg, [
+          domElement("strong", {}, "✔ Connection Test Passed!"),
+          domElement("br", {}),
+          "Provider server is responsive and model ",
+          domElement("code", {}, model),
+          " answered correctly.",
+        ]);
       }
 
       await addLog("info", `Connection test success for ${chatEndpointUrl} (${latency}ms)`);
@@ -2040,10 +2333,10 @@ async function runDiagnosticTest() {
         }
       } catch (e) {}
 
-      if (step3El) step3El.innerHTML = `✘ Step 3: Server returned HTTP ${response.status}`;
+      if (step3El) setDomContent(step3El, ["✘ Step 3: Server returned HTTP ", response.status]);
       if (step3El) step3El.className = "test-step-item failed";
 
-      if (step4El) step4El.innerHTML = `✘ Step 4: Verification failed (${response.status})`;
+      if (step4El) setDomContent(step4El, ["✘ Step 4: Verification failed (", response.status, ")"]);
       if (step4El) step4El.className = "test-step-item failed";
 
       if (testStatusPill) {
@@ -2052,17 +2345,21 @@ async function runDiagnosticTest() {
       }
       
       let troubleshooting = "";
-      const safeErrorMsg = escapeHTML(errorMsg);
+      const safeErrorMsg = errorMsg;
       if (response.status === 401 || response.status === 403) {
-        troubleshooting = `🔑 <strong>Authentication Error:</strong> ${safeErrorMsg || "Invalid or missing API Key. Please verify your API Key."}`;
+        troubleshooting = ["🔑 ", domElement("strong", {}, "Authentication Error:"), " ", (safeErrorMsg || "Invalid or missing API Key. Please verify your API Key.")];
       } else if (response.status === 404) {
-        troubleshooting = `🔍 <strong>404 Not Found:</strong> ${safeErrorMsg || "Check if endpoint URL includes correct path or if model name exists."}`;
+        troubleshooting = ["🔍 ", domElement("strong", {}, "404 Not Found:"), " ", (safeErrorMsg || "Check if endpoint URL includes correct path or if model name exists.")];
       } else {
-        troubleshooting = `⚠️ <strong>Server Response:</strong> ${safeErrorMsg}`;
+        troubleshooting = ["⚠️ ", domElement("strong", {}, "Server Response:"), " ", (safeErrorMsg)];
       }
 
       if (testDetailMsg) {
-        testDetailMsg.innerHTML = `<strong>✘ Connection Failed (HTTP ${response.status})</strong><br>${troubleshooting}`;
+        setDomContent(testDetailMsg, [
+          domElement("strong", {}, "✘ Connection Failed (HTTP ", response.status, ")"),
+          domElement("br", {}),
+          troubleshooting,
+        ]);
       }
 
       await addLog("error", `Connection test failed for ${chatEndpointUrl}: ${errorMsg}`);
@@ -2072,10 +2369,10 @@ async function runDiagnosticTest() {
     const step3El = document.getElementById("step-3");
     const step4El = document.getElementById("step-4");
 
-    if (step3El) step3El.innerHTML = `✘ Step 3: Request failed → ${escapeHTML(err.message)}`;
+    if (step3El) setDomContent(step3El, ["✘ Step 3: Request failed → ", err.message]);
     if (step3El) step3El.className = "test-step-item failed";
 
-    if (step4El) step4El.innerHTML = `✘ Step 4: Connection error (${latency}ms)`;
+    if (step4El) setDomContent(step4El, ["✘ Step 4: Connection error (", latency, "ms)"]);
     if (step4El) step4El.className = "test-step-item failed";
 
     if (testStatusPill) {
@@ -2084,7 +2381,21 @@ async function runDiagnosticTest() {
     }
 
     if (testDetailMsg) {
-      testDetailMsg.innerHTML = `<strong>✘ Network Connection Error</strong><br>Could not connect to server at <code>${escapeHTML(apiEndpoint)}</code>.<br><small>Troubleshooting: Ensure server is running and CORS is enabled (e.g. for Ollama set <code>OLLAMA_ORIGINS=*</code>).</small>`;
+      setDomContent(testDetailMsg, [
+        domElement("strong", {}, "✘ Network Connection Error"),
+        domElement("br", {}),
+        "Could not connect to server at ",
+        domElement("code", {}, apiEndpoint),
+        ".",
+        domElement("br", {}),
+        domElement(
+          "small",
+          {},
+          "Troubleshooting: Ensure server is running and CORS is enabled (e.g. for Ollama set ",
+          domElement("code", {}, "OLLAMA_ORIGINS=*"),
+          ").",
+        ),
+      ]);
     }
 
     await addLog("error", `Connection test error: ${err.message}`);
@@ -2185,7 +2496,7 @@ async function fetchLatestModels(silent = false) {
     const allModels = Array.from(new Set([...detectedModels, ...fallbackRecs])).filter(Boolean);
 
     if (modelList) {
-      modelList.innerHTML = "";
+      modelList.replaceChildren();
       allModels.forEach(m => {
         const opt = document.createElement("option");
         opt.value = m;
@@ -2976,16 +3287,38 @@ async function renderLogs() {
   const logsContainer = document.getElementById("logs-list");
 
   if (logs.length === 0) {
-    logsContainer.innerHTML = `
-      <div class="empty-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-        <p>System logs are empty.</p>
-      </div>
-    `;
+    setDomContent(logsContainer, [
+      "\n      ",
+      domElement(
+        "div",
+        { class: "empty-state" },
+        "\n        ",
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "36",
+            height: "36",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "1.5",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("polyline", { points: "4 17 10 11 4 5" }),
+          domElement("line", { x1: "12", y1: "19", x2: "20", y2: "19" }),
+        ),
+        "\n        ",
+        domElement("p", {}, "System logs are empty."),
+        "\n      ",
+      ),
+      "\n    ",
+    ]);
     return;
   }
 
-  logsContainer.innerHTML = "";
+  logsContainer.replaceChildren();
   logs.forEach(log => {
     const entry = document.createElement("div");
     entry.className = "log-entry";
@@ -2998,17 +3331,26 @@ async function renderLogs() {
     let detailsHtml = "";
     if (log.details) {
       const detailsStr = typeof log.details === "object" ? JSON.stringify(log.details, null, 2) : log.details;
-      detailsHtml = `<pre class="log-details">${escapeHTML(detailsStr)}</pre>`;
+      detailsHtml = [domElement("pre", {"class": "log-details"}, (detailsStr))];
     }
     
-    entry.innerHTML = `
-      <div>
-        <span class="log-time">[${escapeHTML(log.timestamp)}]</span>
-        <span class="log-tag ${tagClass}">${escapeHTML(log.type.toUpperCase())}</span>
-        <span class="log-msg">${escapeHTML(log.message)}</span>
-      </div>
-      ${detailsHtml}
-    `;
+    setDomContent(entry, [
+      "\n      ",
+      domElement(
+        "div",
+        {},
+        "\n        ",
+        domElement("span", { class: "log-time" }, "[", log.timestamp, "]"),
+        "\n        ",
+        domElement("span", { class: "log-tag " + tagClass }, log.type.toUpperCase()),
+        "\n        ",
+        domElement("span", { class: "log-msg" }, log.message),
+        "\n      ",
+      ),
+      "\n      ",
+      detailsHtml,
+      "\n    ",
+    ]);
     
     logsContainer.appendChild(entry);
   });
@@ -3029,16 +3371,38 @@ async function renderHistory() {
   const listContainer = document.getElementById("history-list");
   
   if (history.length === 0) {
-    listContainer.innerHTML = `
-      <div class="empty-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-        <p>No translation history yet.</p>
-      </div>
-    `;
+    setDomContent(listContainer, [
+      "\n      ",
+      domElement(
+        "div",
+        { class: "empty-state" },
+        "\n        ",
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "36",
+            height: "36",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "1.5",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("circle", { cx: "12", cy: "12", r: "10" }),
+          domElement("polyline", { points: "12 6 12 12 16 14" }),
+        ),
+        "\n        ",
+        domElement("p", {}, "No translation history yet."),
+        "\n      ",
+      ),
+      "\n    ",
+    ]);
     return;
   }
 
-  listContainer.innerHTML = "";
+  listContainer.replaceChildren();
   history.forEach(item => {
     const card = document.createElement("div");
     card.className = "history-item";
@@ -3047,19 +3411,68 @@ async function renderHistory() {
     const targetLangText = languageNames[item.targetLang] || item.targetLang;
     const timeText = formatRelativeTime(item.timestamp);
     
-    card.innerHTML = `
-      <div class="history-header">
-        <span class="history-meta">${escapeHTML(srcLangText)} &rarr; ${escapeHTML(targetLangText)}</span>
-        <span class="history-time" title="${escapeHTML(new Date(item.timestamp).toLocaleString())}">${escapeHTML(timeText)}</span>
-      </div>
-      <div class="history-texts" role="button" tabindex="0" aria-label="Load history item: ${escapeHTML(item.srcText)}" title="Load history item">
-        <div class="history-src">${escapeHTML(item.srcText)}</div>
-        <div class="history-target">${escapeHTML(item.targetText)}</div>
-      </div>
-      <button type="button" class="history-delete-btn" aria-label="Delete history item: ${escapeHTML(item.srcText)}" data-id="${item.id}" title="Delete history item: ${escapeHTML(item.srcText)}">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
-    `;
+    setDomContent(card, [
+      "\n      ",
+      domElement(
+        "div",
+        { class: "history-header" },
+        "\n        ",
+        domElement("span", { class: "history-meta" }, srcLangText, " → ", targetLangText),
+        "\n        ",
+        domElement(
+          "span",
+          { class: "history-time", title: new Date(item.timestamp).toLocaleString() },
+          timeText,
+        ),
+        "\n      ",
+      ),
+      "\n      ",
+      domElement(
+        "div",
+        {
+          class: "history-texts",
+          role: "button",
+          tabindex: "0",
+          "aria-label": "Load history item: " + item.srcText,
+          title: "Load history item",
+        },
+        "\n        ",
+        domElement("div", { class: "history-src" }, item.srcText),
+        "\n        ",
+        domElement("div", { class: "history-target" }, item.targetText),
+        "\n      ",
+      ),
+      "\n      ",
+      domElement(
+        "button",
+        {
+          type: "button",
+          class: "history-delete-btn",
+          "aria-label": "Delete history item: " + item.srcText,
+          "data-id": item.id,
+          title: "Delete history item: " + item.srcText,
+        },
+        "\n        ",
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "12",
+            height: "12",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "2",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+          domElement("line", { x1: "6", y1: "6", x2: "18", y2: "18" }),
+        ),
+        "\n      ",
+      ),
+      "\n    ",
+    ]);
     
     const historyTextsDiv = card.querySelector(".history-texts");
 
@@ -3229,12 +3642,45 @@ btnCopy.addEventListener("click", () => {
   navigator.clipboard.writeText(text).then(() => {
     if (copyResetTimeout) clearTimeout(copyResetTimeout);
     // Show green check icon
-    btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(140, 100%, 40%)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    setDomContent(btnCopy, [
+      domElement(
+        "svg",
+        {
+          xmlns: "http://www.w3.org/2000/svg",
+          width: "14",
+          height: "14",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "hsl(140, 100%, 40%)",
+          "stroke-width": "2.5",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        },
+        domElement("polyline", { points: "20 6 9 17 4 12" }),
+      ),
+    ]);
     btnCopy.style.borderColor = "hsl(140, 100%, 40%)";
     btnCopy.title = "已複製";
     btnCopy.setAttribute("aria-label", "已複製");
     copyResetTimeout = setTimeout(() => {
-      btnCopy.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+      setDomContent(btnCopy, [
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "14",
+            height: "14",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "2",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2", ry: "2" }),
+          domElement("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" }),
+        ),
+      ]);
       btnCopy.style.borderColor = "var(--border-color)";
       btnCopy.title = "複製譯文";
       btnCopy.setAttribute("aria-label", "複製譯文");
@@ -3247,7 +3693,26 @@ btnCopy.addEventListener("click", () => {
 
 // Text-to-Speech (TTS)
 const resetTtsBtn = () => {
-  btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
+  setDomContent(btnTts, [
+    domElement(
+      "svg",
+      {
+        xmlns: "http://www.w3.org/2000/svg",
+        width: "14",
+        height: "14",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+      },
+      domElement("path", { d: "M11 5L6 9H2v6h4l5 4V5z" }),
+      domElement("path", {
+        d: "M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14",
+      }),
+    ),
+  ]);
   btnTts.title = "朗讀";
   btnTts.setAttribute("aria-label", "朗讀");
 };
@@ -3271,7 +3736,24 @@ btnTts.addEventListener("click", () => {
   currentUtterance.onerror = resetTtsBtn;
 
   // Turn button into a Stop button (X icon)
-  btnTts.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+  setDomContent(btnTts, [
+    domElement(
+      "svg",
+      {
+        xmlns: "http://www.w3.org/2000/svg",
+        width: "14",
+        height: "14",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+      },
+      domElement("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+      domElement("line", { x1: "6", y1: "6", x2: "18", y2: "18" }),
+    ),
+  ]);
   btnTts.title = "停止朗讀";
   btnTts.setAttribute("aria-label", "停止朗讀");
   window.speechSynthesis.speak(currentUtterance);

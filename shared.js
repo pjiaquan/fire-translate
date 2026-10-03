@@ -2,6 +2,33 @@ const DEFAULT_PROVIDER = "gemini";
 const DEFAULT_API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai";
 const DEFAULT_MODEL = "gemini-3.6-flash";
 
+// Construct UI with DOM APIs. Strings (including model output) are always text,
+// never parsed as markup. SVG uses its own namespace to preserve existing icons.
+function domElement(tag, attributes = {}, ...children) {
+  const svgTags = new Set(["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"]);
+  const element = svgTags.has(tag)
+    ? document.createElementNS("http://www.w3.org/2000/svg", tag)
+    : document.createElement(tag);
+  for (const [name, value] of Object.entries(attributes)) {
+    element.setAttribute(name, String(value));
+  }
+  appendDomChildren(element, children);
+  return element;
+}
+
+function appendDomChildren(element, children) {
+  for (const child of children.flat(Infinity)) {
+    if (child === null || child === undefined) continue;
+    element.appendChild(typeof child === "object" && child.nodeType
+      ? child : document.createTextNode(String(child)));
+  }
+}
+
+function setDomContent(element, ...children) {
+  element.replaceChildren();
+  appendDomChildren(element, children);
+}
+
 function getGemmaLangCode(lang) {
   if (!lang) return "en";
   if (lang === "auto") return "en";

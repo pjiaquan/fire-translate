@@ -29,10 +29,13 @@ function createSandbox() {
     const _children = [];
     let _id = initialId;
     let _innerHTML = "";
+    let _textContent = "";
     const el = {
+      nodeType: 1,
       tagName: (tag || "div").toUpperCase(),
       value: "",
-      textContent: "",
+      get textContent() { return _textContent + _children.map(child => child.textContent || "").join(""); },
+      set textContent(value) { _textContent = String(value); _children.length = 0; _innerHTML = ""; },
       checked: false,
       type: "",
       title: "",
@@ -74,6 +77,9 @@ function createSandbox() {
       },
       setAttribute: function(name, val) {
         _attrs[name] = String(val);
+        if (name === "class") this.className = String(val);
+        if (name === "id") this.id = String(val);
+        if (name === "style") this.style.cssText = String(val);
         if (name === "title") this.title = String(val);
       },
       removeAttribute: function(name) {
@@ -98,6 +104,12 @@ function createSandbox() {
         _children.push(child);
         return child;
       },
+      replaceChildren: function(...children) {
+        _children.length = 0;
+        _textContent = "";
+        _innerHTML = "";
+        children.forEach(child => this.appendChild(child));
+      },
       removeChild: function(child) {
         const idx = _children.indexOf(child);
         if (idx !== -1) _children.splice(idx, 1);
@@ -113,6 +125,7 @@ function createSandbox() {
           return { style: {} };
         }
         for (const child of _children) {
+          if (child.tagName && child.tagName.toLowerCase() === selector.toLowerCase()) return child;
           if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
             return child;
           }
@@ -130,6 +143,7 @@ function createSandbox() {
             if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
               res.push(child);
             }
+            if (child.tagName && child.tagName.toLowerCase() === selector.toLowerCase()) res.push(child);
             if (child.children && child.children.length > 0) search(child);
           }
         }
@@ -179,6 +193,8 @@ function createSandbox() {
       return elementsMap[id];
     },
     createElement: (tag) => createMockElement(tag),
+    createElementNS: (namespace, tag) => createMockElement(tag),
+    createTextNode: (text) => ({ nodeType: 3, textContent: String(text) }),
     querySelectorAll: () => [],
     addEventListener: () => {}
   };
@@ -354,6 +370,58 @@ const bgCode = fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {
+  await runTest("Untrusted translation, history, log and model strings remain text, never executable markup", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    const hostile = '\"><img src=x onerror="globalThis.injected=true"><script>alert(1)</script>&';
+    await sandbox.renderRichTranslation({
+      translation: hostile,
+      alternatives: [{ text: hostile, tone: hostile, explanation: hostile }],
+      vocabulary: [{ word: hostile, pos: hostile, translation: hostile,
+        synonyms: [hostile], example_sentence_source: hostile, example_sentence_target: hostile }]
+    });
+    const output = sandbox.document.getElementById("target-content");
+    assert.strictEqual(output.querySelector(".translation-result-card").textContent, hostile);
+    assert.strictEqual(output.querySelector(".alt-text").textContent, hostile);
+    assert.strictEqual(output.querySelector(".vocab-word").textContent, hostile);
+    assert.strictEqual(output.querySelector(".vocab-example-src").textContent, hostile);
+    assert.strictEqual(output.querySelector("img"), null);
+    assert.strictEqual(output.querySelector("script"), null);
+
+    const bullets = sandbox.renderFormattedTranslation(`- ${hostile}\n- second item`);
+    assert.strictEqual(bullets.querySelector("li").textContent, hostile);
+    assert.strictEqual(bullets.querySelectorAll("li").length, 2);
+    assert.strictEqual(bullets.querySelector("img"), null);
+
+    sandbox.mockLocalStorage.history = [{ id: hostile, srcLang: 'en', targetLang: 'zh-TW',
+      timestamp: new Date().toISOString(), srcText: hostile, targetText: hostile }];
+    await sandbox.renderHistory();
+    const history = sandbox.document.getElementById("history-list");
+    assert.strictEqual(history.querySelector(".history-src").textContent, hostile);
+    assert.strictEqual(history.querySelector(".history-delete-btn").getAttribute("data-id"), hostile);
+    assert.strictEqual(history.querySelector(".history-delete-btn").getAttribute("onclick"), null);
+    assert.strictEqual(history.querySelector("img"), null);
+
+    sandbox.mockLocalStorage.logs = [{ type: 'error', timestamp: hostile, message: hostile, details: hostile }];
+    await sandbox.renderLogs();
+    const logs = sandbox.document.getElementById("logs-list");
+    assert.strictEqual(logs.querySelector(".log-msg").textContent, hostile);
+    assert.strictEqual(logs.querySelector(".log-details").textContent, hostile);
+    assert.strictEqual(logs.querySelector("script"), null);
+
+    sandbox.renderQuickModelChips([hostile]);
+    assert.strictEqual(sandbox.document.getElementById("quick-models-container").children[0].textContent, hostile);
+    vm.runInContext(contentCode, sandbox);
+    const inline = sandbox.document.createElement("div");
+    sandbox.renderInlineVocab(inline, [{ synonyms: [hostile] }]);
+    assert.strictEqual(inline.querySelector("li").textContent, hostile);
+    assert.strictEqual(inline.querySelector("img"), null);
+    for (const script of [sharedCode, popupCode, contentCode]) {
+      assert.ok(!/\.(?:innerHTML|outerHTML)\s*=|insertAdjacentHTML\s*\(/.test(script), 'Runtime scripts must not reintroduce HTML parsing sinks');
+    }
+  });
   await runTest("Firefox package uses ordered background scripts and starts without importScripts", async () => {
     const { createBrowserManifest } = await import('./scripts/browser-manifest.mjs');
     const original = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
@@ -1734,7 +1802,7 @@ async function executeTestSuite() {
 
     assert.strictEqual(btnCopy.title, "已複製");
     assert.strictEqual(btnCopy.getAttribute("aria-label"), "已複製");
-    assert.ok(btnCopy.innerHTML.includes("<polyline"), "btnCopy should display checkmark icon");
+    assert.ok(btnCopy.querySelector("polyline"), "btnCopy should display checkmark icon");
 
     // Fast repeat clicks should be safely debounced and not get stuck
     btnCopy.click();
@@ -1745,20 +1813,20 @@ async function executeTestSuite() {
     await new Promise(r => setTimeout(r, 1600));
     assert.strictEqual(btnCopy.title, "複製譯文");
     assert.strictEqual(btnCopy.getAttribute("aria-label"), "複製譯文");
-    assert.ok(btnCopy.innerHTML.includes("<rect"), "btnCopy should restore original copy icon");
+    assert.ok(btnCopy.querySelector("rect"), "btnCopy should restore original copy icon");
 
     // 2. Test btnTts dynamic state
     btnTts.click();
     assert.strictEqual(btnTts.title, "停止朗讀");
     assert.strictEqual(btnTts.getAttribute("aria-label"), "停止朗讀");
-    assert.ok(btnTts.innerHTML.includes("<line"), "btnTts should show Stop X icon");
+    assert.ok(btnTts.querySelector("line"), "btnTts should show Stop X icon");
 
     // Utterance completion resets to Read Aloud
     assert.ok(sandbox.currentUtterance && typeof sandbox.currentUtterance.onend === "function");
     sandbox.currentUtterance.onend();
     assert.strictEqual(btnTts.title, "朗讀");
     assert.strictEqual(btnTts.getAttribute("aria-label"), "朗讀");
-    assert.ok(btnTts.innerHTML.includes("<path"), "btnTts should restore speaker icon");
+    assert.ok(btnTts.querySelector("path"), "btnTts should restore speaker icon");
 
     // Canceling during playback resets to Read Aloud
     btnTts.click();
@@ -1931,20 +1999,6 @@ async function executeTestSuite() {
       "palette.md must record list and dynamic chip accessibility learning"
     );
 
-    // Verify context-specific aria-label and title attributes in popup.js
-    assert.ok(
-      popupCodeContent.includes('aria-label="Remove exclusion for ${escapeHTML(domain)}"'),
-      "popup.js must set context-specific aria-label on remove-site-btn"
-    );
-    assert.ok(
-      popupCodeContent.includes('aria-label="Remove website exclusion for ${escapeHTML(domain)}"'),
-      "popup.js must set context-specific aria-label on btn-remove-exclusion"
-    );
-    assert.ok(
-      popupCodeContent.includes('aria-label="Delete history item: ${escapeHTML(item.srcText)}"'),
-      "popup.js must set context-specific aria-label on history-delete-btn"
-    );
-
     // Verify keyboard handlers and ARIA attributes for model chips in popup.js
     assert.ok(
       popupCodeContent.includes('chip.setAttribute("role", "button");'),
@@ -1966,6 +2020,10 @@ async function executeTestSuite() {
     vm.runInContext(popupCode, sandbox);
 
     const quickModelsContainer = sandbox.document.getElementById("quick-models-container");
+    sandbox.mockLocalStorage.disabledDomains = ["example.com"];
+    await sandbox.renderDisabledSitesList();
+    assert.strictEqual(sandbox.document.getElementById("exclusions-list-container").querySelector(".btn-remove-exclusion").getAttribute("aria-label"), "Remove website exclusion for example.com");
+    assert.strictEqual(sandbox.document.getElementById("disabled-sites-chips").querySelector(".remove-site-btn").getAttribute("aria-label"), "Remove exclusion for example.com");
     const inputModel = sandbox.document.getElementById("input-model");
     assert.ok(quickModelsContainer, "quickModelsContainer must exist");
     assert.ok(inputModel, "inputModel must exist");
@@ -1975,9 +2033,9 @@ async function executeTestSuite() {
 
     assert.ok(quickModelsContainer.children.length >= 3, "quickModelsContainer should render model chips");
 
-    const activeChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gemini-2.5-flash"));
-    const proChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gemini-2.5-pro"));
-    const gptChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gpt-4o"));
+    const activeChip = quickModelsContainer.children.find(c => c.textContent.includes("gemini-2.5-flash"));
+    const proChip = quickModelsContainer.children.find(c => c.textContent.includes("gemini-2.5-pro"));
+    const gptChip = quickModelsContainer.children.find(c => c.textContent.includes("gpt-4o"));
 
     assert.ok(activeChip, "active chip must exist");
     assert.ok(proChip, "pro chip must exist");
@@ -2273,10 +2331,6 @@ async function executeTestSuite() {
     );
 
     // Verify role, tabindex, aria-label and keydown handlers in popup.js
-    assert.ok(
-      popupCodeContent.includes('class="history-texts" role="button" tabindex="0" aria-label="Load history item: ${escapeHTML(item.srcText)}"'),
-      "popup.js must set role=button, tabindex=0 and descriptive aria-label on .history-texts"
-    );
     assert.ok(
       popupCodeContent.includes('historyTextsDiv.addEventListener("keydown", (e) => {'),
       "popup.js must attach keydown listener to historyTextsDiv"
