@@ -361,6 +361,12 @@ async function executeTestSuite() {
     assert.deepStrictEqual(firefox.background, { scripts: ['shared.js', 'background.js'] });
     assert.ok(!firefox.permissions.includes('sidePanel'));
     assert.strictEqual(firefox.side_panel, undefined);
+    assert.deepStrictEqual(firefox.browser_specific_settings.gecko.data_collection_permissions, {
+      required: ['websiteContent', 'authenticationInfo', 'personalCommunications']
+    });
+    assert.strictEqual(firefox.browser_specific_settings.gecko.strict_min_version, '140.0');
+    assert.strictEqual(firefox.browser_specific_settings.gecko_android.strict_min_version, '142.0');
+    assert.strictEqual(original.browser_specific_settings.gecko.data_collection_permissions, undefined);
     assert.deepStrictEqual(createBrowserManifest(original), original);
     assert.strictEqual(original.background.service_worker, 'background.js');
     const sandbox = createSandbox();
@@ -2474,4 +2480,3 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
-

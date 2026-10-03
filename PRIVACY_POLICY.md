@@ -1,6 +1,6 @@
 # 🔒 Privacy Policy for Fire Translate Extension
 
-**Last Updated:** August 10, 2026
+**Last Updated:** October 3, 2026
 
 Fire Translate ("we", "our", or "the extension") is committed to protecting your privacy. This Privacy Policy explains how Fire Translate handles user data, local storage, third-party AI service interactions, and optional messaging services.
 
@@ -9,7 +9,7 @@ Fire Translate ("we", "our", or "the extension") is committed to protecting your
 ### 1. Information Collection and Use
 
 Fire Translate operates with a **privacy-first architecture**:
-- **No Personal Data Collection**: We do not collect, track, store, or sell personal information such as your name, email address, IP address, browsing history, or location.
+- **No Developer-Operated Data Collection**: Fire Translate does not operate a server that receives your data or sell your data. Translation text may contain personal information and is transmitted to your configured AI service for processing, together with the API credentials needed to authenticate the request. Optional Telegram forwarding transmits text and credentials to Telegram as described below.
 - **No Tracking or Analytics**: We do not include third-party tracking scripts, advertising trackers, analytics, or remote CDN dependencies in the extension UI. All fonts and assets are packaged locally within the extension.
 
 ---
@@ -32,8 +32,10 @@ All user preferences, operational data, and active drafts are saved **strictly l
 
 When you select text on a webpage or type text into the Fire Translate popup/sidepanel:
 - **Selected AI Endpoint**: The text is sent directly to the **AI translation service endpoint configured by you** (e.g., OpenAI API, Groq API, DeepSeek API, Google Gemini API, or a local LLM gateway).
+- **Text and Context**: Webpage translations may include the selected text and its surrounding sentence. Text typed or pasted into the translator is sent for translation; enabled grammar checking and learning features also send text for processing. This text may include personal communications. API keys are sent to the selected service for authentication. Network services also receive the connection's IP address as part of ordinary network traffic.
 - **Network Protocol Notice**: Secure HTTPS endpoints (`https://`) encrypt all transmitted text and API credentials in transit. If you configure a custom endpoint using unencrypted HTTP (`http://`), transmission travels in cleartext over your local or target network.
 - **Optional Telegram Forwarding**: If you explicitly enable the optional Telegram integration in Settings, your translation source text and generated translation results will be sent to your configured Telegram Bot/Chat via `https://api.telegram.org`. This feature is disabled by default and runs strictly on user opt-in.
+- **Firefox Data Declaration**: The Firefox package declares `websiteContent`, `authenticationInfo`, and `personalCommunications`, reflecting the text and credentials these features transmit. Firefox Desktop 140 or later and Firefox for Android 142 or later display the required data permissions during installation. Installing the extension grants these declared permissions; it does not enable Telegram forwarding, which still requires you to enable it in Settings. The extension includes no telemetry or analytics.
 - **Third-Party AI Service Privacy Policies**:
   - [OpenAI Privacy Policy](https://openai.com/privacy/)
   - [Groq Privacy Policy](https://groq.com/privacy-policy/)

@@ -60,6 +60,8 @@ If you are running your own local LLM engine, open the **Settings** drawer (cog 
 
 Chrome 與 Firefox 使用各自的套件：`npm run build` 產生 Chrome ZIP；`npm run build:firefox` 產生 `dist/fire-translate-firefox-v<版本>.zip`。Firefox 套件依序載入 `shared.js`、`background.js`，並移除 Chrome 專用的側欄設定。Firefox 安裝或提交 AMO 時請使用 Firefox 套件；原始 `manifest.json` 是 Chrome 設定。
 
+Firefox 套件需要桌面版 140+ 或 Android 版 142+，使用內建資料傳送同意提示。Manifest 宣告網頁內容、驗證資訊與個人通訊，對應傳送至設定的 AI 服務的文字／API 金鑰及選用的 Telegram 轉送；沒有遙測或分析追蹤。CI 使用 `web-ext 10.7.0` 驗證 Firefox 套件。
+
 The repository includes GitHub Actions for testing, packaging, and publishing to the Chrome Web Store. The release script keeps the version in `package.json` and `manifest.json` synchronized:
 
 ```bash
