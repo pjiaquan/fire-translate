@@ -16,3 +16,6 @@
 ## 2024-05-25 - Accessibility improvements for translation history items
 **Learning:** Found that custom layout blocks (e.g., `<div class="history-texts">`) designed to act as interactive list items were implemented using a click listener on a parent container. This made the items completely inaccessible to keyboard users, violating WCAG standards. The elements were missing interactive semantics, focus states, and keyboard event handlers. Also, nested interactive controls must be avoided by applying role="button" directly to the inner text div instead of the parent card which already contains a delete button.
 **Action:** Always add `role="button"`, `tabindex="0"`, `aria-label`, and full keyboard handlers (`Enter` and `Space` with `e.preventDefault()`) to dynamically created interactive divs acting as list options, avoiding nested interactive elements.
+## 2024-05-25 - UX improvement for disabled state on clear button
+**Learning:** Found that the "Clear text" button remained enabled even when the text area was empty, providing a poor micro-interaction experience because clicking it did nothing.
+**Action:** When implementing interactive actions like clearing an input field, dynamically manage the `disabled` state of the triggering button based on whether the input is actually empty. This prevents confusing the user and provides better visual feedback.
