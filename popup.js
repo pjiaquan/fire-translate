@@ -46,6 +46,13 @@ const loader = document.getElementById("loader");
 const btnTranslate = document.getElementById("btn-translate");
 const btnCopy = document.getElementById("btn-copy");
 const btnTts = document.getElementById("btn-tts");
+const btnClearSrc = document.getElementById("btn-clear-src");
+
+function updateBtnClearSrcState() {
+  if (btnClearSrc) {
+    btnClearSrc.disabled = srcTextarea.value.length === 0;
+  }
+}
 const btnSidepanel = document.getElementById("btn-sidepanel");
 const btnTheme = document.getElementById("btn-theme");
 const iconSun = document.getElementById("icon-sun");
@@ -142,6 +149,7 @@ function applyGrammarSuggestion() {
   const corrected = grammarSuggestionText.textContent;
   if (corrected) {
     srcTextarea.value = corrected;
+    updateBtnClearSrcState();
     charCounter.textContent = `${corrected.length} 字`;
     hideGrammarSuggestion();
     if (srcTextarea && typeof srcTextarea.focus === "function") {
@@ -978,6 +986,7 @@ async function translate() {
   srcText = cleanTranslateText(srcText);
   if (!srcText) return;
   srcTextarea.value = srcText;
+  updateBtnClearSrcState();
 
   if (!/\p{L}/u.test(srcText) || isUrlLike(srcText) || isApiKeyLike(srcText)) {
     statusMessage.textContent = "Ignored (Symbols, Numbers, Link, or Key)";
@@ -3504,6 +3513,7 @@ async function loadHistoryItem(item) {
   selectSource.value = item.srcLang;
   selectTarget.value = item.targetLang;
   srcTextarea.value = item.srcText;
+  updateBtnClearSrcState();
   charCounter.textContent = `${item.srcText.length} 字`;
   
   const config = await chrome.storage.local.get("showThinking");
@@ -3600,8 +3610,9 @@ document.getElementById("btn-clear-history").addEventListener("click", async () 
 });
 
 // Clipboard and text box helpers
-document.getElementById("btn-clear-src").addEventListener("click", () => {
+btnClearSrc.addEventListener("click", () => {
   srcTextarea.value = "";
+  updateBtnClearSrcState();
   charCounter.textContent = "0 字";
   targetContent.textContent = "";
   targetContent.classList.add("empty");
@@ -3616,6 +3627,7 @@ document.getElementById("btn-paste").addEventListener("click", async () => {
   try {
     const text = await navigator.clipboard.readText();
     srcTextarea.value = text;
+    updateBtnClearSrcState();
     charCounter.textContent = `${text.length} 字`;
     srcTextarea.focus();
     
@@ -3790,6 +3802,7 @@ document.getElementById("btn-swap-lang").addEventListener("click", async () => {
   
   if (currentSrcText.trim() && !isTargetEmpty && loader.classList.contains("hidden")) {
     srcTextarea.value = currentTargetText;
+    updateBtnClearSrcState();
     targetContent.textContent = currentSrcText;
     charCounter.textContent = `${srcTextarea.value.length} 字`;
     translate();
@@ -3822,6 +3835,7 @@ selectTarget.addEventListener("change", async () => {
 // Keypress translate / typing auto-translate & live grammar check
 srcTextarea.addEventListener("input", () => {
   const text = srcTextarea.value;
+  updateBtnClearSrcState();
   charCounter.textContent = `${text.length} 字`;
   
   if (text.trim() === "") {
@@ -3948,6 +3962,7 @@ async function initApp() {
   // Handle selection texts sent from contextMenus
   if (res.pendingTranslationText) {
     srcTextarea.value = res.pendingTranslationText;
+    updateBtnClearSrcState();
     charCounter.textContent = `${res.pendingTranslationText.length} 字`;
     await chrome.storage.local.remove("pendingTranslationText");
     translate();
@@ -3993,6 +4008,7 @@ for (const [id, key] of [["quick-auto-translate", "autoTranslate"], ["quick-lear
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "translateText" && message.text) {
     srcTextarea.value = message.text;
+    updateBtnClearSrcState();
     charCounter.textContent = `${message.text.length} 字`;
     translate();
   } else if (message.action === "phase2Completed") {
