@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js Environment
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Run Extension Unit Tests
         run: npm test
@@ -62,7 +62,7 @@ jobs:
       - name: Setup Node.js Environment
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Download Extension Package
         uses: actions/download-artifact@v8
@@ -97,7 +97,7 @@ jobs:
       - name: Setup Node.js Environment
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Download Extension Package
         uses: actions/download-artifact@v8
