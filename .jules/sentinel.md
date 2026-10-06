@@ -1,3 +1,8 @@
+## 2024-10-27 - [Reflected XSS in Local Dev Server]
+**Vulnerability:** Found a Reflected XSS vulnerability in `cws-oauth.mjs` where the `error` parameter from the URL was directly injected into the HTML response without being escaped.
+**Learning:** Even in local developer scripts or utility web servers (like OAuth loopback servers), untrusted input (such as URL parameters) can be a source of Reflected XSS vulnerabilities.
+**Prevention:** Always HTML-escape untrusted input before rendering it in HTTP responses to prevent Reflected XSS vulnerabilities.
+
 ## 2024-05-20 - [Token Input Exposure]
 **Vulnerability:** Telegram Bot Token input was displayed in plaintext.
 **Learning:** Third party tokens should be treated with the same security as primary passwords/API Keys.
