@@ -58,7 +58,7 @@ If you are running your own local LLM engine, open the **Settings** drawer (cog 
 
 ## 📦 Release & Chrome Web Store Deployment
 
-Chrome 與 Firefox 使用各自的套件：`npm run build` 產生 Chrome ZIP；`npm run build:firefox` 產生 `dist/fire-translate-firefox-v<版本>.zip`。原始 manifest 與 Chrome 套件同時宣告 service worker 和 Firefox 背景腳本 fallback（Chrome 121+），並包含 Firefox 資料傳送宣告。Firefox 套件依序載入 `shared.js`、`background.js`，並移除 service worker 與 Chrome 專用的側欄設定。Firefox 安裝或提交 AMO 時請使用檔名包含 `-firefox-` 的套件，避免混用 Chrome ZIP 或 GitHub 原始碼 ZIP。
+Chrome 與 Firefox 使用各自的套件：`npm run build` 產生 Chrome ZIP；`npm run build:firefox` 產生 `dist/fire-translate-firefox-v<版本>.zip`。原始 manifest 與 Chrome 套件只宣告 service worker（同時宣告 `background.scripts` 會讓 Chrome 顯示 MV2 警告），並包含 Firefox 資料傳送宣告。Firefox 套件依序載入 `shared.js`、`background.js`，並移除 service worker 與 Chrome 專用的側欄設定。Firefox 安裝或提交 AMO 時請使用檔名包含 `-firefox-` 的套件，避免混用 Chrome ZIP 或 GitHub 原始碼 ZIP。
 
 Firefox 套件需要桌面版 140+ 或 Android 版 142+，使用內建資料傳送同意提示。Manifest 宣告網頁內容、驗證資訊與個人通訊，對應傳送至設定的 AI 服務的文字／API 金鑰及選用的 Telegram 轉送；沒有遙測或分析追蹤。CI 使用 `web-ext 10.7.0` 驗證 Firefox 套件。
 

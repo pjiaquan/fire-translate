@@ -434,7 +434,8 @@ async function executeTestSuite() {
     });
     assert.strictEqual(firefox.browser_specific_settings.gecko.strict_min_version, '140.0');
     assert.strictEqual(firefox.browser_specific_settings.gecko_android.strict_min_version, '142.0');
-    assert.deepStrictEqual(original.background.scripts, ['shared.js', 'background.js']);
+    // Chrome warns that 'background.scripts' requires MV2 when both keys are present.
+    assert.deepStrictEqual(original.background, { service_worker: 'background.js' });
     assert.deepStrictEqual(original.browser_specific_settings.gecko.data_collection_permissions,
       firefox.browser_specific_settings.gecko.data_collection_permissions);
     assert.strictEqual(original.minimum_chrome_version, '121');
