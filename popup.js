@@ -1601,7 +1601,7 @@ async function renderDisabledSitesList() {
         ? `在 ${targetName} 啟用浮窗`
         : `在 ${targetName} 停用浮窗`;
     } else {
-      btnToggleCurrentSite.textContent = "Toggle Current Site";
+      btnToggleCurrentSite.textContent = "切換此網站的浮窗功能";
     }
   }
 
@@ -1832,7 +1832,7 @@ if (btnToggleCurrentSite) {
           }).catch(() => {});
         }
       } else {
-        alert("Please open a valid webpage (HTTP/HTTPS) to toggle website translation.");
+        alert("請先開啟一般網頁（HTTP／HTTPS），再切換此網站的浮窗功能。");
       }
     } catch (e) {}
   });

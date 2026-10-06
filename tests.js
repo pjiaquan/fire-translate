@@ -1186,6 +1186,16 @@ async function executeTestSuite() {
     assert.match(cssContent, /@media \(hover: none\) \{\s*\.history-delete-btn \{ opacity: 1; \}/);
   });
 
+  await runTest("Toggle-current-site button stays localized when no webpage tab is active", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    sandbox.chrome.tabs.query = () => Promise.resolve([{ id: 1, url: "chrome://newtab/" }]);
+    await sandbox.renderDisabledSitesList();
+    assert.strictEqual(sandbox.document.getElementById("btn-toggle-current-site").textContent, "切換此網站的浮窗功能");
+  });
+
   // Test 18: Mobile Phone Screen Sizes Layout Bounds Test
   await runTest("Mobile phone screen viewports should safely accommodate floating bubble without overflow", () => {
     const popularPhoneScreenWidths = [320, 375, 390, 412, 480]; // iPhone SE, iPhone 15, Pixel 8, Galaxy S23
