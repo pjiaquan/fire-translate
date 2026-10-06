@@ -6,6 +6,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      target:
+        description: Store to publish to (re-run one store without re-uploading to the other)
+        type: choice
+        options: [all, chrome, firefox]
+        default: all
 
 jobs:
   build-test-package:
@@ -50,7 +56,7 @@ jobs:
     needs: build-test-package
     runs-on: ubuntu-latest
     environment: production
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.target != 'firefox')
 
     steps:
       - name: Checkout Repository
@@ -85,7 +91,7 @@ jobs:
     needs: build-test-package
     runs-on: ubuntu-latest
     environment: production
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.target != 'chrome')
 
     steps:
       - name: Checkout Repository
@@ -108,22 +114,23 @@ jobs:
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           unzip "dist/fire-translate-firefox-v${PACKAGE_VERSION}.zip" -d dist-source
 
-      - name: Build & Submit to Firefox Add-ons (AMO)
+      - name: Sign & Submit to Firefox Add-ons (AMO)
         env:
-          AMO_ISSUER: ${{ secrets.AMO_ISSUER }}
-          AMO_SECRET: ${{ secrets.AMO_SECRET }}
+          # web-ext reads its --api-key / --api-secret from these variables
           WEB_EXT_API_KEY: ${{ secrets.AMO_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_SECRET }}
         run: |
-          if [ -z "$AMO_ISSUER" ]; then
+          if [ -z "$WEB_EXT_API_KEY" ]; then
             echo "AMO_ISSUER secret is not set, skipping Firefox publishing."
             exit 0
           fi
-          npx web-ext@8.4.0 submit \
+          # web-ext has no "submit" command; a listed "sign" uploads a new public
+          # AMO version. Don't wait for human review once the upload is accepted.
+          npx web-ext@10.7.0 sign \
+            --channel listed \
             --source-dir ./dist-source \
-            --api-key "$WEB_EXT_API_KEY" \
-            --api-secret "$WEB_EXT_API_SECRET" \
-            --artifacts-dir ./dist-firefox
+            --artifacts-dir ./dist-firefox \
+            --approval-timeout 0
 
   create-github-release:
     name: Create GitHub Release
