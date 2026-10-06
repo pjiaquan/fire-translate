@@ -1196,6 +1196,20 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.document.getElementById("btn-toggle-current-site").textContent, "切換此網站的浮窗功能");
   });
 
+  await runTest("AMO publish step uses a real web-ext command and keeps secrets out of arguments", () => {
+    const workflow = fs.readFileSync(__dirname + "/.github/workflows/publish.yml", "utf8");
+    const firefoxJob = workflow.slice(workflow.indexOf("  publish-firefox:"), workflow.indexOf("  create-github-release:"));
+    // web-ext has no "submit" command; a listed "sign" is what uploads to AMO
+    assert.doesNotMatch(firefoxJob, /web-ext@[\d.]+ submit/);
+    assert.match(firefoxJob, /npx web-ext@10\.7\.0 sign \\\s+--channel listed/);
+    assert.match(firefoxJob, /--approval-timeout 0/);
+    assert.doesNotMatch(firefoxJob, /^\s+--api-(key|secret)\b/m, "AMO credentials belong in WEB_EXT_API_* env vars");
+    // Each store can be re-published alone from a manual run
+    assert.match(workflow, /workflow_dispatch:\s+inputs:\s+target:/);
+    assert.match(workflow, /inputs\.target != 'firefox'/);
+    assert.match(firefoxJob, /inputs\.target != 'chrome'/);
+  });
+
   // Test 18: Mobile Phone Screen Sizes Layout Bounds Test
   await runTest("Mobile phone screen viewports should safely accommodate floating bubble without overflow", () => {
     const popularPhoneScreenWidths = [320, 375, 390, 412, 480]; // iPhone SE, iPhone 15, Pixel 8, Galaxy S23
