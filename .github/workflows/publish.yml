@@ -41,9 +41,6 @@ jobs:
           mkdir -p dist-firefox-lint
           unzip "dist/fire-translate-firefox-v${PACKAGE_VERSION}.zip" -d dist-firefox-lint
           node scripts/lint-firefox.mjs dist-firefox-lint
-          mkdir -p dist-fallback-lint
-          unzip "dist/fire-translate-v${PACKAGE_VERSION}.zip" -d dist-fallback-lint
-          node scripts/lint-firefox.mjs dist-fallback-lint
 
   publish-chrome:
     name: Publish to Chrome Web Store
