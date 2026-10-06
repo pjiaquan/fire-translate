@@ -31,6 +31,7 @@ const interfaceCopy = {
   "API Key": "API 金鑰", "Show": "顯示", "Hide": "隱藏",
   "Enter API Key (sk-...)": "貼上服務商提供的 API 金鑰",
   "Required for cloud providers, optional for local endpoints.": "雲端服務需要金鑰；本機服務通常不需要。",
+  "Show API Key": "顯示 API 金鑰", "Hide API Key": "隱藏 API 金鑰",
   "Test Connection": "測試連線", "Fetch Models": "取得模型清單",
   "Fetch active & latest models from provider": "向服務商取得可用模型",
   "Testing...": "測試中…", "Dismiss diagnostic info": "關閉測試結果",
