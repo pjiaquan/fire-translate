@@ -22,3 +22,8 @@
 **Vulnerability:** External fetch calls used AbortController for timeouts, but `clearTimeout` was placed sequentially after the fetch without a `try...finally` block. If the fetch threw an error (e.g., network failure, or the abort itself), the error would bubble up, skipping the `clearTimeout` execution and leaving a dangling timer.
 **Learning:** In asynchronous JavaScript, cleanup tasks for external resources or timers must be guaranteed to run regardless of success or failure of the awaited promise. Unhandled rejections skip subsequent lines in the same block.
 **Prevention:** Always wrap external fetch calls (or any async operation with a paired cleanup action) in a `try...finally` block and execute the cleanup (e.g., `clearTimeout`) inside the `finally` block to ensure execution under all conditions.
+
+## 2024-10-03 - [Fix Reflected XSS in OAuth Loopback Server]
+**Vulnerability:** The OAuth loopback server (`cws-oauth.mjs`) had a Reflected XSS vulnerability where the `error` URL query parameter was directly interpolated into the HTML response without being escaped.
+**Learning:** Even in local developer scripts or utility web servers, untrusted input (such as URL parameters) can be leveraged for Reflected XSS if returned directly in an HTTP response.
+**Prevention:** Always HTML-escape untrusted input before rendering it in HTTP responses, regardless of the script's intended local or utility context.

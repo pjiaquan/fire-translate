@@ -36,6 +36,16 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 
 const serverUrl = `http://127.0.0.1:${PORT}`;
 
+function escapeHTML(str) {
+	if (!str) return '';
+	return String(str)
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
 const authUrl = new URL('https://accounts.google.com/o/oauth2/auth');
 authUrl.searchParams.set('response_type', 'code');
 authUrl.searchParams.set('access_type', 'offline');
@@ -80,7 +90,7 @@ const server = createServer(async (request, response) => {
 	if (searchParams.has('error')) {
 		const error = searchParams.get('error');
 		response.writeHead(200, {'Content-Type': 'text/html'});
-		response.end(`<h1>Authorization denied</h1><p>${error}</p>`);
+		response.end(`<h1>Authorization denied</h1><p>${escapeHTML(error)}</p>`);
 		console.error(`AUTH_ERROR ${error}`);
 		server.close();
 		process.exit(2);
