@@ -2,8 +2,9 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fire Translate</title>
+  <script src="surface.js"></script>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body class="dark-theme">
@@ -52,15 +53,6 @@
     </div>
   </header>
 
-  <div id="setup-notice" class="setup-notice hidden" role="status">
-    <span>開始前，請先設定翻譯服務與 API 金鑰。</span>
-    <button type="button" id="btn-setup" class="secondary-btn">設定翻譯服務</button>
-  </div>
-  <div class="quick-preferences" aria-label="翻譯偏好">
-    <label><input type="checkbox" id="quick-auto-translate"> 自動翻譯</label>
-    <label title="額外產生詞彙與其他譯法，會增加 AI 用量"><input type="checkbox" id="quick-learning"> 學習模式</label>
-    <span id="quick-preferences-status" role="status" aria-live="polite"></span>
-  </div>
   <!-- Main Grid Workspace -->
   <main class="workspace">
     <!-- Left Column (Source Input) -->
@@ -95,6 +87,7 @@
       
       <div class="textarea-container">
         <textarea id="src-textarea" aria-label="Source text to translate" placeholder="Type or paste text to translate..."></textarea>
+        <span id="char-counter" class="info-text char-counter">0 characters</span>
       </div>
 
       <!-- Live Grammar / Typo Suggestion Box -->
@@ -115,7 +108,10 @@
       </div>
 
       <div class="col-footer">
-        <span id="char-counter" class="info-text">0 characters</span>
+        <div class="quick-preferences" role="group" aria-label="翻譯偏好">
+          <label><input type="checkbox" id="quick-auto-translate"> 自動翻譯</label>
+          <label title="額外產生詞彙與其他譯法，會增加 AI 用量"><input type="checkbox" id="quick-learning"> 學習模式</label>
+        </div>
         <button type="button" id="btn-translate" class="primary-btn" title="Translate (Ctrl/Cmd + Enter)">
           <span>Translate</span>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -171,10 +167,15 @@
         </div>
         <!-- Translation Text Area -->
         <div id="target-content" class="target-content empty" placeholder="Translation will appear here..."></div>
+        <!-- Setup prompt shown in place of an empty result until a service is configured -->
+        <div id="setup-notice" class="setup-notice hidden" role="status">
+          <span>開始前，請先設定翻譯服務與 API 金鑰。</span>
+          <button type="button" id="btn-setup" class="secondary-btn">設定翻譯服務</button>
+        </div>
       </div>
 
       <div class="col-footer">
-        <span id="status-message" class="info-text">Ready</span>
+        <span id="status-message" class="info-text" role="status">Ready</span>
       </div>
     </section>
   </main>
@@ -184,7 +185,7 @@
   <!-- 1. Settings Panel -->
   <div id="drawer-settings" class="drawer" inert>
     <div class="drawer-header">
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="drawer-title">
         <h3>設定</h3>
         <span id="settings-draft-badge" class="settings-draft-badge badge-synced">已儲存</span>
       </div>
@@ -311,27 +312,27 @@
       <details class="settings-section">
       <summary>用量統計</summary>
       <!-- Monthly Token Spending & Usage Card -->
-      <div class="token-usage-card" style="margin-bottom: 14px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <span style="font-family: var(--font-title); font-size: 13px; font-weight: 700; color: var(--text-main);">📊 Monthly Token Spending</span>
-          <select id="select-usage-month" aria-label="Monthly Token Usage Month" style="font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main); font-weight: 600;">
+      <div class="settings-card token-usage-card">
+        <div class="settings-card-header">
+          <span class="settings-card-title">📊 Monthly Token Spending</span>
+          <select id="select-usage-month" class="compact-select" aria-label="Monthly Token Usage Month">
           </select>
         </div>
-        <div class="token-usage-stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
-          <div style="background: var(--bg-card); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
-            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;">Total Spent</div>
-            <div id="usage-total-tokens" style="font-size: 14px; font-weight: 700; color: var(--accent-color-1);">0</div>
+        <div class="token-usage-stats-grid">
+          <div class="usage-stat">
+            <div class="usage-stat-label">Total Spent</div>
+            <div id="usage-total-tokens" class="usage-stat-value usage-stat-total">0</div>
           </div>
-          <div style="background: var(--bg-card); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
-            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;">Prompt</div>
-            <div id="usage-prompt-tokens" style="font-size: 13px; font-weight: 600; color: var(--text-main);">0</div>
+          <div class="usage-stat">
+            <div class="usage-stat-label">Prompt</div>
+            <div id="usage-prompt-tokens" class="usage-stat-value">0</div>
           </div>
-          <div style="background: var(--bg-card); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color);">
-            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;">Completion</div>
-            <div id="usage-completion-tokens" style="font-size: 13px; font-weight: 600; color: var(--text-main);">0</div>
+          <div class="usage-stat">
+            <div class="usage-stat-label">Completion</div>
+            <div id="usage-completion-tokens" class="usage-stat-value">0</div>
           </div>
         </div>
-        <div id="usage-provider-breakdown" style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+        <div id="usage-provider-breakdown" class="usage-breakdown">
         </div>
       </div>
 
@@ -357,23 +358,23 @@
       </div>
 
       <div class="form-group">
-        <div class="checkbox-row" style="margin-bottom: 8px;">
+        <div class="checkbox-row">
           <input type="checkbox" id="check-auto-translate">
           <label for="check-auto-translate">Translate automatically while typing</label>
         </div>
-        <div class="checkbox-row" style="margin-bottom: 8px;">
+        <div class="checkbox-row">
           <input type="checkbox" id="check-rich-learning">
           <label for="check-rich-learning">Enable Rich Learning Mode (Vocab & Alternatives)</label>
         </div>
-        <div class="checkbox-row" style="margin-bottom: 8px;">
+        <div class="checkbox-row">
           <input type="checkbox" id="check-dblclick-translate">
           <label for="check-dblclick-translate">Double-click on webpage text to translate</label>
         </div>
-        <div class="checkbox-row" style="margin-bottom: 8px;">
+        <div class="checkbox-row">
           <input type="checkbox" id="check-stream-translations">
           <label for="check-stream-translations">Enable streaming results (word-by-word)</label>
         </div>
-        <div class="checkbox-row" style="margin-bottom: 8px;">
+        <div class="checkbox-row">
           <input type="checkbox" id="check-show-thinking">
           <label for="check-show-thinking">Show Thinking Process (Reasoning/Thinking models)</label>
         </div>
@@ -384,19 +385,19 @@
       </div>
 
       <!-- Website Exclusions / Disabled Sites Card -->
-      <div class="disabled-sites-card" style="margin-bottom: 14px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <span style="font-family: var(--font-title); font-size: 13px; font-weight: 700; color: var(--text-main);">🌐 Website Exclusions</span>
-          <button id="btn-toggle-current-site" type="button" class="secondary-btn" style="font-size: 11px; padding: 4px 10px;">
+      <div class="settings-card disabled-sites-card">
+        <div class="settings-card-header">
+          <span class="settings-card-title">🌐 Website Exclusions</span>
+          <button id="btn-toggle-current-site" type="button" class="secondary-btn btn-small">
             Toggle Current Site
           </button>
         </div>
-        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-bottom: 10px;">
+        <p class="settings-card-desc">
           Excluded websites bypass double-click & selection translations. Right-click toolbar icon or webpage anytime to toggle translation for any site.
         </p>
-        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-main); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-          <span id="exclusions-count-text" style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">0 websites excluded</span>
-          <button id="btn-open-exclusions" type="button" class="secondary-btn" style="font-size: 11px; padding: 5px 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+        <div class="exclusions-summary">
+          <span id="exclusions-count-text">0 websites excluded</span>
+          <button id="btn-open-exclusions" type="button" class="secondary-btn btn-small btn-with-icon">
             <span>📋 View Exclusions</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
@@ -446,17 +447,17 @@
       <details class="settings-section">
       <summary>Telegram 整合</summary>
       <!-- Telegram Section -->
-      <div style="margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
-        <div class="checkbox-row" style="margin-bottom: 8px;">
+      <div>
+        <div class="checkbox-row">
           <input type="checkbox" id="check-enable-telegram">
           <label for="check-enable-telegram">Send translations to Telegram (Optional)</label>
         </div>
-        <div id="telegram-fields" class="hidden" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
-          <div class="form-group" style="margin-bottom: 0;">
+        <div id="telegram-fields" class="telegram-fields hidden">
+          <div class="form-group margin-bottom-0">
             <label for="input-telegram-token">Telegram Bot Token</label>
             <input type="password" id="input-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
           </div>
-          <div class="form-group" style="margin-bottom: 0;">
+          <div class="form-group margin-bottom-0">
             <label for="input-telegram-chatid">Telegram Chat ID / Group ID</label>
             <input type="password" id="input-telegram-chatid" placeholder="-100123456789">
           </div>
@@ -471,9 +472,9 @@
     </div>
       <div class="settings-actions">
         <span id="settings-feedback" role="status" aria-live="polite"></span>
-        <button type="button" id="btn-clear-cache" class="secondary-btn" style="margin-right: auto; color: var(--danger-color); border-color: var(--border-color);">Clear Cache</button>
+        <button type="button" id="btn-clear-cache" class="secondary-btn btn-danger-text margin-right-auto">Clear Cache</button>
         <button type="button" id="btn-reset-settings" class="secondary-btn">Reset Defaults</button>
-        <button type="button" id="btn-discard-draft" class="secondary-btn hidden" style="color: #eab308; border-color: rgba(234, 179, 8, 0.4);">↩ Discard Draft</button>
+        <button type="button" id="btn-discard-draft" class="secondary-btn btn-warning-outline hidden">↩ Discard Draft</button>
         <button type="button" id="btn-save-settings" class="primary-btn">💾 Save Configs</button>
       </div>
   </div>
@@ -529,17 +530,17 @@
       </div>
     </div>
 
-    <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px; background: var(--bg-panel);">
+    <div class="exclusions-toolbar">
       <!-- Quick Add Domain Input -->
-      <div style="display: flex; gap: 8px;">
-        <input type="text" id="input-add-exclusion" placeholder="Add domain (e.g. github.com)" aria-label="Add excluded domain" style="flex: 1; font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main);">
-        <button id="btn-add-exclusion" type="button" class="primary-btn" style="font-size: 11px; padding: 6px 12px;">+ Add</button>
+      <div class="exclusions-add-row">
+        <input type="text" id="input-add-exclusion" class="compact-input" placeholder="Add domain (e.g. github.com)" aria-label="Add excluded domain">
+        <button id="btn-add-exclusion" type="button" class="primary-btn btn-small">+ Add</button>
       </div>
       <!-- Search Filter Input -->
-      <input type="text" id="input-search-exclusions" placeholder="🔍 Search excluded domains..." aria-label="Search excluded domains" style="font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-main);">
+      <input type="text" id="input-search-exclusions" class="compact-input" placeholder="🔍 Search excluded domains..." aria-label="Search excluded domains">
     </div>
 
-    <div id="exclusions-list-container" class="drawer-body list-container" style="padding: 12px 16px;">
+    <div id="exclusions-list-container" class="drawer-body list-container">
       <!-- Dynamically filled -->
       <div class="empty-state">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>

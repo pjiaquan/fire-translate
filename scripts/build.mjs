@@ -12,7 +12,7 @@ const browser = process.argv.includes("--firefox") ? "firefox" : "chrome";
 const output = resolve(outputDir, `fire-translate${browser === "firefox" ? "-firefox" : ""}-v${packageJson.version}.zip`);
 const files = [
   "manifest.json", "background.js", "content.js", "shared.js",
-  "popup.html", "popup.css", "popup.js", "ui.js", "icons",
+  "popup.html", "popup.css", "popup.js", "surface.js", "ui.js", "icons",
   "PRIVACY_POLICY.md", "README.md"
 ];
 

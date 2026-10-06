@@ -18,22 +18,6 @@ const languageNames = {
 
 
 
-// Mobile Viewport & Touch Mode Handler
-function checkViewportMode() {
-  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-  const isMobileWidth = window.innerWidth <= 480;
-
-  if (isTouchDevice && isMobileWidth) {
-    document.body.classList.add("mobile-mode");
-  } else {
-    document.body.classList.remove("mobile-mode");
-  }
-}
-if (typeof window !== "undefined") {
-  window.addEventListener("resize", checkViewportMode);
-  checkViewportMode();
-}
-
 // UI Element selections
 const srcTextarea = document.getElementById("src-textarea");
 const targetContent = document.getElementById("target-content");
@@ -555,7 +539,7 @@ async function renderMonthlyTokenUsageUI() {
       setDomContent(containerBreakdown, [
         domElement(
           "span",
-          { style: "color:var(--text-muted); font-style:italic;" },
+          { class: "usage-breakdown-empty" },
           "No AI requests recorded for ",
           selectedMonthKey,
           ".",
@@ -566,15 +550,15 @@ async function renderMonthlyTokenUsageUI() {
       provKeys.forEach(pk => {
         const pData = byProv[pk];
         const provName = DEFAULT_RECIPES[pk]?.name || pk.toUpperCase();
-        rows.push(domElement("div", { style: "display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:4px 8px; border-radius:6px; font-size:11px;" },
+        rows.push(domElement("div", { class: "usage-breakdown-row" },
           domElement("span", {}, domElement("strong", {}, provName), ` (${Number(pData.requestCount || 0)} reqs)`),
-          domElement("span", { style: "font-weight:600; color:var(--accent-color-1);" }, `${Number(pData.totalTokens || 0).toLocaleString()} tokens`)));
+          domElement("span", { class: "usage-breakdown-tokens" }, `${Number(pData.totalTokens || 0).toLocaleString()} tokens`)));
       });
       setDomContent(
         containerBreakdown,
         domElement(
           "div",
-          { style: "display:flex; flex-direction:column; gap:4px; margin-top: 4px;" },
+          { class: "usage-breakdown-list" },
           rows,
         ),
       );
@@ -922,7 +906,7 @@ async function renderRichTranslation(data) {
         synContainer.style.cssText = "margin-top: 6px; display: flex; flex-direction: column; gap: 4px;";
         
         const synLabel = document.createElement("div");
-        synLabel.style.cssText = "font-size: 11px; color: var(--text-muted); font-weight: 600;";
+        synLabel.style.cssText = "font-size: var(--font-size-xs); color: var(--text-muted); font-weight: 600;";
         synLabel.textContent = "Similar words:";
         synContainer.appendChild(synLabel);
 
@@ -1617,7 +1601,7 @@ async function renderDisabledSitesList() {
         ? `在 ${targetName} 啟用浮窗`
         : `在 ${targetName} 停用浮窗`;
     } else {
-      btnToggleCurrentSite.textContent = "Toggle Current Site";
+      btnToggleCurrentSite.textContent = "切換此網站的浮窗功能";
     }
   }
 
@@ -1638,7 +1622,7 @@ async function renderDisabledSitesList() {
       setDomContent(disabledSitesChips, [
         domElement(
           "span",
-          { style: "font-size: 11px; color: var(--text-muted); font-style: italic;" },
+          { style: "font-size: var(--font-size-xs); color: var(--text-muted); font-style: italic;" },
           "尚未停用任何網站的翻譯浮窗",
         ),
       ]);
@@ -1848,7 +1832,7 @@ if (btnToggleCurrentSite) {
           }).catch(() => {});
         }
       } else {
-        alert("Please open a valid webpage (HTTP/HTTPS) to toggle website translation.");
+        alert("請先開啟一般網頁（HTTP／HTTPS），再切換此網站的浮窗功能。");
       }
     } catch (e) {}
   });
@@ -3930,8 +3914,8 @@ function formatRelativeTime(isoStr) {
 async function initApp() {
   await initTheme();
   
-  // Hide sidepanel button if we are in side panel or if the API doesn't exist
-  if (!chrome.sidePanel || window.innerWidth < 500) {
+  // Only the action popup can hand off to the side panel (surface set by surface.js)
+  if (!chrome.sidePanel || document.documentElement.dataset.surface !== "popup") {
     btnSidepanel.classList.add("hidden");
   }
 
@@ -3984,8 +3968,7 @@ for (const [id, key] of [["quick-auto-translate", "autoTranslate"], ["quick-lear
     if (settingsControl) settingsControl.checked = control.checked;
     lastServerSettings[key] = control.checked;
     await saveSettingsDraft();
-    const message = document.getElementById("quick-preferences-status");
-    if (message) message.textContent = "已套用，下次翻譯生效";
+    statusMessage.textContent = "已套用，下次翻譯生效";
   });
 }
 
