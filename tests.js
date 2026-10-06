@@ -1077,11 +1077,113 @@ async function executeTestSuite() {
     const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
     assert.strictEqual(cssContent.includes("@media screen and (max-width: 480px) and (pointer: coarse)"), true);
     assert.strictEqual(cssContent.includes("width: 100vw !important"), true);
-    assert.strictEqual(cssContent.includes("grid-template-columns: 1fr !important"), true);
 
     const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
     assert.strictEqual(htmlContent.includes('name="viewport"'), true);
-    assert.strictEqual(htmlContent.includes('user-scalable=no'), true);
+    // Pinch zoom must stay available on phones (WCAG 1.4.4)
+    assert.strictEqual(htmlContent.includes('user-scalable=no'), false);
+    assert.strictEqual(htmlContent.includes('maximum-scale'), false);
+  });
+
+  await runTest("popup.css braces are balanced so later rules are not swallowed as nested rules", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    let depth = 0;
+    for (const char of cssContent) {
+      if (char === "{") depth++;
+      if (char === "}") depth--;
+      assert.ok(depth >= 0, "popup.css has an unmatched closing brace");
+    }
+    assert.strictEqual(depth, 0, "popup.css has an unclosed rule block");
+  });
+
+  await runTest("Only the action popup gets a fixed size; side panel and tab views stay fluid", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const bodyRule = cssContent.match(/\nbody \{([^}]*)\}/)[1];
+    assert.doesNotMatch(bodyRule, /(min-)?width:\s*\d+px/, "base body rule must not force a pixel width");
+    assert.match(cssContent, /--popup-width:\s*720px;/);
+    assert.match(cssContent, /--popup-height:\s*540px;/);
+    assert.match(cssContent, /html\[data-surface="popup"\] body \{[^}]*width: var\(--popup-width\);[^}]*height: var\(--popup-height\);/);
+    // surface.js must run before the stylesheet applies to avoid a resize flash
+    assert.ok(htmlContent.indexOf('src="surface.js"') < htmlContent.indexOf('href="popup.css"'));
+
+    const surfaceCode = fs.readFileSync(__dirname + "/surface.js", "utf8");
+    const detect = (popupViews) => {
+      const win = {};
+      const documentElement = { dataset: {} };
+      const chromeApi = popupViews === null ? {} : { extension: { getViews: () => popupViews(win) } };
+      vm.runInNewContext(surfaceCode, { window: win, document: { documentElement }, chrome: chromeApi });
+      return documentElement.dataset.surface;
+    };
+    assert.strictEqual(detect(win => [win]), "popup");
+    assert.strictEqual(detect(() => []), "panel");
+    assert.strictEqual(detect(null), "panel");
+  });
+
+  await runTest("Stacked layout uses the single 600px breakpoint and splits panel height between columns", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const layoutQueries = [...cssContent.matchAll(/@media \(max-width: (\d+)px\)/g)].map(m => m[1]);
+    assert.deepStrictEqual(layoutQueries, ["599"], "only one width breakpoint should drive the layout");
+
+    const stacked = cssContent.slice(cssContent.indexOf("@media (max-width: 599px)"));
+    const block = stacked.slice(0, stacked.indexOf("\n}\n"));
+    assert.match(block, /\.source-col \{\s*flex: 2 1 0;/);
+    assert.match(block, /\.target-col \{\s*flex: 3 1 0;/);
+    assert.match(block, /\.textarea-container \{\s*min-height: \d+px;/);
+    assert.match(block, /\.target-output-container \{\s*min-height: \d+px;\s*contain: size;/, "long output must scroll inside the box, not grow the column");
+    assert.doesNotMatch(block, /height: 160px/, "fixed heights collapse under flex: 1 and must not return");
+  });
+
+  await runTest("Setup prompt and quick toggles live inside the columns, and drawers follow --header-h", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const between = (start, end) => htmlContent.slice(htmlContent.indexOf(start), htmlContent.indexOf(end, htmlContent.indexOf(start)));
+
+    // Nothing but the header sits above the workspace
+    const aboveWorkspace = htmlContent.slice(htmlContent.indexOf("</header>"), htmlContent.indexOf('<main class="workspace">'));
+    assert.doesNotMatch(aboveWorkspace, /<(div|section|span)\b/);
+
+    assert.match(between('class="target-output-container"', 'class="col-footer"'), /id="setup-notice"/);
+    assert.match(between('class="column source-col"', "</section>"), /class="col-footer">\s*<div class="quick-preferences"/);
+    assert.match(between('class="textarea-container"', "</div>"), /id="char-counter"/);
+    assert.match(cssContent, /#target-content:not\(\.empty\) ~ #setup-notice \{ display: none; \}/);
+
+    assert.match(cssContent, /--header-h:\s*48px;/);
+    assert.match(cssContent, /\.app-header \{\s*height: var\(--header-h\);/);
+    assert.doesNotMatch(cssContent, /\b(50|60)px/, "header-dependent offsets must use --header-h");
+  });
+
+  await runTest("Drawers are side sheets in the two-column layout and settings markup has no inline styles", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const popupContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+
+    assert.match(cssContent, /\.drawer \{[^}]*width: min\(440px, 100%\);/);
+    // A closed drawer offset past the right edge widens the action popup window
+    assert.doesNotMatch(cssContent.match(/\n\.drawer \{[^}]*\}/)[0], /transform/);
+    const stacked = cssContent.slice(cssContent.indexOf("@media (max-width: 599px)"));
+    assert.match(stacked.slice(0, stacked.indexOf("\n}\n")), /\.drawer \{ width: 100%; border-left: none; \}/);
+
+    assert.doesNotMatch(htmlContent, /\sstyle="/, "popup.html styling belongs in popup.css");
+
+    // Every custom property referenced must be defined, or the declaration silently drops
+    const defined = new Set([...cssContent.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
+    for (const [file, content] of [["popup.css", cssContent], ["popup.html", htmlContent], ["popup.js", popupContent]]) {
+      const undefinedVars = [...content.matchAll(/var\((--[\w-]+)/g)].map(m => m[1]).filter(name => !defined.has(name));
+      assert.deepStrictEqual([...new Set(undefinedVars)], [], `${file} references undefined CSS variables`);
+    }
+  });
+
+  await runTest("UI text is at least 12px and history delete buttons appear for keyboard and touch users", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    assert.match(cssContent, /--font-size-xs:\s*12px;/);
+    for (const file of ["popup.css", "popup.js", "popup.html"]) {
+      const content = fs.readFileSync(__dirname + "/" + file, "utf8");
+      const tooSmall = [...content.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map(m => Number(m[1])).filter(size => size < 12);
+      assert.deepStrictEqual(tooSmall, [], `${file} has text smaller than 12px`);
+    }
+    assert.match(cssContent, /\.history-item:focus-within \.history-delete-btn/);
+    assert.match(cssContent, /@media \(hover: none\) \{\s*\.history-delete-btn \{ opacity: 1; \}/);
   });
 
   // Test 18: Mobile Phone Screen Sizes Layout Bounds Test
