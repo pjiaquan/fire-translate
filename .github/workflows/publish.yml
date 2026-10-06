@@ -36,7 +36,7 @@ jobs:
           npm run build:firefox
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: fire-translate-extension-zip
           path: dist/fire-translate*.zip
@@ -65,7 +65,7 @@ jobs:
           node-version: 20
 
       - name: Download Extension Package
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: fire-translate-extension-zip
           path: dist
@@ -100,7 +100,7 @@ jobs:
           node-version: 20
 
       - name: Download Extension Package
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: fire-translate-extension-zip
           path: dist
@@ -142,13 +142,13 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Download Extension Package
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: fire-translate-extension-zip
           path: dist
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
