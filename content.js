@@ -297,6 +297,9 @@ async function showBubble(text, selection) {
       word-break: break-word;
       font-size: 13px;
       color: #e5e7eb;
+      /* Keep the scrollbar on-theme instead of the page's default light one */
+      scrollbar-width: thin;
+      scrollbar-color: #4b5563 transparent;
     }
     
     .bubble-loader {
@@ -305,6 +308,8 @@ async function showBubble(text, selection) {
       gap: 10px;
       color: #9ca3af;
       font-style: italic;
+      /* Clip the rotating spinner's bounding box so it can't scroll .bubble-content */
+      overflow: hidden;
     }
     
     .spinner {
@@ -437,15 +442,13 @@ async function showBubble(text, selection) {
     domElement(
       "div",
       { class: "bubble-content" },
-      "\n      ",
+      // No indentation strings here: .bubble-content is pre-wrap, so they would render as blank lines
       domElement(
         "div",
         { class: "bubble-loader" },
-        "\n        ",
         domElement("div", { class: "spinner" }),
-        "\n        翻譯中…\n      ",
+        "翻譯中…",
       ),
-      "\n    ",
     ),
     "\n  ",
   ]);
@@ -520,7 +523,9 @@ async function showBubble(text, selection) {
           if (richLearningMode) {
             const spinner = document.createElement("div");
             spinner.id = "bubble-vocab-loading";
-            spinner.style.cssText = "margin-top: 8px; font-size: 11px; color: #9ca3af; display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1);";
+            // overflow: hidden stops the rotating spinner's bounding box from
+            // overflowing .bubble-content and flashing a scrollbar while loading
+            spinner.style.cssText = "margin-top: 8px; font-size: 11px; color: #9ca3af; display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); overflow: hidden;";
             setDomContent(spinner, [
               "\n              ",
               domElement("div", {

@@ -583,6 +583,22 @@ async function executeTestSuite() {
     vm.runInContext(contentCode, sandbox);
   });
 
+  await runTest("Inline bubble scrollbar stays themed and loading spinners cannot trigger it", () => {
+    const contentRule = contentCode.match(/\.bubble-content \{[^}]*\}/)[0];
+    assert.ok(/scrollbar-width:\s*thin/.test(contentRule));
+    assert.ok(/scrollbar-color:/.test(contentRule));
+    // The rotating spinners' bounding boxes otherwise overflow the content box while loading
+    assert.ok(/overflow:\s*hidden/.test(contentCode.match(/\.bubble-loader \{[^}]*\}/)[0]));
+    const vocabLoadingStyle = contentCode.match(/spinner\.style\.cssText = "([^"]*)"/)[1];
+    assert.ok(/overflow:\s*hidden/.test(vocabLoadingStyle));
+  });
+
+  await runTest("Inline bubble loader has no indentation text that pre-wrap would render as blank lines", () => {
+    const template = contentCode.match(/\{ class: "bubble-content" \},([\s\S]*?)\n    \),/)[1];
+    assert.ok(template.includes('"翻譯中…"'));
+    assert.ok(!/"\s*\\n/.test(template), "bubble-content children must not include newline/indentation strings");
+  });
+
   // Test 6: Background script should evaluate and execute successfully
   await runTest("Background script should evaluate and execute successfully", () => {
     const sandbox = createSandbox();
