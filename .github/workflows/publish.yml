@@ -79,9 +79,10 @@ jobs:
           PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          npx chrome-webstore-upload-cli@4.0.1 upload \
-            --source "dist/fire-translate-v${PACKAGE_VERSION}.zip" \
-            --auto-publish
+          # No subcommand: the CLI uploads and then submits for review. The "upload"
+          # subcommand only saves a draft and silently ignores --auto-publish.
+          npx chrome-webstore-upload-cli@4.0.1 \
+            --source "dist/fire-translate-v${PACKAGE_VERSION}.zip"
 
   publish-firefox:
     name: Publish & Sign for Firefox Add-ons (AMO)

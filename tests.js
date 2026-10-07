@@ -1227,6 +1227,16 @@ async function executeTestSuite() {
     assert.match(firefoxJob, /inputs\.target != 'chrome'/);
   });
 
+  await runTest("Chrome publish step submits for review instead of only uploading a draft", () => {
+    const workflow = fs.readFileSync(__dirname + "/.github/workflows/publish.yml", "utf8");
+    const chromeJob = workflow.slice(workflow.indexOf("  publish-chrome:"), workflow.indexOf("  publish-firefox:"))
+      .replace(/^\s*#.*$/gm, "");
+    // chrome-webstore-upload-cli only publishes when run without a subcommand
+    assert.match(chromeJob, /npx chrome-webstore-upload-cli@[\d.]+ \\\s+--source /);
+    assert.doesNotMatch(chromeJob, /chrome-webstore-upload-cli@[\d.]+ upload\b/);
+    assert.doesNotMatch(chromeJob, /--auto-publish/);
+  });
+
   // Test 18: Mobile Phone Screen Sizes Layout Bounds Test
   await runTest("Mobile phone screen viewports should safely accommodate floating bubble without overflow", () => {
     const popularPhoneScreenWidths = [320, 375, 390, 412, 480]; // iPhone SE, iPhone 15, Pixel 8, Galaxy S23
