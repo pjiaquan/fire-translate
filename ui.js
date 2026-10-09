@@ -29,6 +29,7 @@ const interfaceCopy = {
   "Server API Endpoint": "API 連線網址", "Auto Fix URL": "使用建議網址",
   "OpenAI-compatible Chat Completion endpoint.": "支援 OpenAI 相容格式的 API 網址。本機服務請填入伺服器位址。",
   "API Key": "API 金鑰", "Show": "顯示", "Hide": "隱藏",
+  "Show API Key": "顯示 API 金鑰", "Hide API Key": "隱藏 API 金鑰",
   "Enter API Key (sk-...)": "貼上服務商提供的 API 金鑰",
   "Required for cloud providers, optional for local endpoints.": "雲端服務需要金鑰；本機服務通常不需要。",
   "Test Connection": "測試連線", "Fetch Models": "取得模型清單",
