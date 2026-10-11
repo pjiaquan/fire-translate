@@ -18,6 +18,11 @@
 **Learning:** Third party IDs or configurations, even if seemingly less sensitive than tokens, can still be considered sensitive configuration data and should be protected.
 **Prevention:** Treat sensitive configuration values (like Chat IDs) with `type="password"` in the UI and ensure they are added to `DRAFT_SECRET_KEYS` to avoid insecure local storage persistence.
 
+## 2026-10-11 - [Reflected XSS in Utility Scripts]
+**Vulnerability:** The OAuth loopback script (`cws-oauth.mjs`) reflected the `error` URL parameter directly into its HTML response without escaping.
+**Learning:** Even in local developer scripts or utility web servers, untrusted input must be HTML-escaped before rendering to prevent Reflected XSS.
+**Prevention:** Always HTML-escape untrusted input (such as URL parameters) before rendering it in HTTP responses, even in local development or utility tools.
+
 ## 2024-05-26 - [Resource Exhaustion via Dangling Timers]
 **Vulnerability:** External fetch calls used AbortController for timeouts, but `clearTimeout` was placed sequentially after the fetch without a `try...finally` block. If the fetch threw an error (e.g., network failure, or the abort itself), the error would bubble up, skipping the `clearTimeout` execution and leaving a dangling timer.
 **Learning:** In asynchronous JavaScript, cleanup tasks for external resources or timers must be guaranteed to run regardless of success or failure of the awaited promise. Unhandled rejections skip subsequent lines in the same block.
