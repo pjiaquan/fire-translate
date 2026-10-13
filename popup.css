@@ -388,6 +388,11 @@ html[data-surface="popup"] body {
   font-style: italic;
 }
 
+#target-content.empty::before {
+  content: attr(placeholder);
+  pointer-events: none;
+}
+
 /* Grammar / Typo Live Suggestion Box */
 .grammar-suggestion-box {
   display: flex;
