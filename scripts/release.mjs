@@ -20,6 +20,7 @@ if (execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8"
 run("node", ["scripts/version-bump.mjs", increment]);
 run("npm", ["test"]);
 run("npm", ["run", "build"]);
+run("npm", ["run", "build:firefox"]);
 
 const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
 const tag = `v${packageJson.version}`;

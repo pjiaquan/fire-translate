@@ -29,10 +29,13 @@ function createSandbox() {
     const _children = [];
     let _id = initialId;
     let _innerHTML = "";
+    let _textContent = "";
     const el = {
+      nodeType: 1,
       tagName: (tag || "div").toUpperCase(),
       value: "",
-      textContent: "",
+      get textContent() { return _textContent + _children.map(child => child.textContent || "").join(""); },
+      set textContent(value) { _textContent = String(value); _children.length = 0; _innerHTML = ""; },
       checked: false,
       type: "",
       title: "",
@@ -40,6 +43,20 @@ function createSandbox() {
       listeners: {},
       attributes: _attrs,
       children: _children,
+      get parentElement() { return this._parentElement || null; },
+      set parentElement(p) { this._parentElement = p; },
+      get parentNode() { return this.parentElement; },
+      get childNodes() {
+        if (_textContent && _children.length === 0) {
+          return [{
+            nodeType: 3,
+            get textContent() { return _textContent; },
+            set textContent(v) { _textContent = String(v); },
+            childNodes: []
+          }];
+        }
+        return _children;
+      },
       get id() { return _id; },
       set id(newId) {
         _id = newId;
@@ -74,6 +91,9 @@ function createSandbox() {
       },
       setAttribute: function(name, val) {
         _attrs[name] = String(val);
+        if (name === "class") this.className = String(val);
+        if (name === "id") this.id = String(val);
+        if (name === "style") this.style.cssText = String(val);
         if (name === "title") this.title = String(val);
       },
       removeAttribute: function(name) {
@@ -96,7 +116,17 @@ function createSandbox() {
       },
       appendChild: function(child) {
         _children.push(child);
+        if (child && typeof child === "object") {
+          child.parentElement = this;
+          child.parentNode = this;
+        }
         return child;
+      },
+      replaceChildren: function(...children) {
+        _children.length = 0;
+        _textContent = "";
+        _innerHTML = "";
+        children.forEach(child => this.appendChild(child));
       },
       removeChild: function(child) {
         const idx = _children.indexOf(child);
@@ -113,6 +143,7 @@ function createSandbox() {
           return { style: {} };
         }
         for (const child of _children) {
+          if (child.tagName && child.tagName.toLowerCase() === selector.toLowerCase()) return child;
           if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
             return child;
           }
@@ -130,6 +161,7 @@ function createSandbox() {
             if (selector.startsWith(".") && child.classList && child.classList.contains(selector.slice(1))) {
               res.push(child);
             }
+            if (child.tagName && child.tagName.toLowerCase() === selector.toLowerCase()) res.push(child);
             if (child.children && child.children.length > 0) search(child);
           }
         }
@@ -179,6 +211,13 @@ function createSandbox() {
       return elementsMap[id];
     },
     createElement: (tag) => createMockElement(tag),
+    createElementNS: (namespace, tag) => createMockElement(tag),
+    createTextNode: (text) => ({ nodeType: 3, textContent: String(text) }),
+    querySelector: (selector) => {
+      const el = createMockElement("div");
+      if (selector && selector.startsWith(".")) el.className = selector.slice(1);
+      return el;
+    },
     querySelectorAll: () => [],
     addEventListener: () => {}
   };
@@ -349,11 +388,144 @@ async function runTest(name, fn) {
 
 // Load scripts
 const sharedCode = fs.readFileSync('shared.js', 'utf8');
+const uiCode = fs.readFileSync('ui.js', 'utf8');
 const popupCode = fs.readFileSync('popup.js', 'utf8');
 const bgCode = fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
 
 async function executeTestSuite() {
+  await runTest("Untrusted translation, history, log and model strings remain text, never executable markup", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    const hostile = '\"><img src=x onerror="globalThis.injected=true"><script>alert(1)</script>&';
+    await sandbox.renderRichTranslation({
+      translation: hostile,
+      alternatives: [{ text: hostile, tone: hostile, explanation: hostile }],
+      vocabulary: [{ word: hostile, pos: hostile, translation: hostile,
+        synonyms: [hostile], example_sentence_source: hostile, example_sentence_target: hostile }]
+    });
+    const output = sandbox.document.getElementById("target-content");
+    assert.strictEqual(output.querySelector(".translation-result-card").textContent, hostile);
+    assert.strictEqual(output.querySelector(".alt-text").textContent, hostile);
+    assert.strictEqual(output.querySelector(".vocab-word").textContent, hostile);
+    assert.strictEqual(output.querySelector(".vocab-example-src").textContent, hostile);
+    assert.strictEqual(output.querySelector("img"), null);
+    assert.strictEqual(output.querySelector("script"), null);
+
+    const bullets = sandbox.renderFormattedTranslation(`- ${hostile}\n- second item`);
+    assert.strictEqual(bullets.querySelector("li").textContent, hostile);
+    assert.strictEqual(bullets.querySelectorAll("li").length, 2);
+    assert.strictEqual(bullets.querySelector("img"), null);
+
+    sandbox.mockLocalStorage.history = [{ id: hostile, srcLang: 'en', targetLang: 'zh-TW',
+      timestamp: new Date().toISOString(), srcText: hostile, targetText: hostile }];
+    await sandbox.renderHistory();
+    const history = sandbox.document.getElementById("history-list");
+    assert.strictEqual(history.querySelector(".history-src").textContent, hostile);
+    assert.strictEqual(history.querySelector(".history-delete-btn").getAttribute("data-id"), hostile);
+    assert.strictEqual(history.querySelector(".history-delete-btn").getAttribute("onclick"), null);
+    assert.strictEqual(history.querySelector("img"), null);
+
+    sandbox.mockLocalStorage.logs = [{ type: 'error', timestamp: hostile, message: hostile, details: hostile }];
+    await sandbox.renderLogs();
+    const logs = sandbox.document.getElementById("logs-list");
+    assert.strictEqual(logs.querySelector(".log-msg").textContent, hostile);
+    assert.strictEqual(logs.querySelector(".log-details").textContent, hostile);
+    assert.strictEqual(logs.querySelector("script"), null);
+
+    sandbox.renderQuickModelChips([hostile]);
+    assert.strictEqual(sandbox.document.getElementById("quick-models-container").children[0].textContent, hostile);
+    vm.runInContext(contentCode, sandbox);
+    const inline = sandbox.document.createElement("div");
+    sandbox.renderInlineVocab(inline, [{ synonyms: [hostile] }]);
+    assert.strictEqual(inline.querySelector("li").textContent, hostile);
+    assert.strictEqual(inline.querySelector("img"), null);
+    for (const script of [sharedCode, popupCode, contentCode]) {
+      assert.ok(!/\.(?:innerHTML|outerHTML)\s*=|insertAdjacentHTML\s*\(/.test(script), 'Runtime scripts must not reintroduce HTML parsing sinks');
+    }
+  });
+  await runTest("Firefox package uses ordered background scripts and starts without importScripts", async () => {
+    const { createBrowserManifest, createBrowserScript } = await import('./scripts/browser-manifest.mjs');
+    const original = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+    const firefox = createBrowserManifest(original, 'firefox');
+    assert.deepStrictEqual(firefox.background, { scripts: ['shared.js', 'background.js'] });
+    assert.ok(!firefox.permissions.includes('sidePanel'));
+    assert.strictEqual(firefox.side_panel, undefined);
+    assert.deepStrictEqual(firefox.browser_specific_settings.gecko.data_collection_permissions, {
+      required: ['websiteContent', 'authenticationInfo', 'personalCommunications']
+    });
+    assert.strictEqual(firefox.browser_specific_settings.gecko.strict_min_version, '140.0');
+    assert.strictEqual(firefox.browser_specific_settings.gecko_android.strict_min_version, '142.0');
+    // Chrome warns that 'background.scripts' requires MV2 when both keys are present.
+    assert.deepStrictEqual(original.background, { service_worker: 'background.js' });
+    assert.deepStrictEqual(original.browser_specific_settings.gecko.data_collection_permissions,
+      firefox.browser_specific_settings.gecko.data_collection_permissions);
+    assert.strictEqual(original.minimum_chrome_version, '121');
+    assert.strictEqual(firefox.minimum_chrome_version, undefined);
+    assert.deepStrictEqual(createBrowserManifest(original), original);
+    assert.strictEqual(original.background.service_worker, 'background.js');
+    for (const file of ['background.js', 'popup.js']) {
+      const source = fs.readFileSync(file, 'utf8');
+      const firefoxSource = createBrowserScript(source, 'firefox');
+      assert.ok(!firefoxSource.includes('sidePanel.open'));
+      assert.strictEqual(createBrowserScript(source, 'chrome'), source);
+      new vm.Script(firefoxSource);
+    }
+    const sandbox = createSandbox();
+    delete sandbox.importScripts;
+    vm.createContext(sandbox);
+    for (const script of firefox.background.scripts) {
+      vm.runInContext(createBrowserScript(fs.readFileSync(script, 'utf8'), 'firefox'), sandbox);
+    }
+    assert.strictEqual(vm.runInContext('DEFAULT_PROVIDER', sandbox), 'gemini');
+    assert.strictEqual(typeof sandbox.translateInlineText, 'function');
+  });
+  await runTest("Connection edits stay in draft until saved and saving does not trigger translation", async () => {
+    const sandbox = createSandbox();
+    Object.assign(sandbox.mockLocalStorage, {
+      currentProvider: "ollama", apiEndpoint: "http://localhost:11434",
+      model: "original-model", apiKey: "", autoTranslate: false
+    });
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    await sandbox.loadSettingsToUI();
+    sandbox.document.getElementById("input-model").value = "new-model";
+    await sandbox.autoSaveCurrentRecipe();
+    assert.strictEqual(sandbox.mockLocalStorage.model, "original-model");
+    const provider = sandbox.document.getElementById("select-provider");
+    provider.value = "lmstudio";
+    for (const listener of provider.listeners.change) await listener();
+    assert.strictEqual(sandbox.mockLocalStorage.apiEndpoint, "http://localhost:11434");
+    assert.strictEqual(sandbox.mockLocalStorage.currentProvider, "ollama");
+    sandbox.document.getElementById("src-textarea").value = "Hello world";
+    let translations = 0;
+    sandbox.translate = () => { translations++; };
+    for (const listener of sandbox.document.getElementById("btn-save-settings").listeners.click) await listener();
+    assert.strictEqual(sandbox.mockLocalStorage.currentProvider, "lmstudio");
+    assert.strictEqual(translations, 0);
+    assert.strictEqual(sandbox.document.getElementById("settings-feedback").textContent, "設定已儲存");
+  });
+
+  await runTest("Setup notice is shown for cloud services without a key and hidden for local servers", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    await sandbox.updateSetupNotice();
+    const notice = sandbox.document.getElementById("setup-notice");
+    assert.strictEqual(notice.classList.contains("hidden"), false);
+    sandbox.mockLocalStorage.apiKey = "test-key";
+    await sandbox.updateSetupNotice();
+    assert.strictEqual(notice.classList.contains("hidden"), true);
+    sandbox.mockLocalStorage.apiKey = "";
+    sandbox.mockLocalStorage.apiEndpoint = "http://localhost:11434";
+    await sandbox.updateSetupNotice();
+    assert.strictEqual(notice.classList.contains("hidden"), true);
+  });
+
   // Test 1: Cache initialization & key hashing
   await runTest("Cache utility should store and retrieve translations", async () => {
     const sandbox = createSandbox();
@@ -433,6 +605,22 @@ async function executeTestSuite() {
     // Should compile and run without runtime exceptions
     vm.runInContext(sharedCode, sandbox);
     vm.runInContext(contentCode, sandbox);
+  });
+
+  await runTest("Inline bubble scrollbar stays themed and loading spinners cannot trigger it", () => {
+    const contentRule = contentCode.match(/\.bubble-content \{[^}]*\}/)[0];
+    assert.ok(/scrollbar-width:\s*thin/.test(contentRule));
+    assert.ok(/scrollbar-color:/.test(contentRule));
+    // The rotating spinners' bounding boxes otherwise overflow the content box while loading
+    assert.ok(/overflow:\s*hidden/.test(contentCode.match(/\.bubble-loader \{[^}]*\}/)[0]));
+    const vocabLoadingStyle = contentCode.match(/spinner\.style\.cssText = "([^"]*)"/)[1];
+    assert.ok(/overflow:\s*hidden/.test(vocabLoadingStyle));
+  });
+
+  await runTest("Inline bubble loader has no indentation text that pre-wrap would render as blank lines", () => {
+    const template = contentCode.match(/\{ class: "bubble-content" \},([\s\S]*?)\n    \),/)[1];
+    assert.ok(template.includes('"翻譯中…"'));
+    assert.ok(!/"\s*\\n/.test(template), "bubble-content children must not include newline/indentation strings");
   });
 
   // Test 6: Background script should evaluate and execute successfully
@@ -930,11 +1118,147 @@ async function executeTestSuite() {
     const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
     assert.strictEqual(cssContent.includes("@media screen and (max-width: 480px) and (pointer: coarse)"), true);
     assert.strictEqual(cssContent.includes("width: 100vw !important"), true);
-    assert.strictEqual(cssContent.includes("grid-template-columns: 1fr !important"), true);
 
     const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
     assert.strictEqual(htmlContent.includes('name="viewport"'), true);
-    assert.strictEqual(htmlContent.includes('user-scalable=no'), true);
+    // Pinch zoom must stay available on phones (WCAG 1.4.4)
+    assert.strictEqual(htmlContent.includes('user-scalable=no'), false);
+    assert.strictEqual(htmlContent.includes('maximum-scale'), false);
+  });
+
+  await runTest("popup.css braces are balanced so later rules are not swallowed as nested rules", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    let depth = 0;
+    for (const char of cssContent) {
+      if (char === "{") depth++;
+      if (char === "}") depth--;
+      assert.ok(depth >= 0, "popup.css has an unmatched closing brace");
+    }
+    assert.strictEqual(depth, 0, "popup.css has an unclosed rule block");
+  });
+
+  await runTest("Only the action popup gets a fixed size; side panel and tab views stay fluid", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const bodyRule = cssContent.match(/\nbody \{([^}]*)\}/)[1];
+    assert.doesNotMatch(bodyRule, /(min-)?width:\s*\d+px/, "base body rule must not force a pixel width");
+    assert.match(cssContent, /--popup-width:\s*720px;/);
+    assert.match(cssContent, /--popup-height:\s*540px;/);
+    assert.match(cssContent, /html\[data-surface="popup"\] body \{[^}]*width: var\(--popup-width\);[^}]*height: var\(--popup-height\);/);
+    // surface.js must run before the stylesheet applies to avoid a resize flash
+    assert.ok(htmlContent.indexOf('src="surface.js"') < htmlContent.indexOf('href="popup.css"'));
+
+    const surfaceCode = fs.readFileSync(__dirname + "/surface.js", "utf8");
+    const detect = (popupViews) => {
+      const win = {};
+      const documentElement = { dataset: {} };
+      const chromeApi = popupViews === null ? {} : { extension: { getViews: () => popupViews(win) } };
+      vm.runInNewContext(surfaceCode, { window: win, document: { documentElement }, chrome: chromeApi });
+      return documentElement.dataset.surface;
+    };
+    assert.strictEqual(detect(win => [win]), "popup");
+    assert.strictEqual(detect(() => []), "panel");
+    assert.strictEqual(detect(null), "panel");
+  });
+
+  await runTest("Stacked layout uses the single 600px breakpoint and splits panel height between columns", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const layoutQueries = [...cssContent.matchAll(/@media \(max-width: (\d+)px\)/g)].map(m => m[1]);
+    assert.deepStrictEqual(layoutQueries, ["599"], "only one width breakpoint should drive the layout");
+
+    const stacked = cssContent.slice(cssContent.indexOf("@media (max-width: 599px)"));
+    const block = stacked.slice(0, stacked.indexOf("\n}\n"));
+    assert.match(block, /\.source-col \{\s*flex: 2 1 0;/);
+    assert.match(block, /\.target-col \{\s*flex: 3 1 0;/);
+    assert.match(block, /\.textarea-container \{\s*min-height: \d+px;/);
+    assert.match(block, /\.target-output-container \{\s*min-height: \d+px;\s*contain: size;/, "long output must scroll inside the box, not grow the column");
+    assert.doesNotMatch(block, /height: 160px/, "fixed heights collapse under flex: 1 and must not return");
+  });
+
+  await runTest("Setup prompt and quick toggles live inside the columns, and drawers follow --header-h", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const between = (start, end) => htmlContent.slice(htmlContent.indexOf(start), htmlContent.indexOf(end, htmlContent.indexOf(start)));
+
+    // Nothing but the header sits above the workspace
+    const aboveWorkspace = htmlContent.slice(htmlContent.indexOf("</header>"), htmlContent.indexOf('<main class="workspace">'));
+    assert.doesNotMatch(aboveWorkspace, /<(div|section|span)\b/);
+
+    assert.match(between('class="target-output-container"', 'class="col-footer"'), /id="setup-notice"/);
+    assert.match(between('class="column source-col"', "</section>"), /class="col-footer">\s*<div class="quick-preferences"/);
+    assert.match(between('class="textarea-container"', "</div>"), /id="char-counter"/);
+    assert.match(cssContent, /#target-content:not\(\.empty\) ~ #setup-notice \{ display: none; \}/);
+
+    assert.match(cssContent, /--header-h:\s*48px;/);
+    assert.match(cssContent, /\.app-header \{\s*height: var\(--header-h\);/);
+    assert.doesNotMatch(cssContent, /\b(50|60)px/, "header-dependent offsets must use --header-h");
+  });
+
+  await runTest("Drawers are side sheets in the two-column layout and settings markup has no inline styles", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    const htmlContent = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    const popupContent = fs.readFileSync(__dirname + "/popup.js", "utf8");
+
+    assert.match(cssContent, /\.drawer \{[^}]*width: min\(440px, 100%\);/);
+    // A closed drawer offset past the right edge widens the action popup window
+    assert.doesNotMatch(cssContent.match(/\n\.drawer \{[^}]*\}/)[0], /transform/);
+    const stacked = cssContent.slice(cssContent.indexOf("@media (max-width: 599px)"));
+    assert.match(stacked.slice(0, stacked.indexOf("\n}\n")), /\.drawer \{ width: 100%; border-left: none; \}/);
+
+    assert.doesNotMatch(htmlContent, /\sstyle="/, "popup.html styling belongs in popup.css");
+
+    // Every custom property referenced must be defined, or the declaration silently drops
+    const defined = new Set([...cssContent.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
+    for (const [file, content] of [["popup.css", cssContent], ["popup.html", htmlContent], ["popup.js", popupContent]]) {
+      const undefinedVars = [...content.matchAll(/var\((--[\w-]+)/g)].map(m => m[1]).filter(name => !defined.has(name));
+      assert.deepStrictEqual([...new Set(undefinedVars)], [], `${file} references undefined CSS variables`);
+    }
+  });
+
+  await runTest("UI text is at least 12px and history delete buttons appear for keyboard and touch users", () => {
+    const cssContent = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    assert.match(cssContent, /--font-size-xs:\s*12px;/);
+    for (const file of ["popup.css", "popup.js", "popup.html"]) {
+      const content = fs.readFileSync(__dirname + "/" + file, "utf8");
+      const tooSmall = [...content.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map(m => Number(m[1])).filter(size => size < 12);
+      assert.deepStrictEqual(tooSmall, [], `${file} has text smaller than 12px`);
+    }
+    assert.match(cssContent, /\.history-item:focus-within \.history-delete-btn/);
+    assert.match(cssContent, /@media \(hover: none\) \{\s*\.history-delete-btn \{ opacity: 1; \}/);
+  });
+
+  await runTest("Toggle-current-site button stays localized when no webpage tab is active", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    sandbox.chrome.tabs.query = () => Promise.resolve([{ id: 1, url: "chrome://newtab/" }]);
+    await sandbox.renderDisabledSitesList();
+    assert.strictEqual(sandbox.document.getElementById("btn-toggle-current-site").textContent, "切換此網站的浮窗功能");
+  });
+
+  await runTest("AMO publish step uses a real web-ext command and keeps secrets out of arguments", () => {
+    const workflow = fs.readFileSync(__dirname + "/.github/workflows/publish.yml", "utf8");
+    const firefoxJob = workflow.slice(workflow.indexOf("  publish-firefox:"), workflow.indexOf("  create-github-release:"));
+    // web-ext has no "submit" command; a listed "sign" is what uploads to AMO
+    assert.doesNotMatch(firefoxJob, /web-ext@[\d.]+ submit/);
+    assert.match(firefoxJob, /npx web-ext@10\.7\.0 sign \\\s+--channel listed/);
+    assert.match(firefoxJob, /--approval-timeout 0/);
+    assert.doesNotMatch(firefoxJob, /^\s+--api-(key|secret)\b/m, "AMO credentials belong in WEB_EXT_API_* env vars");
+    // Each store can be re-published alone from a manual run
+    assert.match(workflow, /workflow_dispatch:\s+inputs:\s+target:/);
+    assert.match(workflow, /inputs\.target != 'firefox'/);
+    assert.match(firefoxJob, /inputs\.target != 'chrome'/);
+  });
+
+  await runTest("Chrome publish step submits for review instead of only uploading a draft", () => {
+    const workflow = fs.readFileSync(__dirname + "/.github/workflows/publish.yml", "utf8");
+    const chromeJob = workflow.slice(workflow.indexOf("  publish-chrome:"), workflow.indexOf("  publish-firefox:"))
+      .replace(/^\s*#.*$/gm, "");
+    // chrome-webstore-upload-cli only publishes when run without a subcommand
+    assert.match(chromeJob, /npx chrome-webstore-upload-cli@[\d.]+ \\\s+--source /);
+    assert.doesNotMatch(chromeJob, /chrome-webstore-upload-cli@[\d.]+ upload\b/);
+    assert.doesNotMatch(chromeJob, /--auto-publish/);
   });
 
   // Test 18: Mobile Phone Screen Sizes Layout Bounds Test
@@ -1092,7 +1416,7 @@ async function executeTestSuite() {
     assert.ok(!rawDraft.includes("draft-chat-id"), "raw draft must not contain the chat ID");
 
     // The badge still tracks credential edits even though they are not persisted
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
 
     // The credentials go to the in-memory session area instead, so nothing is lost
     const pending = sandbox.mockSessionStorage["settings_draft_secrets"];
@@ -1115,7 +1439,7 @@ async function executeTestSuite() {
     await sandbox.saveSettingsDraft();
 
     assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
     assert.strictEqual(
       sandbox.mockSessionStorage["settings_draft_secrets"].apiKey,
       "gsk_only_the_key_changed"
@@ -1149,7 +1473,7 @@ async function executeTestSuite() {
 
     assert.strictEqual(reopened.document.getElementById("input-model").value, "half-typed-model");
     assert.strictEqual(reopened.document.getElementById("input-api-key").value, "gsk_half_typed_key");
-    assert.strictEqual(reopened.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(reopened.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
   });
 
   // Test 22d: Saving clears the in-memory credential draft
@@ -1185,7 +1509,7 @@ async function executeTestSuite() {
     const btnDiscard = sandbox.document.getElementById("btn-discard-draft");
 
     // Initially Synced
-    assert.strictEqual(badge.textContent, "🟢 Synced");
+    assert.strictEqual(badge.textContent, "已儲存（此瀏覽器）");
     assert.strictEqual(btnDiscard.classList.contains("hidden"), true);
 
     // Edit an input
@@ -1194,7 +1518,7 @@ async function executeTestSuite() {
     await sandbox.saveSettingsDraft();
 
     // Should update badge to Unsaved Draft and show Discard Draft button
-    assert.strictEqual(badge.textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(badge.textContent, "有未儲存的變更");
     assert.strictEqual(badge.classList.contains("badge-unsaved"), true);
     assert.strictEqual(btnDiscard.classList.contains("hidden"), false);
 
@@ -1206,7 +1530,7 @@ async function executeTestSuite() {
     }
 
     // After save, should reset badge to Synced and hide Discard Draft
-    assert.strictEqual(badge.textContent, "🟢 Synced");
+    assert.strictEqual(badge.textContent, "已儲存（此瀏覽器）");
     assert.strictEqual(btnDiscard.classList.contains("hidden"), true);
     assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
   });
@@ -1225,7 +1549,7 @@ async function executeTestSuite() {
     apiKeyInput.value = "dirty-un saved-key";
     await sandbox.saveSettingsDraft();
 
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "有未儲存的變更");
 
     // Click Discard Draft
     const btnDiscard = sandbox.document.getElementById("btn-discard-draft");
@@ -1236,7 +1560,7 @@ async function executeTestSuite() {
 
     assert.strictEqual(sandbox.localStorage.getItem("settings_draft"), null);
     assert.strictEqual(apiKeyInput.value, "original-key");
-    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "🟢 Synced");
+    assert.strictEqual(sandbox.document.getElementById("settings-draft-badge").textContent, "已儲存（此瀏覽器）");
   });
 
   // Test 25: Protection Against Overwriting: loadSettingsToUI preserves active draft
@@ -1279,7 +1603,7 @@ async function executeTestSuite() {
 
     // Inputs should be restored from draft rather than wiped by background loadSettings
     assert.strictEqual(String(tempInput.value), "0.7");
-    assert.strictEqual(badge.textContent, "🟡 Unsaved Draft");
+    assert.strictEqual(badge.textContent, "有未儲存的變更");
 
     // Credentials are never taken from a draft. This draft also switches provider to
     // groq, so the key field is owned by that provider's saved recipe (empty here) —
@@ -1637,12 +1961,12 @@ async function executeTestSuite() {
     // Verify initial HTML attributes for icon-action buttons
     assert.match(
       htmlContent,
-      /id="btn-copy"[^>]*title="Copy Translation"[^>]*aria-label="Copy Translation"/,
+      /id="btn-copy"[^>]*title="複製譯文"[^>]*aria-label="複製譯文"/,
       "btn-copy should have initial title and aria-label 'Copy Translation'"
     );
     assert.match(
       htmlContent,
-      /id="btn-tts"[^>]*title="Read Aloud"[^>]*aria-label="Read Aloud"/,
+      /id="btn-tts"[^>]*title="朗讀"[^>]*aria-label="朗讀"/,
       "btn-tts should have initial title and aria-label 'Read Aloud'"
     );
 
@@ -1660,47 +1984,47 @@ async function executeTestSuite() {
     // Wait for clipboard promise resolution
     await new Promise(r => setTimeout(r, 10));
 
-    assert.strictEqual(btnCopy.title, "Copied!");
-    assert.strictEqual(btnCopy.getAttribute("aria-label"), "Copied!");
-    assert.ok(btnCopy.innerHTML.includes("<polyline"), "btnCopy should display checkmark icon");
+    assert.strictEqual(btnCopy.title, "已複製");
+    assert.strictEqual(btnCopy.getAttribute("aria-label"), "已複製");
+    assert.ok(btnCopy.querySelector("polyline"), "btnCopy should display checkmark icon");
 
     // Fast repeat clicks should be safely debounced and not get stuck
     btnCopy.click();
     await new Promise(r => setTimeout(r, 10));
-    assert.strictEqual(btnCopy.title, "Copied!");
+    assert.strictEqual(btnCopy.title, "已複製");
 
     // Advance timer to trigger reset
     await new Promise(r => setTimeout(r, 1600));
-    assert.strictEqual(btnCopy.title, "Copy Translation");
-    assert.strictEqual(btnCopy.getAttribute("aria-label"), "Copy Translation");
-    assert.ok(btnCopy.innerHTML.includes("<rect"), "btnCopy should restore original copy icon");
+    assert.strictEqual(btnCopy.title, "複製譯文");
+    assert.strictEqual(btnCopy.getAttribute("aria-label"), "複製譯文");
+    assert.ok(btnCopy.querySelector("rect"), "btnCopy should restore original copy icon");
 
     // 2. Test btnTts dynamic state
     btnTts.click();
-    assert.strictEqual(btnTts.title, "Stop Reading");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Stop Reading");
-    assert.ok(btnTts.innerHTML.includes("<line"), "btnTts should show Stop X icon");
+    assert.strictEqual(btnTts.title, "停止朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "停止朗讀");
+    assert.ok(btnTts.querySelector("line"), "btnTts should show Stop X icon");
 
     // Utterance completion resets to Read Aloud
     assert.ok(sandbox.currentUtterance && typeof sandbox.currentUtterance.onend === "function");
     sandbox.currentUtterance.onend();
-    assert.strictEqual(btnTts.title, "Read Aloud");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
-    assert.ok(btnTts.innerHTML.includes("<path"), "btnTts should restore speaker icon");
+    assert.strictEqual(btnTts.title, "朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "朗讀");
+    assert.ok(btnTts.querySelector("path"), "btnTts should restore speaker icon");
 
     // Canceling during playback resets to Read Aloud
     btnTts.click();
-    assert.strictEqual(btnTts.title, "Stop Reading");
+    assert.strictEqual(btnTts.title, "停止朗讀");
     btnTts.click(); // click while speaking triggers cancel
-    assert.strictEqual(btnTts.title, "Read Aloud");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+    assert.strictEqual(btnTts.title, "朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "朗讀");
 
     // Speech error resets to Read Aloud
     btnTts.click();
-    assert.strictEqual(btnTts.title, "Stop Reading");
+    assert.strictEqual(btnTts.title, "停止朗讀");
     sandbox.currentUtterance.onerror();
-    assert.strictEqual(btnTts.title, "Read Aloud");
-    assert.strictEqual(btnTts.getAttribute("aria-label"), "Read Aloud");
+    assert.strictEqual(btnTts.title, "朗讀");
+    assert.strictEqual(btnTts.getAttribute("aria-label"), "朗讀");
   });
 
   // Test 47: External fetch requests enforce AbortController timeout boundaries and resource cleanup
@@ -1859,20 +2183,6 @@ async function executeTestSuite() {
       "palette.md must record list and dynamic chip accessibility learning"
     );
 
-    // Verify context-specific aria-label and title attributes in popup.js
-    assert.ok(
-      popupCodeContent.includes('aria-label="Remove exclusion for ${escapeHTML(domain)}"'),
-      "popup.js must set context-specific aria-label on remove-site-btn"
-    );
-    assert.ok(
-      popupCodeContent.includes('aria-label="Remove website exclusion for ${escapeHTML(domain)}"'),
-      "popup.js must set context-specific aria-label on btn-remove-exclusion"
-    );
-    assert.ok(
-      popupCodeContent.includes('aria-label="Delete history item: ${escapeHTML(item.srcText)}"'),
-      "popup.js must set context-specific aria-label on history-delete-btn"
-    );
-
     // Verify keyboard handlers and ARIA attributes for model chips in popup.js
     assert.ok(
       popupCodeContent.includes('chip.setAttribute("role", "button");'),
@@ -1894,6 +2204,10 @@ async function executeTestSuite() {
     vm.runInContext(popupCode, sandbox);
 
     const quickModelsContainer = sandbox.document.getElementById("quick-models-container");
+    sandbox.mockLocalStorage.disabledDomains = ["example.com"];
+    await sandbox.renderDisabledSitesList();
+    assert.strictEqual(sandbox.document.getElementById("exclusions-list-container").querySelector(".btn-remove-exclusion").getAttribute("aria-label"), "Remove website exclusion for example.com");
+    assert.strictEqual(sandbox.document.getElementById("disabled-sites-chips").querySelector(".remove-site-btn").getAttribute("aria-label"), "Remove exclusion for example.com");
     const inputModel = sandbox.document.getElementById("input-model");
     assert.ok(quickModelsContainer, "quickModelsContainer must exist");
     assert.ok(inputModel, "inputModel must exist");
@@ -1903,9 +2217,9 @@ async function executeTestSuite() {
 
     assert.ok(quickModelsContainer.children.length >= 3, "quickModelsContainer should render model chips");
 
-    const activeChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gemini-2.5-flash"));
-    const proChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gemini-2.5-pro"));
-    const gptChip = quickModelsContainer.children.find(c => c.innerHTML.includes("gpt-4o"));
+    const activeChip = quickModelsContainer.children.find(c => c.textContent.includes("gemini-2.5-flash"));
+    const proChip = quickModelsContainer.children.find(c => c.textContent.includes("gemini-2.5-pro"));
+    const gptChip = quickModelsContainer.children.find(c => c.textContent.includes("gpt-4o"));
 
     assert.ok(activeChip, "active chip must exist");
     assert.ok(proChip, "pro chip must exist");
@@ -1957,19 +2271,19 @@ async function executeTestSuite() {
 
     // Verify popup.js sets title and aria-label dynamically in applyTheme
     assert.ok(
-      popupCodeContent.includes('btnTheme.title = "Switch to Dark Mode";'),
+      popupCodeContent.includes('btnTheme.title = "切換為深色模式";'),
       "popup.js must set title to Switch to Dark Mode in light theme"
     );
     assert.ok(
-      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "Switch to Dark Mode");'),
+      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "切換為深色模式");'),
       "popup.js must set aria-label to Switch to Dark Mode in light theme"
     );
     assert.ok(
-      popupCodeContent.includes('btnTheme.title = "Switch to Light Mode";'),
+      popupCodeContent.includes('btnTheme.title = "切換為亮色模式";'),
       "popup.js must set title to Switch to Light Mode in dark theme"
     );
     assert.ok(
-      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "Switch to Light Mode");'),
+      popupCodeContent.includes('btnTheme.setAttribute("aria-label", "切換為亮色模式");'),
       "popup.js must set aria-label to Switch to Light Mode in dark theme"
     );
 
@@ -1985,8 +2299,8 @@ async function executeTestSuite() {
 
     // 1. Initial theme loading (default to dark)
     await sandbox.initTheme();
-    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.strictEqual(btnTheme.title, "切換為亮色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為亮色模式");
     assert.ok(sandbox.document.body.classList.contains("dark-theme"));
     assert.ok(!sandbox.document.body.classList.contains("light-theme"));
     assert.ok(iconMoon.classList.contains("hidden"));
@@ -1994,8 +2308,8 @@ async function executeTestSuite() {
 
     // 2. Direct call: applyTheme("light")
     sandbox.applyTheme("light");
-    assert.strictEqual(btnTheme.title, "Switch to Dark Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Dark Mode");
+    assert.strictEqual(btnTheme.title, "切換為深色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為深色模式");
     assert.ok(sandbox.document.body.classList.contains("light-theme"));
     assert.ok(!sandbox.document.body.classList.contains("dark-theme"));
     assert.ok(iconSun.classList.contains("hidden"));
@@ -2003,8 +2317,8 @@ async function executeTestSuite() {
 
     // 3. Direct call: applyTheme("dark")
     sandbox.applyTheme("dark");
-    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.strictEqual(btnTheme.title, "切換為亮色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為亮色模式");
     assert.ok(sandbox.document.body.classList.contains("dark-theme"));
     assert.ok(!sandbox.document.body.classList.contains("light-theme"));
     assert.ok(iconMoon.classList.contains("hidden"));
@@ -2014,8 +2328,8 @@ async function executeTestSuite() {
     btnTheme.click();
     await new Promise(r => setTimeout(r, 10));
 
-    assert.strictEqual(btnTheme.title, "Switch to Dark Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Dark Mode");
+    assert.strictEqual(btnTheme.title, "切換為深色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為深色模式");
     assert.ok(sandbox.document.body.classList.contains("light-theme"));
     const storedTheme1 = await sandbox.chrome.storage.local.get("theme");
     assert.strictEqual(storedTheme1.theme, "light");
@@ -2024,8 +2338,8 @@ async function executeTestSuite() {
     btnTheme.click();
     await new Promise(r => setTimeout(r, 10));
 
-    assert.strictEqual(btnTheme.title, "Switch to Light Mode");
-    assert.strictEqual(btnTheme.getAttribute("aria-label"), "Switch to Light Mode");
+    assert.strictEqual(btnTheme.title, "切換為亮色模式");
+    assert.strictEqual(btnTheme.getAttribute("aria-label"), "切換為亮色模式");
     assert.ok(sandbox.document.body.classList.contains("dark-theme"));
     const storedTheme2 = await sandbox.chrome.storage.local.get("theme");
     assert.strictEqual(storedTheme2.theme, "dark");
@@ -2201,10 +2515,6 @@ async function executeTestSuite() {
     );
 
     // Verify role, tabindex, aria-label and keydown handlers in popup.js
-    assert.ok(
-      popupCodeContent.includes('class="history-texts" role="button" tabindex="0" aria-label="Load history item: ${escapeHTML(item.srcText)}"'),
-      "popup.js must set role=button, tabindex=0 and descriptive aria-label on .history-texts"
-    );
     assert.ok(
       popupCodeContent.includes('historyTextsDiv.addEventListener("keydown", (e) => {'),
       "popup.js must attach keydown listener to historyTextsDiv"
@@ -2404,6 +2714,200 @@ async function executeTestSuite() {
     );
   });
 
+  // Test 55: cws-oauth.mjs Reflected XSS prevention and AbortController timeout bounds
+  await runTest("cws-oauth.mjs Reflected XSS prevention and AbortController timeout bounds", async () => {
+    const cwsOauthContent = fs.readFileSync(__dirname + "/cws-oauth.mjs", "utf8");
+    const testApiContent = fs.readFileSync(__dirname + "/test-api.js", "utf8");
+
+    // 1. Verify escapeHTML function exists and escapes HTML entities in cws-oauth.mjs
+    assert.ok(
+      cwsOauthContent.includes("function escapeHTML(str)"),
+      "cws-oauth.mjs must define escapeHTML function"
+    );
+    assert.ok(
+      cwsOauthContent.includes("${escapeHTML(error)}"),
+      "cws-oauth.mjs must escape error parameter before reflecting it into HTML response"
+    );
+
+    // Test escapeHTML logic directly
+    const escapeHTML = (str) => {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+    const xssPayload = '<script>alert("xss")</script>&foo=\'bar\'';
+    const escaped = escapeHTML(xssPayload);
+    assert.strictEqual(
+      escaped,
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;&amp;foo=&#039;bar&#039;',
+      "escapeHTML must sanitize HTML characters"
+    );
+
+    // 2. Verify AbortController timeout and try...finally cleanup in cws-oauth.mjs exchange()
+    assert.ok(
+      cwsOauthContent.includes("const controller = new AbortController();"),
+      "cws-oauth.mjs must instantiate AbortController"
+    );
+    assert.ok(
+      cwsOauthContent.includes("const timeoutId = setTimeout(() => controller.abort(), 60000);"),
+      "cws-oauth.mjs must set a 60-second fetch timeout"
+    );
+    assert.ok(
+      cwsOauthContent.includes("try {\n\t\tresponse = await fetch('https://accounts.google.com/o/oauth2/token'") &&
+      cwsOauthContent.includes("} finally {\n\t\tclearTimeout(timeoutId);\n\t}"),
+      "cws-oauth.mjs exchange() must clear timeout in finally block"
+    );
+
+    // 3. Verify AbortController timeout and try...finally cleanup in test-api.js runTest()
+    assert.ok(
+      testApiContent.includes("const controller = new AbortController();"),
+      "test-api.js must instantiate AbortController"
+    );
+    assert.ok(
+      testApiContent.includes("const timeoutId = setTimeout(() => controller.abort(), 60000);"),
+      "test-api.js must set a 60-second fetch timeout"
+    );
+    assert.ok(
+      testApiContent.includes("} finally {\n      clearTimeout(timeoutId);\n    }"),
+      "test-api.js runTest() must clear timeout in finally block"
+    );
+  });
+
+  // Test 56: Password visibility toggles (API Key, Telegram Token, Telegram Chat ID) provide dynamic ARIA labels and localized announcements
+  await runTest("Password visibility toggles (API Key, Telegram Token, Telegram Chat ID) provide dynamic ARIA labels and localized announcements", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="btn-toggle-key-vis" class="btn-text-link" type="button" aria-label="Show API Key">Show</button>'),
+      "popup.html must configure #btn-toggle-key-vis with initial aria-label='Show API Key'"
+    );
+    assert.ok(
+      popupHtml.includes('id="btn-toggle-telegram-token-vis" class="btn-text-link" type="button" aria-label="Show Telegram Bot Token">Show</button>'),
+      "popup.html must configure #btn-toggle-telegram-token-vis with initial aria-label='Show Telegram Bot Token'"
+    );
+    assert.ok(
+      popupHtml.includes('id="btn-toggle-telegram-chatid-vis" class="btn-text-link" type="button" aria-label="Show Telegram Chat ID">Show</button>'),
+      "popup.html must configure #btn-toggle-telegram-chatid-vis with initial aria-label='Show Telegram Chat ID'"
+    );
+
+    const sandbox = createSandbox();
+    const parentContainer = sandbox.document.createElement("div");
+    parentContainer.className = "label-with-action";
+    const btnToggleKeyVis = sandbox.document.getElementById("btn-toggle-key-vis");
+    btnToggleKeyVis.textContent = "Show";
+    btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
+    parentContainer.appendChild(btnToggleKeyVis);
+
+    const tokenContainer = sandbox.document.createElement("div");
+    tokenContainer.className = "label-with-action";
+    const btnToggleTokenVis = sandbox.document.getElementById("btn-toggle-telegram-token-vis");
+    btnToggleTokenVis.textContent = "Show";
+    btnToggleTokenVis.setAttribute("aria-label", "Show Telegram Bot Token");
+    tokenContainer.appendChild(btnToggleTokenVis);
+
+    const chatidContainer = sandbox.document.createElement("div");
+    chatidContainer.className = "label-with-action";
+    const btnToggleChatidVis = sandbox.document.getElementById("btn-toggle-telegram-chatid-vis");
+    btnToggleChatidVis.textContent = "Show";
+    btnToggleChatidVis.setAttribute("aria-label", "Show Telegram Chat ID");
+    chatidContainer.appendChild(btnToggleChatidVis);
+
+    const inputApiKey = sandbox.document.getElementById("input-api-key");
+    inputApiKey.type = "password";
+    const inputTelegramToken = sandbox.document.getElementById("input-telegram-token");
+    inputTelegramToken.type = "password";
+    const inputTelegramChatid = sandbox.document.getElementById("input-telegram-chatid");
+    inputTelegramChatid.type = "password";
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(uiCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // 1. Initial state
+    assert.strictEqual(inputApiKey.type, "password");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "Show API Key");
+    assert.strictEqual(inputTelegramToken.type, "password");
+    assert.strictEqual(btnToggleTokenVis.getAttribute("aria-label"), "Show Telegram Bot Token");
+    assert.strictEqual(inputTelegramChatid.type, "password");
+    assert.strictEqual(btnToggleChatidVis.getAttribute("aria-label"), "Show Telegram Chat ID");
+
+    // 2. Click to toggle API key to visible (Show -> Hide)
+    btnToggleKeyVis.click();
+    assert.strictEqual(inputApiKey.type, "text");
+    assert.strictEqual(btnToggleKeyVis.textContent, "隱藏");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "隱藏 API 金鑰");
+
+    // 3. Click again to toggle back to password (Hide -> Show)
+    btnToggleKeyVis.click();
+    assert.strictEqual(inputApiKey.type, "password");
+    assert.strictEqual(btnToggleKeyVis.textContent, "顯示");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "顯示 API 金鑰");
+
+    // 4. Click Telegram token toggle (Show -> Hide)
+    btnToggleTokenVis.click();
+    assert.strictEqual(inputTelegramToken.type, "text");
+    assert.strictEqual(btnToggleTokenVis.textContent, "隱藏");
+    assert.strictEqual(btnToggleTokenVis.getAttribute("aria-label"), "隱藏 Telegram 機器人 Token");
+
+    // 5. Click Telegram chat id toggle (Show -> Hide)
+    btnToggleChatidVis.click();
+    assert.strictEqual(inputTelegramChatid.type, "text");
+    assert.strictEqual(btnToggleChatidVis.textContent, "隱藏");
+    assert.strictEqual(btnToggleChatidVis.getAttribute("aria-label"), "隱藏 Telegram 對話 ID");
+
+    // 6. Click to toggle back to password (Hide -> Show)
+    btnToggleTokenVis.click();
+    assert.strictEqual(inputTelegramToken.type, "password");
+    assert.strictEqual(btnToggleTokenVis.textContent, "顯示");
+    assert.strictEqual(btnToggleTokenVis.getAttribute("aria-label"), "顯示 Telegram 機器人 Token");
+  });
+
+  // Test 57: Clear source text button dynamically manages disabled state across input, paste, and reset
+  await runTest("Clear source text button dynamically manages disabled state across input, paste, and reset", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="btn-clear-src" class="icon-action-btn" title="Clear text" aria-label="Clear text" disabled>'),
+      "popup.html must configure #btn-clear-src with initial disabled attribute"
+    );
+
+    const sandbox = createSandbox();
+    const btnClearSrc = sandbox.document.getElementById("btn-clear-src");
+    btnClearSrc.disabled = true;
+    const srcTextarea = sandbox.document.getElementById("src-textarea");
+    srcTextarea.value = "";
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(uiCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // 1. Initial state
+    assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must initially be disabled when textarea is empty");
+
+    // 2. Typing text enables the clear button
+    srcTextarea.value = "Hello world";
+    srcTextarea.dispatchEvent("input");
+    assert.strictEqual(btnClearSrc.disabled, false, "btnClearSrc must be enabled when input has text");
+
+    // 3. Clicking clear button resets text and disables clear button
+    btnClearSrc.click();
+    assert.strictEqual(srcTextarea.value, "", "textarea value must be cleared");
+    assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled after click");
+
+    // 4. Typing then deleting all text disables clear button again
+    srcTextarea.value = "Something";
+    srcTextarea.dispatchEvent("input");
+    assert.strictEqual(btnClearSrc.disabled, false);
+
+    srcTextarea.value = "";
+    srcTextarea.dispatchEvent("input");
+    assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled when text is erased to empty");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
@@ -2412,7 +2916,3 @@ async function executeTestSuite() {
 }
 
 executeTestSuite();
-
-
-
-

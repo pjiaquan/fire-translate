@@ -20,6 +20,16 @@ function loadDotEnv(path) {
 	return out;
 }
 
+function escapeHTML(str) {
+	if (!str) return "";
+	return String(str)
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
 const env = loadDotEnv(process.env.CWS_ENV_FILE || '.env');
 
 const CLIENT_ID = process.env.CWS_CLIENT_ID || env.CLIENT_ID;
@@ -47,17 +57,26 @@ authUrl.searchParams.set('redirect_uri', serverUrl);
 authUrl.searchParams.set('prompt', 'consent');
 
 async function exchange(code) {
-	const response = await fetch('https://accounts.google.com/o/oauth2/token', {
-		method: 'POST',
-		headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-		body: new URLSearchParams([
-			['client_id', CLIENT_ID],
-			['client_secret', CLIENT_SECRET],
-			['code', code],
-			['grant_type', 'authorization_code'],
-			['redirect_uri', serverUrl],
-		]),
-	});
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+	let response;
+	try {
+		response = await fetch('https://accounts.google.com/o/oauth2/token', {
+			method: 'POST',
+			headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+			body: new URLSearchParams([
+				['client_id', CLIENT_ID],
+				['client_secret', CLIENT_SECRET],
+				['code', code],
+				['grant_type', 'authorization_code'],
+				['redirect_uri', serverUrl],
+			]),
+			signal: controller.signal
+		});
+	} finally {
+		clearTimeout(timeoutId);
+	}
 
 	const text = await response.text();
 	let json;
@@ -80,7 +99,7 @@ const server = createServer(async (request, response) => {
 	if (searchParams.has('error')) {
 		const error = searchParams.get('error');
 		response.writeHead(200, {'Content-Type': 'text/html'});
-		response.end(`<h1>Authorization denied</h1><p>${error}</p>`);
+		response.end(`<h1>Authorization denied</h1><p>${escapeHTML(error)}</p>`);
 		console.error(`AUTH_ERROR ${error}`);
 		server.close();
 		process.exit(2);

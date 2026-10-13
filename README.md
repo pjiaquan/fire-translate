@@ -58,6 +58,10 @@ If you are running your own local LLM engine, open the **Settings** drawer (cog 
 
 ## 📦 Release & Chrome Web Store Deployment
 
+Chrome 與 Firefox 使用各自的套件：`npm run build` 產生 Chrome ZIP；`npm run build:firefox` 產生 `dist/fire-translate-firefox-v<版本>.zip`。原始 manifest 與 Chrome 套件只宣告 service worker（同時宣告 `background.scripts` 會讓 Chrome 顯示 MV2 警告），並包含 Firefox 資料傳送宣告。Firefox 套件依序載入 `shared.js`、`background.js`，並移除 service worker 與 Chrome 專用的側欄設定。Firefox 安裝或提交 AMO 時請使用檔名包含 `-firefox-` 的套件，避免混用 Chrome ZIP 或 GitHub 原始碼 ZIP。
+
+Firefox 套件需要桌面版 140+ 或 Android 版 142+，使用內建資料傳送同意提示。Manifest 宣告網頁內容、驗證資訊與個人通訊，對應傳送至設定的 AI 服務的文字／API 金鑰及選用的 Telegram 轉送；沒有遙測或分析追蹤。CI 使用 `web-ext 10.7.0` 驗證 Firefox 套件。
+
 The repository includes GitHub Actions for testing, packaging, and publishing to the Chrome Web Store. The release script keeps the version in `package.json` and `manifest.json` synchronized:
 
 ```bash
@@ -92,6 +96,12 @@ The extension posts requests to `${API_ENDPOINT}/v1/chat/completions` with the f
 ---
 
 ## ⌨️ Shortcuts & UX
+
+### 介面與設定
+
+主畫面提供「自動翻譯」與「學習模式」開關，切換後會立即儲存，於下次翻譯使用。首次使用雲端服務時，請從「設定翻譯服務」選擇服務商、填入 API 金鑰並測試連線。
+
+設定頁的連線與偏好變更先保留為草稿，按底部固定的「儲存設定」才會生效；儲存不會自動重新翻譯原文。API 網址、模型格式、用量統計、提示詞、備份、Telegram、主題及診斷日誌依用途收合，設定儲存在目前瀏覽器。網頁浮窗連線失敗時可查看詳細資訊並重試。
 
 * **Ctrl + Enter** / **Cmd + Enter** (Mac): Press within the source text input area to trigger a translation instantly.
 * **Escape**: Closes any active drawer panel (Settings, History, or Logs).

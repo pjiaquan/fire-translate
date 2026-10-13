@@ -181,6 +181,9 @@ async function showBubble(text, selection) {
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
   const contextSentence = getSentenceForSelection(selection);
+  // A click on Retry can collapse the page selection. Keep the original anchor.
+  const retryRange = typeof range.cloneRange === "function" ? range.cloneRange() : range;
+  const retrySelection = { rangeCount: 1, getRangeAt: () => retryRange, toString: () => text };
 
   const settings = await chrome.storage.local.get("textSize");
   const textSize = settings.textSize || "medium";
@@ -294,6 +297,9 @@ async function showBubble(text, selection) {
       word-break: break-word;
       font-size: 13px;
       color: #e5e7eb;
+      /* Keep the scrollbar on-theme instead of the page's default light one */
+      scrollbar-width: thin;
+      scrollbar-color: #4b5563 transparent;
     }
     
     .bubble-loader {
@@ -302,6 +308,8 @@ async function showBubble(text, selection) {
       gap: 10px;
       color: #9ca3af;
       font-style: italic;
+      /* Clip the rotating spinner's bounding box so it can't scroll .bubble-content */
+      overflow: hidden;
     }
     
     .spinner {
@@ -388,21 +396,62 @@ async function showBubble(text, selection) {
   shadow.appendChild(style);
   
   // Set initial loader layout
-  bubble.innerHTML = `
-    <div class="bubble-header">
-      <div class="bubble-title">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Fire Translate
-      </div>
-      <button type="button" class="bubble-close" title="Close Popup" aria-label="Close Popup">&times;</button>
-    </div>
-    <div class="bubble-content">
-      <div class="bubble-loader">
-        <div class="spinner"></div>
-        Translating selection...
-      </div>
-    </div>
-  `;
+  setDomContent(bubble, [
+    "\n    ",
+    domElement(
+      "div",
+      { class: "bubble-header" },
+      "\n      ",
+      domElement(
+        "div",
+        { class: "bubble-title" },
+        "\n        ",
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "12",
+            height: "12",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "2.5",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("path", {
+            d: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+          }),
+        ),
+        "\n        Fire Translate\n      ",
+      ),
+      "\n      ",
+      domElement(
+        "button",
+        {
+          type: "button",
+          class: "bubble-close",
+          title: "Close Popup",
+          "aria-label": "Close Popup",
+        },
+        "×",
+      ),
+      "\n    ",
+    ),
+    "\n    ",
+    domElement(
+      "div",
+      { class: "bubble-content" },
+      // No indentation strings here: .bubble-content is pre-wrap, so they would render as blank lines
+      domElement(
+        "div",
+        { class: "bubble-loader" },
+        domElement("div", { class: "spinner" }),
+        "翻譯中…",
+      ),
+    ),
+    "\n  ",
+  ]);
   
   shadow.appendChild(bubble);
   activeBubble = bubble;
@@ -453,7 +502,9 @@ async function showBubble(text, selection) {
             try {
               const data = JSON.parse(msg.data);
               if (data && data.translation) {
-                content.innerHTML = `<div class="translation-text">${escapeHTML(data.translation)}</div>`;
+                setDomContent(content, [
+                  domElement("div", { class: "translation-text" }, data.translation),
+                ]);
                 renderInlineVocab(content, data.vocabulary);
                 setupFooter(bubble, data.translation);
                 port.disconnect();
@@ -463,18 +514,28 @@ async function showBubble(text, selection) {
           }
           
           accumulatedText += msg.data;
-          content.innerHTML = `<div class="translation-text">${escapeHTML(accumulatedText)}</div>`;
+          setDomContent(content, [
+            domElement("div", { class: "translation-text" }, accumulatedText),
+          ]);
         } else if (msg.type === "done-translation") {
-          content.innerHTML = `<div class="translation-text">${escapeHTML(msg.text)}</div>`;
+          setDomContent(content, [domElement("div", { class: "translation-text" }, msg.text)]);
           
           if (richLearningMode) {
             const spinner = document.createElement("div");
             spinner.id = "bubble-vocab-loading";
-            spinner.style.cssText = "margin-top: 8px; font-size: 11px; color: #9ca3af; display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1);";
-            spinner.innerHTML = `
-              <div class="spinner" style="width: 10px; height: 10px; border-width: 1.5px;"></div>
-              <span>Loading vocabulary...</span>
-            `;
+            // overflow: hidden stops the rotating spinner's bounding box from
+            // overflowing .bubble-content and flashing a scrollbar while loading
+            spinner.style.cssText = "margin-top: 8px; font-size: 11px; color: #9ca3af; display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); overflow: hidden;";
+            setDomContent(spinner, [
+              "\n              ",
+              domElement("div", {
+                class: "spinner",
+                style: "width: 10px; height: 10px; border-width: 1.5px;",
+              }),
+              "\n              ",
+              domElement("span", {}, "Loading vocabulary..."),
+              "\n            ",
+            ]);
             content.appendChild(spinner);
           } else {
             setupFooter(bubble, msg.text);
@@ -494,7 +555,9 @@ async function showBubble(text, selection) {
             try {
               const data = JSON.parse(accumulatedText);
               if (data && data.translation) {
-                content.innerHTML = `<div class="translation-text">${escapeHTML(data.translation)}</div>`;
+                setDomContent(content, [
+                  domElement("div", { class: "translation-text" }, data.translation),
+                ]);
                 renderInlineVocab(content, data.vocabulary);
                 setupFooter(bubble, data.translation);
                 port.disconnect();
@@ -503,11 +566,13 @@ async function showBubble(text, selection) {
             } catch (e) {}
           }
           
-          content.innerHTML = `<div class="translation-text">${escapeHTML(accumulatedText)}</div>`;
+          setDomContent(content, [
+            domElement("div", { class: "translation-text" }, accumulatedText),
+          ]);
           setupFooter(bubble, accumulatedText);
           port.disconnect();
         } else if (msg.type === "error") {
-          content.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Error: ${escapeHTML(msg.error)}</span>`;
+          showBubbleError(content, msg.error, () => { removeBubble(); showBubble(text, retrySelection); });
           port.disconnect();
         }
       });
@@ -522,18 +587,22 @@ async function showBubble(text, selection) {
         
         if (chrome.runtime.lastError || !response || !response.success) {
           const errorMsg = response?.error || chrome.runtime.lastError?.message || "Server connection failed";
-          content.innerHTML = `<span style="color: #ef4444; font-weight: 500;">Error: ${escapeHTML(errorMsg)}</span>`;
+          showBubbleError(content, errorMsg, () => { removeBubble(); showBubble(text, retrySelection); });
           return;
         }
         
         const translationResult = response.data;
         if (translationResult.rich) {
           const data = translationResult.parsed;
-          content.innerHTML = `<div class="translation-text">${escapeHTML(data.translation)}</div>`;
+          setDomContent(content, [
+            domElement("div", { class: "translation-text" }, data.translation),
+          ]);
           renderInlineVocab(content, data.vocabulary);
           setupFooter(bubble, data.translation);
         } else {
-          content.innerHTML = `<div class="translation-text">${escapeHTML(translationResult.text)}</div>`;
+          setDomContent(content, [
+            domElement("div", { class: "translation-text" }, translationResult.text),
+          ]);
           setupFooter(bubble, translationResult.text);
         }
       });
@@ -541,30 +610,106 @@ async function showBubble(text, selection) {
   });
 }
 
+function showBubbleError(content, error, retry) {
+  content.textContent = "翻譯失敗，請確認連線與 API 金鑰。";
+  const detail = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.textContent = "查看錯誤詳細資訊";
+  detail.appendChild(summary);
+  const message = document.createElement("p");
+  message.textContent = String(error || "無法連線至翻譯服務");
+  detail.appendChild(message);
+  content.appendChild(detail);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "bubble-copy-btn";
+  button.textContent = "重試";
+  button.addEventListener("click", retry);
+  content.appendChild(button);
+}
+
 function setupFooter(bubble, textToCopy) {
   const footer = document.createElement("div");
   footer.className = "bubble-footer";
-  footer.innerHTML = `
-    <button type="button" class="bubble-copy-btn" title="Copy Translation" aria-label="Copy Translation">
-      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-      Copy
-    </button>
-  `;
+  setDomContent(footer, [
+    "\n    ",
+    domElement(
+      "button",
+      {
+        type: "button",
+        class: "bubble-copy-btn",
+        title: "Copy Translation",
+        "aria-label": "Copy Translation",
+      },
+      "\n      ",
+      domElement(
+        "svg",
+        {
+          xmlns: "http://www.w3.org/2000/svg",
+          width: "11",
+          height: "11",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+        },
+        domElement("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2", ry: "2" }),
+        domElement("path", {
+          d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+        }),
+      ),
+      "\n      複製\n    ",
+    ),
+    "\n  ",
+  ]);
   
   bubble.appendChild(footer);
   
   const copyBtn = footer.querySelector(".bubble-copy-btn");
   copyBtn.addEventListener("click", () => {
     navigator.clipboard.writeText(textToCopy).then(() => {
-      copyBtn.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        Copied
-      `;
+      setDomContent(copyBtn, [
+        "\n        ",
+        domElement(
+          "svg",
+          {
+            xmlns: "http://www.w3.org/2000/svg",
+            width: "11",
+            height: "11",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "#22c55e",
+            "stroke-width": "2.5",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+          },
+          domElement("polyline", { points: "20 6 9 17 4 12" }),
+        ),
+        "\n        已複製\n      ",
+      ]);
       setTimeout(() => {
-        copyBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          Copy
-        `;
+        setDomContent(copyBtn, [
+          "\n          ",
+          domElement(
+            "svg",
+            {
+              xmlns: "http://www.w3.org/2000/svg",
+              width: "11",
+              height: "11",
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "currentColor",
+              "stroke-width": "2",
+              "stroke-linecap": "round",
+              "stroke-linejoin": "round",
+            },
+            domElement("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2", ry: "2" }),
+            domElement("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" }),
+          ),
+          "\n          複製\n        ",
+        ]);
       }, 1500);
     });
   });
@@ -579,7 +724,9 @@ function finalizeInlineTranslation(bubble, translatedText, richLearningMode) {
       const cleanedText = translatedText.replace(/```json/gi, "").replace(/```/g, "").trim();
       const data = JSON.parse(cleanedText);
       if (data && data.translation) {
-        content.innerHTML = `<div class="translation-text">${escapeHTML(data.translation)}</div>`;
+        setDomContent(content, [
+          domElement("div", { class: "translation-text" }, data.translation),
+        ]);
         renderInlineVocab(content, data.vocabulary);
         setupFooter(bubble, data.translation);
         parsedSuccessfully = true;
@@ -592,7 +739,9 @@ function finalizeInlineTranslation(bubble, translatedText, richLearningMode) {
           const jsonSub = translatedText.substring(startIdx, endIdx + 1);
           const data = JSON.parse(jsonSub);
           if (data && data.translation) {
-            content.innerHTML = `<div class="translation-text">${escapeHTML(data.translation)}</div>`;
+            setDomContent(content, [
+              domElement("div", { class: "translation-text" }, data.translation),
+            ]);
             renderInlineVocab(content, data.vocabulary);
             setupFooter(bubble, data.translation);
             parsedSuccessfully = true;
@@ -603,7 +752,9 @@ function finalizeInlineTranslation(bubble, translatedText, richLearningMode) {
   }
   
   if (!parsedSuccessfully) {
-    content.innerHTML = `<div class="translation-text">${escapeHTML(translatedText)}</div>`;
+    setDomContent(content, [
+      domElement("div", { class: "translation-text" }, translatedText),
+    ]);
     setupFooter(bubble, translatedText);
   }
 }
@@ -628,14 +779,29 @@ function renderInlineVocab(content, vocabulary) {
     synContainer.className = "bubble-vocab-section";
     synContainer.style.cssText = "margin-top: 8px; border-top: 1px dashed #374151; padding-top: 8px;";
     
-    const bulletsHtml = allSynonyms.map(syn => `<li style="margin-bottom: 3px; line-height: 1.4;">${escapeHTML(syn)}</li>`).join("");
+    const bulletsHtml = allSynonyms.map(syn => [domElement("li", {"style": "margin-bottom: 3px; line-height: 1.4;"}, (syn))]);
 
-    synContainer.innerHTML = `
-      <div style="font-size: 10px; color: #fbbf24; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Similar Words</div>
-      <ul style="font-size: 11px; color: #d1d5db; margin: 0; padding-left: 18px; list-style-type: disc; text-align: left;">${bulletsHtml}</ul>
-    `;
+    setDomContent(synContainer, [
+      "\n      ",
+      domElement(
+        "div",
+        {
+          style:
+            "font-size: 10px; color: #fbbf24; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;",
+        },
+        "Similar Words",
+      ),
+      "\n      ",
+      domElement(
+        "ul",
+        {
+          style:
+            "font-size: 11px; color: #d1d5db; margin: 0; padding-left: 18px; list-style-type: disc; text-align: left;",
+        },
+        bulletsHtml,
+      ),
+      "\n    ",
+    ]);
     content.appendChild(synContainer);
   }
 }
-
-
