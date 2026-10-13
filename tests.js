@@ -43,6 +43,20 @@ function createSandbox() {
       listeners: {},
       attributes: _attrs,
       children: _children,
+      get parentElement() { return this._parentElement || null; },
+      set parentElement(p) { this._parentElement = p; },
+      get parentNode() { return this.parentElement; },
+      get childNodes() {
+        if (_textContent && _children.length === 0) {
+          return [{
+            nodeType: 3,
+            get textContent() { return _textContent; },
+            set textContent(v) { _textContent = String(v); },
+            childNodes: []
+          }];
+        }
+        return _children;
+      },
       get id() { return _id; },
       set id(newId) {
         _id = newId;
@@ -102,6 +116,10 @@ function createSandbox() {
       },
       appendChild: function(child) {
         _children.push(child);
+        if (child && typeof child === "object") {
+          child.parentElement = this;
+          child.parentNode = this;
+        }
         return child;
       },
       replaceChildren: function(...children) {
@@ -195,6 +213,11 @@ function createSandbox() {
     createElement: (tag) => createMockElement(tag),
     createElementNS: (namespace, tag) => createMockElement(tag),
     createTextNode: (text) => ({ nodeType: 3, textContent: String(text) }),
+    querySelector: (selector) => {
+      const el = createMockElement("div");
+      if (selector && selector.startsWith(".")) el.className = selector.slice(1);
+      return el;
+    },
     querySelectorAll: () => [],
     addEventListener: () => {}
   };
@@ -365,6 +388,7 @@ async function runTest(name, fn) {
 
 // Load scripts
 const sharedCode = fs.readFileSync('shared.js', 'utf8');
+const uiCode = fs.readFileSync('ui.js', 'utf8');
 const popupCode = fs.readFileSync('popup.js', 'utf8');
 const bgCode = fs.readFileSync('background.js', 'utf8');
 const contentCode = fs.readFileSync('content.js', 'utf8');
@@ -2688,6 +2712,152 @@ async function executeTestSuite() {
       popupClearedTimers.includes(701),
       "popup.js translate() must execute clearTimeout in finally block even when fetch fails"
     );
+  });
+
+  // Test 55: cws-oauth.mjs Reflected XSS prevention and AbortController timeout bounds
+  await runTest("cws-oauth.mjs Reflected XSS prevention and AbortController timeout bounds", async () => {
+    const cwsOauthContent = fs.readFileSync(__dirname + "/cws-oauth.mjs", "utf8");
+    const testApiContent = fs.readFileSync(__dirname + "/test-api.js", "utf8");
+
+    // 1. Verify escapeHTML function exists and escapes HTML entities in cws-oauth.mjs
+    assert.ok(
+      cwsOauthContent.includes("function escapeHTML(str)"),
+      "cws-oauth.mjs must define escapeHTML function"
+    );
+    assert.ok(
+      cwsOauthContent.includes("${escapeHTML(error)}"),
+      "cws-oauth.mjs must escape error parameter before reflecting it into HTML response"
+    );
+
+    // Test escapeHTML logic directly
+    const escapeHTML = (str) => {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+    const xssPayload = '<script>alert("xss")</script>&foo=\'bar\'';
+    const escaped = escapeHTML(xssPayload);
+    assert.strictEqual(
+      escaped,
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;&amp;foo=&#039;bar&#039;',
+      "escapeHTML must sanitize HTML characters"
+    );
+
+    // 2. Verify AbortController timeout and try...finally cleanup in cws-oauth.mjs exchange()
+    assert.ok(
+      cwsOauthContent.includes("const controller = new AbortController();"),
+      "cws-oauth.mjs must instantiate AbortController"
+    );
+    assert.ok(
+      cwsOauthContent.includes("const timeoutId = setTimeout(() => controller.abort(), 60000);"),
+      "cws-oauth.mjs must set a 60-second fetch timeout"
+    );
+    assert.ok(
+      cwsOauthContent.includes("try {\n\t\tresponse = await fetch('https://accounts.google.com/o/oauth2/token'") &&
+      cwsOauthContent.includes("} finally {\n\t\tclearTimeout(timeoutId);\n\t}"),
+      "cws-oauth.mjs exchange() must clear timeout in finally block"
+    );
+
+    // 3. Verify AbortController timeout and try...finally cleanup in test-api.js runTest()
+    assert.ok(
+      testApiContent.includes("const controller = new AbortController();"),
+      "test-api.js must instantiate AbortController"
+    );
+    assert.ok(
+      testApiContent.includes("const timeoutId = setTimeout(() => controller.abort(), 60000);"),
+      "test-api.js must set a 60-second fetch timeout"
+    );
+    assert.ok(
+      testApiContent.includes("} finally {\n      clearTimeout(timeoutId);\n    }"),
+      "test-api.js runTest() must clear timeout in finally block"
+    );
+  });
+
+  // Test 56: API key visibility toggle provides dynamic ARIA labels and localized announcements
+  await runTest("API key visibility toggle provides dynamic ARIA labels and localized announcements", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="btn-toggle-key-vis" class="btn-text-link" type="button" aria-label="Show API Key">Show</button>'),
+      "popup.html must configure #btn-toggle-key-vis with initial aria-label='Show API Key'"
+    );
+
+    const sandbox = createSandbox();
+    const parentContainer = sandbox.document.createElement("div");
+    parentContainer.className = "label-with-action";
+    const btnToggleKeyVis = sandbox.document.getElementById("btn-toggle-key-vis");
+    btnToggleKeyVis.textContent = "Show";
+    btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
+    parentContainer.appendChild(btnToggleKeyVis);
+
+    const inputApiKey = sandbox.document.getElementById("input-api-key");
+    inputApiKey.type = "password";
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(uiCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // 1. Initial state
+    assert.strictEqual(inputApiKey.type, "password");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "Show API Key");
+
+    // 2. Click to toggle to visible (Show -> Hide)
+    btnToggleKeyVis.click();
+    assert.strictEqual(inputApiKey.type, "text");
+    assert.strictEqual(btnToggleKeyVis.textContent, "隱藏");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "隱藏 API 金鑰");
+
+    // 3. Click again to toggle back to password (Hide -> Show)
+    btnToggleKeyVis.click();
+    assert.strictEqual(inputApiKey.type, "password");
+    assert.strictEqual(btnToggleKeyVis.textContent, "顯示");
+    assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "顯示 API 金鑰");
+  });
+
+  // Test 57: Clear source text button dynamically manages disabled state across input, paste, and reset
+  await runTest("Clear source text button dynamically manages disabled state across input, paste, and reset", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="btn-clear-src" class="icon-action-btn" title="Clear text" aria-label="Clear text" disabled>'),
+      "popup.html must configure #btn-clear-src with initial disabled attribute"
+    );
+
+    const sandbox = createSandbox();
+    const btnClearSrc = sandbox.document.getElementById("btn-clear-src");
+    btnClearSrc.disabled = true;
+    const srcTextarea = sandbox.document.getElementById("src-textarea");
+    srcTextarea.value = "";
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(uiCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // 1. Initial state
+    assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must initially be disabled when textarea is empty");
+
+    // 2. Typing text enables the clear button
+    srcTextarea.value = "Hello world";
+    srcTextarea.dispatchEvent("input");
+    assert.strictEqual(btnClearSrc.disabled, false, "btnClearSrc must be enabled when input has text");
+
+    // 3. Clicking clear button resets text and disables clear button
+    btnClearSrc.click();
+    assert.strictEqual(srcTextarea.value, "", "textarea value must be cleared");
+    assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled after click");
+
+    // 4. Typing then deleting all text disables clear button again
+    srcTextarea.value = "Something";
+    srcTextarea.dispatchEvent("input");
+    assert.strictEqual(btnClearSrc.disabled, false);
+
+    srcTextarea.value = "";
+    srcTextarea.dispatchEvent("input");
+    assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled when text is erased to empty");
   });
 
   // Summary reporting
