@@ -1847,10 +1847,14 @@ if (btnToggleKeyVis) {
   btnToggleKeyVis.addEventListener("click", () => {
     if (inputApiKey.type === "password") {
       inputApiKey.type = "text";
-      btnToggleKeyVis.textContent = "隱藏";
+      btnToggleKeyVis.textContent = "Hide";
+      btnToggleKeyVis.setAttribute("aria-label", "Hide API Key");
+      localizeInterface(btnToggleKeyVis.parentElement);
     } else {
       inputApiKey.type = "password";
-      btnToggleKeyVis.textContent = "顯示";
+      btnToggleKeyVis.textContent = "Show";
+      btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
+      localizeInterface(btnToggleKeyVis.parentElement);
     }
   });
 }
