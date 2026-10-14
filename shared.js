@@ -39,6 +39,12 @@ function getGemmaLangCode(lang) {
 
 function cleanTranslateText(text) {
   if (!text) return "";
+
+  // Truncate to 5000 characters to prevent ReDoS and excessive API token usage
+  if (text.length > 5000) {
+    text = text.substring(0, 5000);
+  }
+
   // 1. Strip HTML tags
   let cleaned = text.replace(/<\/?[^>]+(>|$)/g, "");
   // 2. Remove control characters and non-printable characters

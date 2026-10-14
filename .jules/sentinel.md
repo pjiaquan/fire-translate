@@ -27,3 +27,8 @@
 **Vulnerability:** The local Chrome Web Store OAuth script (`cws-oauth.mjs`) reflected the `error` query parameter directly into its HTML response without sanitization.
 **Learning:** Local developer scripts and utility web servers (like OAuth loopback servers) are also susceptible to web vulnerabilities and must treat user input as untrusted.
 **Prevention:** Always HTML-escape untrusted input (such as URL parameters) before rendering it in HTTP responses, even in local-only development servers.
+
+## $(date +%Y-%m-%d) - [Resource Exhaustion via Missing Input Length Limits]
+**Vulnerability:** The translation feature lacked input length limits on both the UI and backend logic, which could allow massive inputs to cause ReDoS when stripping HTML or consume excessive API tokens/resources, leading to Denial of Service (DoS).
+**Learning:** Input fields and processing functions must enforce bounds on input sizes, especially when processing text with regular expressions or sending data to external APIs with token limits.
+**Prevention:** To prevent resource exhaustion (DoS) via ReDoS or excessive API token usage from massive inputs, proactively enforce input length boundaries (e.g., truncating text to 5000 characters). Apply limits defensively both in UI elements (via the `maxlength` attribute) and programmatically within JavaScript event listeners, message handlers, and text-processing utilities.
