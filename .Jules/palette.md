@@ -19,3 +19,6 @@
 ## 2024-05-25 - UX improvements for dynamic disabled states on input clear buttons
 **Learning:** Found that an input clear button (like a "Clear text" button for a textarea) visually feels active and clickable even when the text area is completely empty, which is a poor UX pattern that doesn't provide the expected visual feedback. By dynamically managing the `disabled` state based on the input's actual length, the user gets immediate visual cues on whether the action is available.
 **Action:** When implementing an action button tied to the state of an input field (like a clear button), ensure you dynamically bind the `disabled` state of that button to reflect the empty/filled state of the input, updating it across all input, paste, and programmatic clear events.
+## 2026-10-14 - [Placeholder for non-input elements]
+**Learning:** The `placeholder` attribute on non-input elements (e.g. `div`) is not natively supported by browsers.
+**Action:** Use a CSS pseudo-element (`::before`) targeting an explicit empty state class alongside the `placeholder` attribute to render the placeholder text.
