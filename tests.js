@@ -2777,12 +2777,20 @@ async function executeTestSuite() {
     );
   });
 
-  // Test 56: API key visibility toggle provides dynamic ARIA labels and localized announcements
-  await runTest("API key visibility toggle provides dynamic ARIA labels and localized announcements", async () => {
+  // Test 56: Password visibility toggles (API Key, Telegram Token, Telegram Chat ID) provide dynamic ARIA labels and localized announcements
+  await runTest("Password visibility toggles (API Key, Telegram Token, Telegram Chat ID) provide dynamic ARIA labels and localized announcements", async () => {
     const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
     assert.ok(
       popupHtml.includes('id="btn-toggle-key-vis" class="btn-text-link" type="button" aria-label="Show API Key">Show</button>'),
       "popup.html must configure #btn-toggle-key-vis with initial aria-label='Show API Key'"
+    );
+    assert.ok(
+      popupHtml.includes('id="btn-toggle-telegram-token-vis" class="btn-text-link" type="button" aria-label="Show Telegram Bot Token">Show</button>'),
+      "popup.html must configure #btn-toggle-telegram-token-vis with initial aria-label='Show Telegram Bot Token'"
+    );
+    assert.ok(
+      popupHtml.includes('id="btn-toggle-telegram-chatid-vis" class="btn-text-link" type="button" aria-label="Show Telegram Chat ID">Show</button>'),
+      "popup.html must configure #btn-toggle-telegram-chatid-vis with initial aria-label='Show Telegram Chat ID'"
     );
 
     const sandbox = createSandbox();
@@ -2793,8 +2801,26 @@ async function executeTestSuite() {
     btnToggleKeyVis.setAttribute("aria-label", "Show API Key");
     parentContainer.appendChild(btnToggleKeyVis);
 
+    const tokenContainer = sandbox.document.createElement("div");
+    tokenContainer.className = "label-with-action";
+    const btnToggleTokenVis = sandbox.document.getElementById("btn-toggle-telegram-token-vis");
+    btnToggleTokenVis.textContent = "Show";
+    btnToggleTokenVis.setAttribute("aria-label", "Show Telegram Bot Token");
+    tokenContainer.appendChild(btnToggleTokenVis);
+
+    const chatidContainer = sandbox.document.createElement("div");
+    chatidContainer.className = "label-with-action";
+    const btnToggleChatidVis = sandbox.document.getElementById("btn-toggle-telegram-chatid-vis");
+    btnToggleChatidVis.textContent = "Show";
+    btnToggleChatidVis.setAttribute("aria-label", "Show Telegram Chat ID");
+    chatidContainer.appendChild(btnToggleChatidVis);
+
     const inputApiKey = sandbox.document.getElementById("input-api-key");
     inputApiKey.type = "password";
+    const inputTelegramToken = sandbox.document.getElementById("input-telegram-token");
+    inputTelegramToken.type = "password";
+    const inputTelegramChatid = sandbox.document.getElementById("input-telegram-chatid");
+    inputTelegramChatid.type = "password";
 
     vm.createContext(sandbox);
     vm.runInContext(sharedCode, sandbox);
@@ -2804,8 +2830,12 @@ async function executeTestSuite() {
     // 1. Initial state
     assert.strictEqual(inputApiKey.type, "password");
     assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "Show API Key");
+    assert.strictEqual(inputTelegramToken.type, "password");
+    assert.strictEqual(btnToggleTokenVis.getAttribute("aria-label"), "Show Telegram Bot Token");
+    assert.strictEqual(inputTelegramChatid.type, "password");
+    assert.strictEqual(btnToggleChatidVis.getAttribute("aria-label"), "Show Telegram Chat ID");
 
-    // 2. Click to toggle to visible (Show -> Hide)
+    // 2. Click to toggle API key to visible (Show -> Hide)
     btnToggleKeyVis.click();
     assert.strictEqual(inputApiKey.type, "text");
     assert.strictEqual(btnToggleKeyVis.textContent, "隱藏");
@@ -2816,6 +2846,24 @@ async function executeTestSuite() {
     assert.strictEqual(inputApiKey.type, "password");
     assert.strictEqual(btnToggleKeyVis.textContent, "顯示");
     assert.strictEqual(btnToggleKeyVis.getAttribute("aria-label"), "顯示 API 金鑰");
+
+    // 4. Click Telegram token toggle (Show -> Hide)
+    btnToggleTokenVis.click();
+    assert.strictEqual(inputTelegramToken.type, "text");
+    assert.strictEqual(btnToggleTokenVis.textContent, "隱藏");
+    assert.strictEqual(btnToggleTokenVis.getAttribute("aria-label"), "隱藏 Telegram 機器人 Token");
+
+    // 5. Click Telegram chat id toggle (Show -> Hide)
+    btnToggleChatidVis.click();
+    assert.strictEqual(inputTelegramChatid.type, "text");
+    assert.strictEqual(btnToggleChatidVis.textContent, "隱藏");
+    assert.strictEqual(btnToggleChatidVis.getAttribute("aria-label"), "隱藏 Telegram 對話 ID");
+
+    // 6. Click to toggle back to password (Hide -> Show)
+    btnToggleTokenVis.click();
+    assert.strictEqual(inputTelegramToken.type, "password");
+    assert.strictEqual(btnToggleTokenVis.textContent, "顯示");
+    assert.strictEqual(btnToggleTokenVis.getAttribute("aria-label"), "顯示 Telegram 機器人 Token");
   });
 
   // Test 57: Clear source text button dynamically manages disabled state across input, paste, and reset

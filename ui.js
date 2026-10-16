@@ -60,6 +60,8 @@ const interfaceCopy = {
   "Export Settings": "匯出設定", "Import Settings": "匯入設定",
   "Send translations to Telegram (Optional)": "將翻譯傳送到 Telegram",
   "Telegram Bot Token": "Telegram 機器人 Token", "Telegram Chat ID / Group ID": "Telegram 對話／群組 ID",
+  "Show Telegram Bot Token": "顯示 Telegram 機器人 Token", "Hide Telegram Bot Token": "隱藏 Telegram 機器人 Token",
+  "Show Telegram Chat ID": "顯示 Telegram 對話 ID", "Hide Telegram Chat ID": "隱藏 Telegram 對話 ID",
   "Clear Cache": "清除快取", "Reset Defaults": "還原預設", "Discard Draft": "放棄變更",
   "Save Configs": "儲存設定", "Clear All": "清除全部", "Close History": "關閉紀錄",
   "No translation history yet.": "還沒有翻譯紀錄。完成翻譯後會顯示在這裡。",
