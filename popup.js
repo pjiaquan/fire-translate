@@ -138,6 +138,7 @@ function applyGrammarSuggestion() {
 }
 
 async function checkGrammarAndTypo(rawText) {
+  rawText = rawText ? rawText.substring(0, 5000) : "";
   const trimmed = rawText ? rawText.trim() : "";
   if (!trimmed || trimmed.length < 2 || !/\p{L}/u.test(trimmed) || isUrlLike(trimmed) || isApiKeyLike(trimmed)) {
     hideGrammarSuggestion();
@@ -3645,7 +3646,8 @@ btnClearSrc.addEventListener("click", () => {
 
 document.getElementById("btn-paste").addEventListener("click", async () => {
   try {
-    const text = await navigator.clipboard.readText();
+    let text = await navigator.clipboard.readText();
+    text = text ? text.substring(0, 5000) : "";
     srcTextarea.value = text;
     charCounter.textContent = `${text.length} 字`;
     btnClearSrc.disabled = text.length === 0;
@@ -3981,6 +3983,7 @@ async function initApp() {
 
   // Handle selection texts sent from contextMenus
   if (res.pendingTranslationText) {
+    res.pendingTranslationText = res.pendingTranslationText.substring(0, 5000);
     srcTextarea.value = res.pendingTranslationText;
     charCounter.textContent = `${res.pendingTranslationText.length} 字`;
     btnClearSrc.disabled = res.pendingTranslationText.length === 0;
@@ -4026,6 +4029,7 @@ for (const [id, key] of [["quick-auto-translate", "autoTranslate"], ["quick-lear
 // Listen to background updates and contextMenu events in real-time
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === "translateText" && message.text) {
+    message.text = message.text.substring(0, 5000);
     srcTextarea.value = message.text;
     charCounter.textContent = `${message.text.length} 字`;
     btnClearSrc.disabled = message.text.length === 0;

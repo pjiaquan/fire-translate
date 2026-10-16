@@ -39,6 +39,7 @@ function getGemmaLangCode(lang) {
 
 function cleanTranslateText(text) {
   if (!text) return "";
+  text = text.substring(0, 5000);
   // 1. Strip HTML tags
   let cleaned = text.replace(/<\/?[^>]+(>|$)/g, "");
   // 2. Remove control characters and non-printable characters
