@@ -2908,6 +2908,50 @@ async function executeTestSuite() {
     assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled when text is erased to empty");
   });
 
+  // Test 58: Target content empty state placeholder rendered via CSS attr(placeholder)
+  await runTest("Target content empty state placeholder rendered via CSS attr(placeholder)", async () => {
+    const popupCss = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    assert.ok(
+      popupCss.includes("#target-content.empty::before"),
+      "popup.css must define #target-content.empty::before rule"
+    );
+    assert.ok(
+      popupCss.includes("content: attr(placeholder);"),
+      "popup.css must render placeholder text with content: attr(placeholder)"
+    );
+    assert.ok(
+      popupCss.includes("pointer-events: none;"),
+      "popup.css must set pointer-events: none on placeholder pseudo-element"
+    );
+
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="target-content" class="target-content empty" placeholder="Translation will appear here..."'),
+      "popup.html must configure #target-content with class 'target-content empty' and placeholder attribute"
+    );
+  });
+
+  // Test 59: Input length limits proactively enforce 5000-character boundary to prevent DoS and resource exhaustion
+  await runTest("Input length limits proactively enforce 5000-character boundary to prevent DoS and resource exhaustion", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="src-textarea"') && popupHtml.includes('maxlength="5000"'),
+      "popup.html must set maxlength='5000' on #src-textarea"
+    );
+
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+
+    // Test cleanTranslateText bounds
+    const hugeInput = "a".repeat(6000);
+    const cleaned = sandbox.cleanTranslateText(hugeInput);
+    assert.strictEqual(cleaned.length, 5000, "cleanTranslateText must truncate input text to 5000 characters");
+
+    const normalInput = "Hello world";
+    assert.strictEqual(sandbox.cleanTranslateText(normalInput), "Hello world", "cleanTranslateText must preserve input under 5000 characters");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
