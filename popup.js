@@ -1579,7 +1579,10 @@ async function addExclusionDomain(rawDomain) {
     await chrome.storage.local.set({ disabledDomains: list });
     await addLog("info", `Added manual website exclusion for ${cleanDomain}`);
   }
-  if (inputAddExclusion) inputAddExclusion.value = "";
+  if (inputAddExclusion) {
+    inputAddExclusion.value = "";
+    if (btnAddExclusion) btnAddExclusion.disabled = true;
+  }
   await renderDisabledSitesList();
 }
 
@@ -1788,6 +1791,11 @@ if (btnAddExclusion) {
 }
 
 if (inputAddExclusion) {
+  inputAddExclusion.addEventListener("input", () => {
+    if (btnAddExclusion) {
+      btnAddExclusion.disabled = inputAddExclusion.value.trim().length === 0;
+    }
+  });
   inputAddExclusion.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
