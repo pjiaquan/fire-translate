@@ -242,7 +242,7 @@
               Auto Fix URL
             </button>
           </div>
-          <input type="text" id="input-api-endpoint" placeholder="https://generativelanguage.googleapis.com/v1beta/openai">
+          <input type="text" id="input-api-endpoint" placeholder="https://generativelanguage.googleapis.com/v1beta/openai" maxlength="500">
           <small id="url-recommendation-help" class="form-help">OpenAI-compatible Chat Completion endpoint.</small>
         </div>
 
@@ -253,7 +253,7 @@
             <label for="input-api-key">API Key</label>
             <button id="btn-toggle-key-vis" class="btn-text-link" type="button" aria-label="Show API Key">Show</button>
           </div>
-          <input type="password" id="input-api-key" placeholder="Enter API Key (sk-...)">
+          <input type="password" id="input-api-key" placeholder="Enter API Key (sk-...)" maxlength="500">
           <small id="api-key-help" class="form-help">Required for cloud providers, optional for local endpoints.</small>
         </div>
 
@@ -289,7 +289,7 @@
             <span id="model-count-tag" class="model-count-tag">-- models</span>
           </div>
           <div class="model-input-row">
-            <input type="text" id="input-model" list="model-list" placeholder="e.g. llama-3.3-70b-versatile">
+            <input type="text" id="input-model" list="model-list" placeholder="e.g. llama-3.3-70b-versatile" maxlength="500">
             <datalist id="model-list"></datalist>
           </div>
           <div id="quick-models-container" class="quick-models-container"></div>
@@ -409,13 +409,13 @@
       <p class="form-help">一般翻譯可使用預設值。學習提示詞需維持指定的 JSON 格式。</p>
       <div class="form-group" id="group-simple-prompt">
         <label for="input-system-prompt">Phase 1: Translation System Prompt</label>
-        <textarea id="input-system-prompt" class="small-textarea" placeholder="Enter simple translation prompt..."></textarea>
+        <textarea id="input-system-prompt" class="small-textarea" placeholder="Enter simple translation prompt..." maxlength="5000"></textarea>
         <small class="form-help">Use <code>{target_lang}</code> which will be replaced dynamically with the destination language name (e.g. 繁體中文, English).</small>
       </div>
 
       <div class="form-group" id="group-learning-prompt">
         <label for="input-system-prompt-learning">Phase 2: Learning System Prompt</label>
-        <textarea id="input-system-prompt-learning" class="small-textarea" placeholder="Enter learning translation prompt..."></textarea>
+        <textarea id="input-system-prompt-learning" class="small-textarea" placeholder="Enter learning translation prompt..." maxlength="5000"></textarea>
         <small class="form-help">Must instruct the model to return JSON containing <code>alternatives</code> and <code>vocabulary</code> fields based on original and translated text inputs.</small>
       </div>
 
@@ -458,14 +458,14 @@
               <label for="input-telegram-token">Telegram Bot Token</label>
               <button id="btn-toggle-telegram-token-vis" class="btn-text-link" type="button" aria-label="Show Telegram Bot Token">Show</button>
             </div>
-            <input type="password" id="input-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+            <input type="password" id="input-telegram-token" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" maxlength="500">
           </div>
           <div class="form-group margin-bottom-0">
             <div class="label-with-action">
               <label for="input-telegram-chatid">Telegram Chat ID / Group ID</label>
               <button id="btn-toggle-telegram-chatid-vis" class="btn-text-link" type="button" aria-label="Show Telegram Chat ID">Show</button>
             </div>
-            <input type="password" id="input-telegram-chatid" placeholder="-100123456789">
+            <input type="password" id="input-telegram-chatid" placeholder="-100123456789" maxlength="500">
           </div>
         </div>
       </div>
@@ -539,11 +539,11 @@
     <div class="exclusions-toolbar">
       <!-- Quick Add Domain Input -->
       <div class="exclusions-add-row">
-        <input type="text" id="input-add-exclusion" class="compact-input" placeholder="Add domain (e.g. github.com)" aria-label="Add excluded domain">
+        <input type="text" id="input-add-exclusion" class="compact-input" placeholder="Add domain (e.g. github.com)" aria-label="Add excluded domain" maxlength="500">
         <button id="btn-add-exclusion" type="button" class="primary-btn btn-small">+ Add</button>
       </div>
       <!-- Search Filter Input -->
-      <input type="text" id="input-search-exclusions" class="compact-input" placeholder="🔍 Search excluded domains..." aria-label="Search excluded domains">
+      <input type="text" id="input-search-exclusions" class="compact-input" placeholder="🔍 Search excluded domains..." aria-label="Search excluded domains" maxlength="500">
     </div>
 
     <div id="exclusions-list-container" class="drawer-body list-container">

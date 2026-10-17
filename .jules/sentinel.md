@@ -32,3 +32,8 @@
 **Vulnerability:** The application lacked input length limits on the text intended for translation (`src-textarea`, clipboard paste, context menu selections). A maliciously crafted large text payload could cause a Denial of Service (DoS) by freezing the UI, crashing the browser tab, or exhausting the LLM API tokens and rate limits.
 **Learning:** Even seemingly benign text inputs used for language processing can be vectors for resource exhaustion (DoS) or ReDoS if not bounded.
 **Prevention:** To prevent resource exhaustion (DoS) via ReDoS or excessive API token usage from massive inputs, proactively enforce input length boundaries (e.g., truncating text to 5000 characters). Apply limits defensively both in UI elements (via the `maxlength` attribute) and programmatically within JavaScript event listeners, message handlers, and text-processing utilities.
+
+## 2024-05-31 - [Configuration Input Length Missing Limit]
+**Vulnerability:** Configuration inputs like API endpoints, models, API keys, and system prompts lacked length validation in `popup.html`.
+**Learning:** Text inputs that are synced to storage or processed by the application can be vectors for resource exhaustion (DoS), storage bloat, or UI freezes if they don't have constraints.
+**Prevention:** Always apply length bounds on all text input elements, especially configuration parameters, using HTML `maxlength` properties (e.g. `maxlength="500"` for simple fields and `maxlength="5000"` for long prompts) to proactively prevent resource abuse.
