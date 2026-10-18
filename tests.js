@@ -2952,6 +2952,84 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.cleanTranslateText(normalInput), "Hello world", "cleanTranslateText must preserve input under 5000 characters");
   });
 
+  // Test 60: Configuration inputs and textareas enforce maxlength attributes in popup.html
+  await runTest("Configuration inputs and textareas enforce maxlength attributes in popup.html", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+
+    const singleLineInputs500 = [
+      'id="input-api-endpoint"',
+      'id="input-api-key"',
+      'id="input-model"',
+      'id="input-telegram-token"',
+      'id="input-telegram-chatid"',
+      'id="input-add-exclusion"',
+      'id="input-search-exclusions"'
+    ];
+
+    for (const inputId of singleLineInputs500) {
+      const regex = new RegExp(`<input[^>]*${inputId}[^>]*maxlength="500"|<input[^>]*maxlength="500"[^>]*${inputId}`);
+      assert.ok(
+        regex.test(popupHtml),
+        `popup.html must set maxlength="500" on ${inputId}`
+      );
+    }
+
+    const textareas5000 = [
+      'id="input-system-prompt"',
+      'id="input-system-prompt-learning"'
+    ];
+
+    for (const textareaId of textareas5000) {
+      const regex = new RegExp(`<textarea[^>]*${textareaId}[^>]*maxlength="5000"|<textarea[^>]*maxlength="5000"[^>]*${textareaId}`);
+      assert.ok(
+        regex.test(popupHtml),
+        `popup.html must set maxlength="5000" on ${textareaId}`
+      );
+    }
+  });
+
+  // Test 61: Dynamic disabled state on Add Exclusion button
+  await runTest("Dynamic disabled state on Add Exclusion button", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="btn-add-exclusion"') && popupHtml.includes('disabled'),
+      "popup.html must render #btn-add-exclusion with disabled attribute by default"
+    );
+
+    const sandbox = createSandbox();
+    const btnAddExclusion = sandbox.document.getElementById("btn-add-exclusion");
+    btnAddExclusion.disabled = true;
+    const inputAddExclusion = sandbox.document.getElementById("input-add-exclusion");
+    inputAddExclusion.value = "";
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(uiCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // 1. Initial state must be disabled
+    assert.strictEqual(btnAddExclusion.disabled, true, "btnAddExclusion must initially be disabled when input is empty");
+
+    // 2. Typing text enables the button
+    inputAddExclusion.value = "example.com";
+    inputAddExclusion.dispatchEvent("input");
+    assert.strictEqual(btnAddExclusion.disabled, false, "btnAddExclusion must be enabled when input has text");
+
+    // 3. Clearing or whitespace-only input disables the button
+    inputAddExclusion.value = "   ";
+    inputAddExclusion.dispatchEvent("input");
+    assert.strictEqual(btnAddExclusion.disabled, true, "btnAddExclusion must be disabled when input contains only whitespace");
+
+    inputAddExclusion.value = "github.com";
+    inputAddExclusion.dispatchEvent("input");
+    assert.strictEqual(btnAddExclusion.disabled, false, "btnAddExclusion must re-enable when non-empty text entered");
+
+    // 4. Executing addExclusionDomain resets input and re-disables button
+    await sandbox.addExclusionDomain("github.com");
+    assert.strictEqual(inputAddExclusion.value, "", "input value must be reset after adding exclusion");
+    assert.strictEqual(btnAddExclusion.disabled, true, "btnAddExclusion must be disabled after successful domain addition");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
