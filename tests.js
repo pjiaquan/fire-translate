@@ -2452,7 +2452,7 @@ async function executeTestSuite() {
 
     // 1. Static file verifications
     assert.ok(
-      popupHtmlContent.includes('<input type="password" id="input-telegram-chatid" placeholder="-100123456789">'),
+      popupHtmlContent.includes('<input type="password" id="input-telegram-chatid"') && popupHtmlContent.includes('placeholder="-100123456789"'),
       "popup.html must render input-telegram-chatid with type=password to prevent plaintext exposure"
     );
     assert.ok(
