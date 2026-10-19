@@ -2217,6 +2217,12 @@ async function runDiagnosticTest() {
     return;
   }
 
+  if (btnTestConnection) {
+    btnTestConnection.disabled = true;
+    const testBtnText = document.getElementById("test-btn-text");
+    if (testBtnText) testBtnText.textContent = "Testing...";
+  }
+
   if (testResultsPanel) testResultsPanel.classList.remove("hidden");
   if (testStatusPill) {
     testStatusPill.textContent = "Testing...";
@@ -2437,6 +2443,12 @@ async function runDiagnosticTest() {
     }
 
     await addLog("error", `Connection test error: ${err.message}`);
+  } finally {
+    if (btnTestConnection) {
+      btnTestConnection.disabled = false;
+      const testBtnText = document.getElementById("test-btn-text");
+      if (testBtnText) testBtnText.textContent = "Test Connection";
+    }
   }
 }
 
