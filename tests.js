@@ -3030,6 +3030,79 @@ async function executeTestSuite() {
     assert.strictEqual(btnAddExclusion.disabled, true, "btnAddExclusion must be disabled after successful domain addition");
   });
 
+  // Test 62: Disabled loading state on Test Connection button during diagnostic test
+  await runTest("Disabled loading state on Test Connection button during diagnostic test", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="btn-test-connection"') && popupHtml.includes('id="test-btn-text"'),
+      "popup.html must contain #btn-test-connection and #test-btn-text"
+    );
+
+    const popupJs = fs.readFileSync(__dirname + "/popup.js", "utf8");
+    assert.ok(
+      popupJs.includes("btnTestConnection.disabled = true;") &&
+      popupJs.includes('testBtnText.textContent = "Testing...";'),
+      "popup.js must disable button and set text to Testing... during diagnostic"
+    );
+    assert.ok(
+      popupJs.includes("btnTestConnection.disabled = false;") &&
+      popupJs.includes('testBtnText.textContent = "Test Connection";'),
+      "popup.js must re-enable button and restore text in finally block"
+    );
+
+    const sandbox = createSandbox();
+    const btnTestConnection = sandbox.document.getElementById("btn-test-connection");
+    const testBtnText = sandbox.document.getElementById("test-btn-text");
+    testBtnText.textContent = "Test Connection";
+    btnTestConnection.disabled = false;
+
+    const inputApiEndpoint = sandbox.document.getElementById("input-api-endpoint");
+    inputApiEndpoint.value = "http://localhost:11434";
+
+    let stateDuringFetch = null;
+    sandbox.fetch = async () => {
+      stateDuringFetch = {
+        disabled: btnTestConnection.disabled,
+        text: testBtnText.textContent
+      };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: "ok" } }] })
+      };
+    };
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(uiCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // Initial state: enabled
+    assert.strictEqual(btnTestConnection.disabled, false);
+    assert.strictEqual(testBtnText.textContent, "Test Connection");
+
+    // Run diagnostic
+    await sandbox.runDiagnosticTest();
+
+    // While test was running, button was disabled with 'Testing...'
+    assert.ok(stateDuringFetch !== null, "fetch should have been invoked during diagnostic test");
+    assert.strictEqual(stateDuringFetch.disabled, true, "btnTestConnection must be disabled during diagnostic run");
+    assert.strictEqual(stateDuringFetch.text, "Testing...", "testBtnText must display 'Testing...' during diagnostic run");
+
+    // After completion, button re-enabled and restored
+    assert.strictEqual(btnTestConnection.disabled, false, "btnTestConnection must be re-enabled after diagnostic completion");
+    assert.strictEqual(testBtnText.textContent, "Test Connection", "testBtnText must be restored to 'Test Connection'");
+
+    // Verify error/exception case also restores state via finally
+    sandbox.fetch = async () => {
+      throw new Error("Network timeout");
+    };
+
+    await sandbox.runDiagnosticTest();
+    assert.strictEqual(btnTestConnection.disabled, false, "btnTestConnection must be re-enabled even if diagnostic fails");
+    assert.strictEqual(testBtnText.textContent, "Test Connection", "testBtnText must be restored even if diagnostic fails");
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
