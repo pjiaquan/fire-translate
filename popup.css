@@ -542,14 +542,24 @@ html[data-surface="popup"] body {
   transition: all 0.2s;
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
   opacity: 0.95;
   box-shadow: 0 6px 16px var(--accent-glow);
   transform: translateY(-1px);
 }
 
-.primary-btn:active {
+.primary-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary-btn:disabled {
+  box-shadow: none;
 }
 
 .secondary-btn {
@@ -565,7 +575,7 @@ html[data-surface="popup"] body {
   transition: all 0.2s;
 }
 
-.secondary-btn:hover {
+.secondary-btn:hover:not(:disabled) {
   background-color: var(--border-color);
 }
 
