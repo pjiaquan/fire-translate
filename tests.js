@@ -2952,6 +2952,31 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.cleanTranslateText(normalInput), "Hello world", "cleanTranslateText must preserve input under 5000 characters");
   });
 
+  // Test 61: Max history input validates its boundaries
+  await runTest("Max history input validates its boundaries", async () => {
+    const popupCode = fs.readFileSync(__dirname + "/popup.js", "utf8");
+    const sharedCode = fs.readFileSync(__dirname + "/shared.js", "utf8");
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    sandbox.document.getElementById("input-max-history").value = "0";
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    const state0 = sandbox.getFormSettingsState();
+    assert.strictEqual(state0.maxHistory, 5, "Input below 5 should resolve to 5");
+
+    sandbox.document.getElementById("input-max-history").value = "-100";
+    const stateNeg = sandbox.getFormSettingsState();
+    assert.strictEqual(stateNeg.maxHistory, 5, "Negative input should resolve to 5");
+
+    sandbox.document.getElementById("input-max-history").value = "9999";
+    const state9999 = sandbox.getFormSettingsState();
+    assert.strictEqual(state9999.maxHistory, 1000, "Input over 1000 should resolve to 1000");
+
+    sandbox.document.getElementById("input-max-history").value = "50";
+    const state50 = sandbox.getFormSettingsState();
+    assert.strictEqual(state50.maxHistory, 50, "Valid input should resolve to itself");
+  });
+
   // Test 60: Configuration inputs and textareas enforce maxlength attributes in popup.html
   await runTest("Configuration inputs and textareas enforce maxlength attributes in popup.html", async () => {
     const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
@@ -2988,7 +3013,7 @@ async function executeTestSuite() {
     }
   });
 
-  // Test 61: Dynamic disabled state on Add Exclusion button
+  // Test 62: Dynamic disabled state on Add Exclusion button
   await runTest("Dynamic disabled state on Add Exclusion button", async () => {
     const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
     assert.ok(
@@ -3030,7 +3055,7 @@ async function executeTestSuite() {
     assert.strictEqual(btnAddExclusion.disabled, true, "btnAddExclusion must be disabled after successful domain addition");
   });
 
-  // Test 62: Disabled loading state on Test Connection button during diagnostic test
+  // Test 63: Disabled loading state on Test Connection button during diagnostic test
   await runTest("Disabled loading state on Test Connection button during diagnostic test", async () => {
     const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
     assert.ok(

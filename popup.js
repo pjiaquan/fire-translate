@@ -2715,7 +2715,7 @@ function getFormSettingsState() {
     model: inputModel ? inputModel.value.trim() : "",
     modelType: selectModelType ? selectModelType.value : "qwen",
     temperature: tempInput ? parseFloat(tempInput.value) : 0.1,
-    maxHistory: historyInput ? parseInt(historyInput.value, 10) : 100,
+    maxHistory: historyInput ? Math.max(5, Math.min(1000, parseInt(historyInput.value, 10))) : 100,
     autoTranslate: autoInput ? autoInput.checked : true,
     grammarCheck: checkGrammarCheck ? checkGrammarCheck.checked : true,
     richLearningMode: checkRichLearning ? checkRichLearning.checked : true,
@@ -3077,7 +3077,7 @@ btnSaveSettings.addEventListener("click", async () => {
   const modelType = selectModelType.value;
 
   const temperature = parseFloat(document.getElementById("input-temperature").value);
-  const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
+  const maxHistory = Math.max(5, Math.min(1000, parseInt(document.getElementById("input-max-history").value, 10)));
   const autoTranslate = document.getElementById("check-auto-translate").checked;
   const grammarCheck = checkGrammarCheck ? checkGrammarCheck.checked : true;
   const richLearningMode = checkRichLearning.checked;

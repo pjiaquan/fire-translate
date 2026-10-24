@@ -37,3 +37,8 @@
 **Vulnerability:** Configuration inputs like API endpoints, models, API keys, and system prompts lacked length validation in `popup.html`.
 **Learning:** Text inputs that are synced to storage or processed by the application can be vectors for resource exhaustion (DoS), storage bloat, or UI freezes if they don't have constraints.
 **Prevention:** Always apply length bounds on all text input elements, especially configuration parameters, using HTML `maxlength` properties (e.g. `maxlength="500"` for simple fields and `maxlength="5000"` for long prompts) to proactively prevent resource abuse.
+
+## 2024-06-01 - [Configuration Numeric Input Missing Bounds Validation]
+**Vulnerability:** The numeric input `input-max-history` relied solely on HTML `min` and `max` attributes for validation. A malicious user or modified client could submit values outside this range (e.g., negative numbers or extremely large numbers like 99999), leading to potential memory exhaustion or application crashes when parsing histories.
+**Learning:** HTML validation attributes on `<input type="number">` can be trivially bypassed. They provide UX constraints, not security constraints.
+**Prevention:** Always explicitly enforce numeric boundaries in JavaScript (e.g., using `Math.max` and `Math.min`) before processing or storing numeric inputs.
