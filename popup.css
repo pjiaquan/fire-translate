@@ -472,13 +472,18 @@ html[data-surface="popup"] body {
   transition: opacity 0.2s, transform 0.1s;
 }
 
-.grammar-apply-btn:hover {
+.grammar-apply-btn:hover:not(:disabled) {
   opacity: 0.9;
   transform: translateY(-1px);
 }
 
-.grammar-apply-btn:active {
+.grammar-apply-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.grammar-apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .grammar-dismiss-btn {
@@ -542,14 +547,19 @@ html[data-surface="popup"] body {
   transition: all 0.2s;
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
   opacity: 0.95;
   box-shadow: 0 6px 16px var(--accent-glow);
   transform: translateY(-1px);
 }
 
-.primary-btn:active {
+.primary-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .secondary-btn {
@@ -565,8 +575,13 @@ html[data-surface="popup"] body {
   transition: all 0.2s;
 }
 
-.secondary-btn:hover {
+.secondary-btn:hover:not(:disabled) {
   background-color: var(--border-color);
+}
+
+.secondary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .text-danger-btn {
@@ -582,8 +597,13 @@ html[data-surface="popup"] body {
   transition: all 0.2s;
 }
 
-.text-danger-btn:hover {
+.text-danger-btn:hover:not(:disabled) {
   background-color: var(--danger-glow);
+}
+
+.text-danger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Spinner overlay inside output */
