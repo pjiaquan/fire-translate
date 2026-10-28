@@ -3103,6 +3103,21 @@ async function executeTestSuite() {
     assert.strictEqual(testBtnText.textContent, "Test Connection", "testBtnText must be restored even if diagnostic fails");
   });
 
+  // Test 63: Action buttons define explicit :disabled pseudo-class and wrap interaction states with :not(:disabled)
+  await runTest("Action buttons explicitly define :disabled styles and wrap :hover/:active with :not(:disabled)", async () => {
+    const popupCss = fs.readFileSync(__dirname + "/popup.css", "utf8");
+    assert.ok(
+      popupCss.includes(".primary-btn:disabled") && popupCss.includes(".secondary-btn:disabled"),
+      "popup.css must explicitly define .primary-btn:disabled and .secondary-btn:disabled"
+    );
+    assert.ok(
+      popupCss.includes(".primary-btn:hover:not(:disabled)") &&
+      popupCss.includes(".primary-btn:active:not(:disabled)") &&
+      popupCss.includes(".secondary-btn:hover:not(:disabled)"),
+      "popup.css must wrap interaction states with :not(:disabled) to prevent falsely advertising interactivity on disabled buttons"
+    );
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
