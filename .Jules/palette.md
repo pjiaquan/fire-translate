@@ -28,3 +28,7 @@
 ## 2024-05-25 - UX improvements for dynamic disabled states on input context buttons
 **Learning:** Extending the learning from "UX improvements for dynamic disabled states on input clear buttons", it's equally important for submission/action buttons (like an "Add" button next to an input field) to be visually disabled when the input is empty. If an "Add domain" button is active while the input is empty, users might click it expecting an action or an error message. Disabling it dynamically makes it clear that the action requires input.
 **Action:** When implementing action buttons tied directly to text inputs (like add, submit, or clear buttons), always bind the `disabled` state of the button to the trimmed length of the input field. Update this state on 'input' events and whenever the input is programmatically cleared or submitted.
+
+## 2024-05-26 - Accessibility and UX improvements for action button disabled states
+**Learning:** Found that core action buttons (.primary-btn, .secondary-btn) falsely advertise interactivity when disabled because their `:hover` and `:active` pseudo-classes lack `:not(:disabled)` guards, and they lack explicit `:disabled` opacity and cursor styles. This creates a confusing UX where a disabled button still glows, moves, or changes color on hover.
+**Action:** When implementing action buttons, explicitly define `:disabled` pseudo-class styles (e.g., `opacity: 0.5`, `cursor: not-allowed`) and wrap `:hover` or `:active` state styles with `:not(:disabled)` to prevent falsely advertising interactivity on disabled elements.
