@@ -2714,8 +2714,8 @@ function getFormSettingsState() {
     apiKey: inputApiKey ? inputApiKey.value.trim() : "",
     model: inputModel ? inputModel.value.trim() : "",
     modelType: selectModelType ? selectModelType.value : "qwen",
-    temperature: tempInput ? parseFloat(tempInput.value) : 0.1,
-    maxHistory: historyInput ? parseInt(historyInput.value, 10) : 100,
+    temperature: tempInput ? Math.min(2, Math.max(0, isNaN(parseFloat(tempInput.value)) ? 0.1 : parseFloat(tempInput.value))) : 0.1,
+    maxHistory: historyInput ? Math.min(1000, Math.max(5, isNaN(parseInt(historyInput.value, 10)) ? 100 : parseInt(historyInput.value, 10))) : 100,
     autoTranslate: autoInput ? autoInput.checked : true,
     grammarCheck: checkGrammarCheck ? checkGrammarCheck.checked : true,
     richLearningMode: checkRichLearning ? checkRichLearning.checked : true,
@@ -3076,8 +3076,10 @@ btnSaveSettings.addEventListener("click", async () => {
   const model = inputModel.value.trim();
   const modelType = selectModelType.value;
 
-  const temperature = parseFloat(document.getElementById("input-temperature").value);
-  const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
+  const tempVal = parseFloat(document.getElementById("input-temperature").value);
+  const temperature = Math.min(2, Math.max(0, isNaN(tempVal) ? 0.1 : tempVal));
+  const historyVal = parseInt(document.getElementById("input-max-history").value, 10);
+  const maxHistory = Math.min(1000, Math.max(5, isNaN(historyVal) ? 100 : historyVal));
   const autoTranslate = document.getElementById("check-auto-translate").checked;
   const grammarCheck = checkGrammarCheck ? checkGrammarCheck.checked : true;
   const richLearningMode = checkRichLearning.checked;
