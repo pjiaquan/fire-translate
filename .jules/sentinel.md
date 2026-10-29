@@ -37,3 +37,8 @@
 **Vulnerability:** Configuration inputs like API endpoints, models, API keys, and system prompts lacked length validation in `popup.html`.
 **Learning:** Text inputs that are synced to storage or processed by the application can be vectors for resource exhaustion (DoS), storage bloat, or UI freezes if they don't have constraints.
 **Prevention:** Always apply length bounds on all text input elements, especially configuration parameters, using HTML `maxlength` properties (e.g. `maxlength="500"` for simple fields and `maxlength="5000"` for long prompts) to proactively prevent resource abuse.
+
+## 2024-06-01 - [Input validation boundary bypass]
+**Vulnerability:** HTML input validation (`min`/`max` attributes) can be bypassed, which can cause resource exhaustion or unexpected app behavior if the user submits inputs with out-of-bound values.
+**Learning:** We need to explicitly check boundaries (in this case, using `Math.min` and `Math.max`) for input values retrieved from the form (`temperature`, `maxHistory`), regardless of HTML input validation.
+**Prevention:** Always enforce explicit numeric boundaries in JavaScript (e.g., using `Math.max` and `Math.min`) before storing or using values parsed from UI elements like `<input type="number">` or `<input type="range">`.
