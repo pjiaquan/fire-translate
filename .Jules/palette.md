@@ -28,3 +28,6 @@
 ## 2024-05-25 - UX improvements for dynamic disabled states on input context buttons
 **Learning:** Extending the learning from "UX improvements for dynamic disabled states on input clear buttons", it's equally important for submission/action buttons (like an "Add" button next to an input field) to be visually disabled when the input is empty. If an "Add domain" button is active while the input is empty, users might click it expecting an action or an error message. Disabling it dynamically makes it clear that the action requires input.
 **Action:** When implementing action buttons tied directly to text inputs (like add, submit, or clear buttons), always bind the `disabled` state of the button to the trimmed length of the input field. Update this state on 'input' events and whenever the input is programmatically cleared or submitted.
+## 2026-10-29 - Empty state placeholder for quick models container
+**Learning:** Found that using placeholder on non-input tags like `div` does not work automatically. I had to use the attr(placeholder) approach and a CSS class that checks for the pseudo `::before` target.
+**Action:** When implementing placeholder text for empty lists or containers, be sure to use CSS `attr(placeholder)` in the pseudo element `::before` combined with an empty class.
