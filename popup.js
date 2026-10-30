@@ -618,7 +618,8 @@ async function addLog(type, message, details = null) {
 async function addHistoryItem(srcText, targetText, srcLang, targetLang) {
   const result = await chrome.storage.local.get(["history", "maxHistory"]);
   const history = result.history || [];
-  const maxHistory = parseInt(result.maxHistory || 100, 10);
+  let parsedMax = parseInt(result.maxHistory, 10);
+  const maxHistory = isNaN(parsedMax) ? 100 : Math.max(5, Math.min(1000, parsedMax));
   
   // Check if it's identical to the most recent translation to avoid duplicates
   if (history.length > 0 && 
@@ -2715,7 +2716,7 @@ function getFormSettingsState() {
     model: inputModel ? inputModel.value.trim() : "",
     modelType: selectModelType ? selectModelType.value : "qwen",
     temperature: tempInput ? parseFloat(tempInput.value) : 0.1,
-    maxHistory: historyInput ? parseInt(historyInput.value, 10) : 100,
+    maxHistory: historyInput && !isNaN(parseInt(historyInput.value, 10)) ? Math.max(5, Math.min(1000, parseInt(historyInput.value, 10))) : 100,
     autoTranslate: autoInput ? autoInput.checked : true,
     grammarCheck: checkGrammarCheck ? checkGrammarCheck.checked : true,
     richLearningMode: checkRichLearning ? checkRichLearning.checked : true,
@@ -3077,7 +3078,8 @@ btnSaveSettings.addEventListener("click", async () => {
   const modelType = selectModelType.value;
 
   const temperature = parseFloat(document.getElementById("input-temperature").value);
-  const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
+  let parsedHistory = parseInt(document.getElementById("input-max-history").value, 10);
+  const maxHistory = isNaN(parsedHistory) ? 100 : Math.max(5, Math.min(1000, parsedHistory));
   const autoTranslate = document.getElementById("check-auto-translate").checked;
   const grammarCheck = checkGrammarCheck ? checkGrammarCheck.checked : true;
   const richLearningMode = checkRichLearning.checked;
