@@ -424,7 +424,8 @@ async function addHistoryItemBg(src, target, srcLang, targetLang) {
   history.unshift(newItem);
   
   const config = await chrome.storage.local.get("maxHistory");
-  const maxHistory = config.maxHistory || 100;
+  let parsedMax = parseInt(config.maxHistory, 10);
+  const maxHistory = isNaN(parsedMax) ? 100 : Math.max(5, Math.min(1000, parsedMax));
   if (history.length > maxHistory) {
     history = history.slice(0, maxHistory);
   }
