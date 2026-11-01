@@ -2876,6 +2876,9 @@ async function executeTestSuite() {
 
     const sandbox = createSandbox();
     const btnClearSrc = sandbox.document.getElementById("btn-clear-src");
+    const btnTranslate = sandbox.document.getElementById("btn-translate");
+    // we need to set its initial state if the sandbox does not execute popup.html initial load.
+    btnTranslate.disabled = true;
     btnClearSrc.disabled = true;
     const srcTextarea = sandbox.document.getElementById("src-textarea");
     srcTextarea.value = "";
@@ -2887,25 +2890,30 @@ async function executeTestSuite() {
 
     // 1. Initial state
     assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must initially be disabled when textarea is empty");
+    assert.strictEqual(btnTranslate.disabled, true, "btnTranslate must initially be disabled when textarea is empty");
 
     // 2. Typing text enables the clear button
     srcTextarea.value = "Hello world";
     srcTextarea.dispatchEvent("input");
     assert.strictEqual(btnClearSrc.disabled, false, "btnClearSrc must be enabled when input has text");
+    assert.strictEqual(btnTranslate.disabled, false, "btnTranslate must be enabled when input has text");
 
     // 3. Clicking clear button resets text and disables clear button
     btnClearSrc.click();
     assert.strictEqual(srcTextarea.value, "", "textarea value must be cleared");
     assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled after click");
+    assert.strictEqual(btnTranslate.disabled, true, "btnTranslate must be disabled after click");
 
     // 4. Typing then deleting all text disables clear button again
     srcTextarea.value = "Something";
     srcTextarea.dispatchEvent("input");
     assert.strictEqual(btnClearSrc.disabled, false);
+    assert.strictEqual(btnTranslate.disabled, false);
 
     srcTextarea.value = "";
     srcTextarea.dispatchEvent("input");
     assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled when text is erased to empty");
+    assert.strictEqual(btnTranslate.disabled, true, "btnTranslate must be disabled when text is erased to empty");
   });
 
   // Test 58: Target content empty state placeholder rendered via CSS attr(placeholder)
