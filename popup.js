@@ -129,6 +129,7 @@ function applyGrammarSuggestion() {
     srcTextarea.value = corrected;
     charCounter.textContent = `${corrected.length} 字`;
     btnClearSrc.disabled = corrected.length === 0;
+    btnTranslate.disabled = corrected.length === 0;
     hideGrammarSuggestion();
     if (srcTextarea && typeof srcTextarea.focus === "function") {
       srcTextarea.focus();
@@ -966,6 +967,7 @@ async function translate() {
   if (!srcText) return;
   srcTextarea.value = srcText;
   btnClearSrc.disabled = srcText.length === 0;
+  btnTranslate.disabled = srcText.length === 0;
 
   if (!/\p{L}/u.test(srcText) || isUrlLike(srcText) || isApiKeyLike(srcText)) {
     statusMessage.textContent = "Ignored (Symbols, Numbers, Link, or Key)";
@@ -3556,6 +3558,7 @@ async function loadHistoryItem(item) {
   srcTextarea.value = item.srcText;
   charCounter.textContent = `${item.srcText.length} 字`;
   btnClearSrc.disabled = item.srcText.length === 0;
+  btnTranslate.disabled = item.srcText.length === 0;
   
   const config = await chrome.storage.local.get("showThinking");
   const showThinking = config.showThinking !== false;
@@ -3655,6 +3658,7 @@ btnClearSrc.addEventListener("click", () => {
   srcTextarea.value = "";
   charCounter.textContent = "0 字";
   btnClearSrc.disabled = true;
+  btnTranslate.disabled = true;
   targetContent.textContent = "";
   targetContent.classList.add("empty");
   btnCopy.disabled = true;
@@ -3671,6 +3675,7 @@ document.getElementById("btn-paste").addEventListener("click", async () => {
     srcTextarea.value = text;
     charCounter.textContent = `${text.length} 字`;
     btnClearSrc.disabled = text.length === 0;
+    btnTranslate.disabled = text.length === 0;
     srcTextarea.focus();
     
     // Check grammar on paste
@@ -3847,6 +3852,7 @@ document.getElementById("btn-swap-lang").addEventListener("click", async () => {
     targetContent.textContent = currentSrcText;
     charCounter.textContent = `${srcTextarea.value.length} 字`;
     btnClearSrc.disabled = srcTextarea.value.length === 0;
+    btnTranslate.disabled = srcTextarea.value.length === 0;
     translate();
   } else if (currentSrcText.trim()) {
     translate();
@@ -3879,6 +3885,7 @@ srcTextarea.addEventListener("input", () => {
   const text = srcTextarea.value;
   charCounter.textContent = `${text.length} 字`;
   btnClearSrc.disabled = text.length === 0;
+  btnTranslate.disabled = text.length === 0;
   
   if (text.trim() === "") {
     targetContent.textContent = "";
@@ -4007,6 +4014,7 @@ async function initApp() {
     srcTextarea.value = res.pendingTranslationText;
     charCounter.textContent = `${res.pendingTranslationText.length} 字`;
     btnClearSrc.disabled = res.pendingTranslationText.length === 0;
+    btnTranslate.disabled = res.pendingTranslationText.length === 0;
     await chrome.storage.local.remove("pendingTranslationText");
     translate();
   } else {
@@ -4053,6 +4061,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     srcTextarea.value = message.text;
     charCounter.textContent = `${message.text.length} 字`;
     btnClearSrc.disabled = message.text.length === 0;
+    btnTranslate.disabled = message.text.length === 0;
     translate();
   } else if (message.action === "phase2Completed") {
     const currentSrc = srcTextarea.value.trim();
