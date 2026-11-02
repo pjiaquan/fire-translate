@@ -23,6 +23,7 @@ All user preferences, operational data, and active drafts are saved **strictly l
 - **Preferences**: Target language selections, dark/light theme options, and text font size choices.
 - **Website Exclusion List**: Domain names added to your website exclusion list.
 - **Translation Cache**: Temporary cached translation responses saved locally to eliminate redundant network requests.
+- **Translation History & Review Progress**: The sentences you translate, their translations, and your flashcard review progress, kept up to the history limit you set (5000 at most). The `unlimitedStorage` permission only lifts the browser's local quota for this data. CSV export writes a file to your device on request; nothing is uploaded.
 
 **None of your stored settings or credentials are ever transmitted to us or any central server managed by Fire Translate.**
 

@@ -40,7 +40,8 @@ const drawers = {
   settings: document.getElementById("drawer-settings"),
   history: document.getElementById("drawer-history"),
   logs: document.getElementById("drawer-logs"),
-  exclusions: document.getElementById("drawer-exclusions")
+  exclusions: document.getElementById("drawer-exclusions"),
+  review: document.getElementById("drawer-review")
 };
 const backdrop = document.getElementById("drawer-backdrop");
 
@@ -618,30 +619,10 @@ async function addLog(type, message, details = null) {
 async function addHistoryItem(srcText, targetText, srcLang, targetLang) {
   const result = await chrome.storage.local.get(["history", "maxHistory"]);
   const history = result.history || [];
-  const maxHistory = parseInt(result.maxHistory || 100, 10);
-  
-  // Check if it's identical to the most recent translation to avoid duplicates
-  if (history.length > 0 && 
-      history[0].srcText.trim() === srcText.trim() && 
-      history[0].targetLang === targetLang) {
-    return;
-  }
+  const updated = addToHistory(history, { srcText, targetText, srcLang, targetLang }, result.maxHistory);
+  if (updated === history) return;
 
-  const item = {
-    id: Date.now().toString(),
-    timestamp: new Date().toISOString(),
-    srcText,
-    targetText,
-    srcLang,
-    targetLang
-  };
-
-  history.unshift(item);
-  if (history.length > maxHistory) {
-    history.splice(maxHistory);
-  }
-
-  await chrome.storage.local.set({ history });
+  await chrome.storage.local.set({ history: updated });
   
   if (drawers.history.classList.contains("open")) {
     renderHistory();
@@ -1342,7 +1323,10 @@ function openDrawer(name) {
     backdrop.classList.remove("hidden");
     
     if (name === "history") {
+      historyVisibleCount = HISTORY_PAGE_SIZE;
       renderHistory();
+    } else if (name === "review") {
+      renderReviewCard();
     } else if (name === "logs") {
       renderLogs();
     } else if (name === "settings") {
@@ -2715,7 +2699,7 @@ function getFormSettingsState() {
     model: inputModel ? inputModel.value.trim() : "",
     modelType: selectModelType ? selectModelType.value : "qwen",
     temperature: tempInput ? parseFloat(tempInput.value) : 0.1,
-    maxHistory: historyInput ? parseInt(historyInput.value, 10) : 100,
+    maxHistory: historyInput ? normalizeMaxHistory(historyInput.value) : DEFAULT_MAX_HISTORY,
     autoTranslate: autoInput ? autoInput.checked : true,
     grammarCheck: checkGrammarCheck ? checkGrammarCheck.checked : true,
     richLearningMode: checkRichLearning ? checkRichLearning.checked : true,
@@ -3006,7 +2990,7 @@ async function loadSettingsToUI() {
     model: cleanedModel !== undefined ? cleanedModel : (currentRec.model || ""),
     modelType: res.modelType !== undefined ? res.modelType : (currentRec.modelType || "qwen"),
     temperature: res.temperature ?? 0.1,
-    maxHistory: res.maxHistory ?? 100,
+    maxHistory: res.maxHistory ?? DEFAULT_MAX_HISTORY,
     autoTranslate: res.autoTranslate !== false,
     grammarCheck: res.grammarCheck !== false,
     richLearningMode: res.richLearningMode !== false,
@@ -3077,7 +3061,7 @@ btnSaveSettings.addEventListener("click", async () => {
   const modelType = selectModelType.value;
 
   const temperature = parseFloat(document.getElementById("input-temperature").value);
-  const maxHistory = parseInt(document.getElementById("input-max-history").value, 10);
+  const maxHistory = normalizeMaxHistory(document.getElementById("input-max-history").value);
   const autoTranslate = document.getElementById("check-auto-translate").checked;
   const grammarCheck = checkGrammarCheck ? checkGrammarCheck.checked : true;
   const richLearningMode = checkRichLearning.checked;
@@ -3164,7 +3148,7 @@ btnResetSettings.addEventListener("click", async () => {
       model: DEFAULT_MODEL,
       modelType: "qwen",
       temperature: 0.1,
-      maxHistory: 100,
+      maxHistory: DEFAULT_MAX_HISTORY,
       autoTranslate: true,
       grammarCheck: true,
       richLearningMode: true,
@@ -3415,12 +3399,25 @@ document.getElementById("btn-clear-logs").addEventListener("click", async () => 
 });
 
 // History UI Renderer
+// Long histories render a page at a time so opening the drawer stays fast.
+const HISTORY_PAGE_SIZE = 200;
+let historyVisibleCount = HISTORY_PAGE_SIZE;
+let historySearchTimer = null;
+const inputSearchHistory = document.getElementById("input-search-history");
+const historyCountText = document.getElementById("history-count-text");
+const btnExportHistory = document.getElementById("btn-export-history");
+const btnStartReview = document.getElementById("btn-start-review");
+const reviewDueText = document.getElementById("review-due-text");
+
 async function renderHistory() {
   const res = await chrome.storage.local.get("history");
   const history = res.history || [];
   const listContainer = document.getElementById("history-list");
+  updateReviewSummary(history);
+  if (btnExportHistory) btnExportHistory.disabled = history.length === 0;
   
   if (history.length === 0) {
+    if (historyCountText) historyCountText.textContent = "";
     setDomContent(listContainer, [
       "\n      ",
       domElement(
@@ -3452,8 +3449,21 @@ async function renderHistory() {
     return;
   }
 
+  const query = inputSearchHistory ? inputSearchHistory.value : "";
+  const matches = filterHistory(history, query);
+  if (historyCountText) {
+    historyCountText.textContent = query.trim()
+      ? `找到 ${matches.length} 句（共 ${history.length} 句）`
+      : `共 ${history.length} 句`;
+  }
+
+  if (matches.length === 0) {
+    setDomContent(listContainer, domElement("div", { class: "empty-state" }, domElement("p", {}, "找不到符合的紀錄。")));
+    return;
+  }
+
   listContainer.replaceChildren();
-  history.forEach(item => {
+  matches.slice(0, historyVisibleCount).forEach(item => {
     const card = document.createElement("div");
     card.className = "history-item";
     
@@ -3489,7 +3499,7 @@ async function renderHistory() {
         "\n        ",
         domElement("div", { class: "history-src" }, item.srcText),
         "\n        ",
-        domElement("div", { class: "history-target" }, item.targetText),
+        domElement("div", { class: "history-target" }, getHistoryTranslationText(item)),
         "\n      ",
       ),
       "\n      ",
@@ -3539,6 +3549,19 @@ async function renderHistory() {
 
     listContainer.appendChild(card);
   });
+
+  if (matches.length > historyVisibleCount) {
+    const moreBtn = domElement(
+      "button",
+      { type: "button", class: "secondary-btn btn-small history-more-btn" },
+      `顯示更多（還有 ${matches.length - historyVisibleCount} 句）`,
+    );
+    moreBtn.addEventListener("click", () => {
+      historyVisibleCount += HISTORY_PAGE_SIZE;
+      renderHistory();
+    });
+    listContainer.appendChild(moreBtn);
+  }
   
   // Attach single item delete listeners
   listContainer.querySelectorAll(".history-delete-btn").forEach(btn => {
@@ -3560,9 +3583,10 @@ async function loadHistoryItem(item) {
   const config = await chrome.storage.local.get("showThinking");
   const showThinking = config.showThinking !== false;
 
+  const targetText = getHistoryTargetText(item);
   let parsedSuccessfully = false;
   try {
-    const cleanedText = item.targetText.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const cleanedText = targetText.replace(/```json/gi, "").replace(/```/g, "").trim();
     const parsedData = JSON.parse(cleanedText);
     if (parsedData && parsedData.translation) {
       await renderRichTranslation(parsedData);
@@ -3576,11 +3600,11 @@ async function loadHistoryItem(item) {
       parsedSuccessfully = true;
     }
   } catch (e) {
-    const startIdx = item.targetText.indexOf("{");
-    const endIdx = item.targetText.lastIndexOf("}");
+    const startIdx = targetText.indexOf("{");
+    const endIdx = targetText.lastIndexOf("}");
     if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
       try {
-        const jsonSub = item.targetText.substring(startIdx, endIdx + 1);
+        const jsonSub = targetText.substring(startIdx, endIdx + 1);
         const parsedData = JSON.parse(jsonSub);
         if (parsedData && parsedData.translation) {
           await renderRichTranslation(parsedData);
@@ -3601,9 +3625,9 @@ async function loadHistoryItem(item) {
 
   if (!parsedSuccessfully) {
     let finalThinking = "";
-    let finalTranslation = item.targetText;
-    if (item.targetText.includes("<think>")) {
-      const parsed = splitThinkingText(item.targetText);
+    let finalTranslation = targetText;
+    if (targetText.includes("<think>")) {
+      const parsed = splitThinkingText(targetText);
       finalThinking = parsed.thinking;
       finalTranslation = parsed.translation;
     }
@@ -3648,6 +3672,206 @@ document.getElementById("btn-clear-history").addEventListener("click", async () 
     renderHistory();
     await addLog("info", "Cleared all translation history");
   }
+});
+
+if (inputSearchHistory) {
+  inputSearchHistory.addEventListener("input", () => {
+    clearTimeout(historySearchTimer);
+    historySearchTimer = setTimeout(() => {
+      historyVisibleCount = HISTORY_PAGE_SIZE;
+      renderHistory();
+    }, 150);
+  });
+}
+
+async function exportHistoryToCsv() {
+  const res = await chrome.storage.local.get("history");
+  const history = res.history || [];
+  if (history.length === 0) return;
+  const blob = new Blob([historyToCsv(history)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `fire-translate-history-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  await addLog("info", `Exported ${history.length} history items as CSV`);
+}
+
+if (btnExportHistory) btnExportHistory.addEventListener("click", exportHistoryToCsv);
+
+function formatReviewDue(timeMs) {
+  const mins = Math.max(1, Math.ceil((timeMs - Date.now()) / 60000));
+  if (mins < 60) return `${mins} 分鐘後到期`;
+  const hours = Math.ceil(mins / 60);
+  if (hours < 24) return `${hours} 小時後到期`;
+  return `${Math.ceil(hours / 24)} 天後到期`;
+}
+
+function updateReviewSummary(history) {
+  if (!reviewDueText || !btnStartReview) return;
+  btnStartReview.disabled = history.length === 0;
+  const dueCount = getDueReviewItems(history).length;
+  if (history.length === 0) {
+    reviewDueText.textContent = "翻譯過的句子會存在這裡，之後可以複習";
+  } else if (dueCount > 0) {
+    reviewDueText.textContent = `🧠 ${dueCount} 句待複習`;
+  } else {
+    const next = getNextReviewTime(history);
+    reviewDueText.textContent = next ? `今天都複習完了，下一句 ${formatReviewDue(next)}` : "今天都複習完了";
+  }
+}
+
+// Review (溫故知新): flashcards drawn from the translation history. Each round
+// takes the due sentences; a sentence marked "Not Yet" comes back at the end of
+// the round until it is remembered.
+const REVIEW_SESSION_SIZE = 20;
+const REVIEW_PRACTICE_SIZE = 10;
+let reviewQueue = [];
+let reviewCurrentId = null;
+let reviewPracticeNext = false;
+const reviewSeenIds = new Set();
+const reviewForgotIds = new Set();
+const reviewEls = {
+  card: document.getElementById("review-card"),
+  meta: document.getElementById("review-meta"),
+  level: document.getElementById("review-level"),
+  src: document.getElementById("review-src"),
+  hint: document.getElementById("review-hint"),
+  translation: document.getElementById("review-translation"),
+  reveal: document.getElementById("btn-review-reveal"),
+  forgot: document.getElementById("btn-review-forgot"),
+  remembered: document.getElementById("btn-review-remembered"),
+  open: document.getElementById("btn-review-open"),
+  done: document.getElementById("review-done"),
+  doneText: document.getElementById("review-done-text"),
+  more: document.getElementById("btn-review-more"),
+  progress: document.getElementById("review-progress")
+};
+
+function shuffleArray(items) {
+  const result = items.slice();
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+async function startReviewSession(practice = false) {
+  const res = await chrome.storage.local.get("history");
+  const history = res.history || [];
+  const items = practice
+    ? shuffleArray(history.filter(item => item && item.srcText)).slice(0, REVIEW_PRACTICE_SIZE)
+    : getDueReviewItems(history).slice(0, REVIEW_SESSION_SIZE);
+  reviewQueue = items.map(item => item.id);
+  reviewSeenIds.clear();
+  reviewForgotIds.clear();
+  openDrawer("review");
+}
+
+function setReviewRevealed(revealed) {
+  reviewEls.translation.classList.toggle("hidden", !revealed);
+  reviewEls.hint.classList.toggle("hidden", revealed);
+  reviewEls.reveal.classList.toggle("hidden", revealed);
+  reviewEls.forgot.classList.toggle("hidden", !revealed);
+  reviewEls.remembered.classList.toggle("hidden", !revealed);
+}
+
+async function renderReviewCard() {
+  const res = await chrome.storage.local.get("history");
+  const history = res.history || [];
+  let item = null;
+  // Skip sentences deleted from the history since the round started
+  while (reviewQueue.length > 0 && !item) {
+    item = history.find(entry => entry && entry.id === reviewQueue[0]) || null;
+    if (!item) reviewQueue.shift();
+  }
+  reviewEls.progress.textContent = reviewQueue.length > 0 ? `剩 ${reviewQueue.length} 句` : "";
+  if (!item) {
+    renderReviewDone(history);
+    return;
+  }
+
+  reviewCurrentId = item.id;
+  reviewEls.card.classList.remove("hidden");
+  reviewEls.done.classList.add("hidden");
+  const srcLangText = languageNames[item.srcLang] || item.srcLang;
+  const targetLangText = languageNames[item.targetLang] || item.targetLang;
+  reviewEls.meta.textContent = `${srcLangText} → ${targetLangText}`;
+  reviewEls.level.textContent = `熟練度 ${item.reviewLevel || 0}/${REVIEW_INTERVAL_DAYS.length}`
+    + (item.lookupCount > 1 ? ` · 查過 ${item.lookupCount} 次` : "");
+  reviewEls.src.textContent = item.srcText;
+  reviewEls.translation.textContent = getHistoryTranslationText(item) || "（這句沒有存到譯文）";
+  setReviewRevealed(false);
+  reviewEls.reveal.focus();
+}
+
+function renderReviewDone(history) {
+  reviewCurrentId = null;
+  reviewEls.card.classList.add("hidden");
+  reviewEls.done.classList.remove("hidden");
+
+  const dueCount = getDueReviewItems(history).length;
+  const seen = reviewSeenIds.size;
+  const forgot = reviewForgotIds.size;
+  let message;
+  if (history.length === 0) {
+    message = "還沒有可以複習的句子。翻譯過的句子會自動存進來。";
+  } else if (seen > 0) {
+    message = forgot === 0
+      ? `這輪完成 ${seen} 句，全部都記得！`
+      : `這輪完成 ${seen} 句：${seen - forgot} 句一次就記得，${forgot} 句多練了幾遍。`;
+  } else {
+    message = "目前沒有到期的句子 🎉 ";
+  }
+  const next = dueCount === 0 ? getNextReviewTime(history) : null;
+  if (next) message += `下一句 ${formatReviewDue(next)}。`;
+  reviewEls.doneText.textContent = message;
+
+  reviewPracticeNext = dueCount === 0;
+  reviewEls.more.classList.toggle("hidden", history.length === 0);
+  reviewEls.more.textContent = dueCount > 0
+    ? `繼續複習（還有 ${dueCount} 句）`
+    : `隨機複習 ${Math.min(REVIEW_PRACTICE_SIZE, history.length)} 句`;
+  if (history.length > 0) reviewEls.more.focus();
+}
+
+async function gradeCurrentReview(remembered) {
+  const id = reviewCurrentId;
+  if (!id) return;
+  reviewCurrentId = null; // Ignore a second click while saving
+  const res = await chrome.storage.local.get("history");
+  const history = res.history || [];
+  const idx = history.findIndex(entry => entry && entry.id === id);
+  if (idx !== -1) {
+    history[idx] = gradeReviewItem(history[idx], remembered);
+    await chrome.storage.local.set({ history });
+  }
+  reviewSeenIds.add(id);
+  reviewQueue.shift();
+  if (!remembered) {
+    reviewForgotIds.add(id);
+    reviewQueue.push(id);
+  }
+  await renderReviewCard();
+}
+
+if (btnStartReview) btnStartReview.addEventListener("click", () => startReviewSession(false));
+reviewEls.reveal.addEventListener("click", () => {
+  setReviewRevealed(true);
+  reviewEls.remembered.focus();
+});
+reviewEls.forgot.addEventListener("click", () => gradeCurrentReview(false));
+reviewEls.remembered.addEventListener("click", () => gradeCurrentReview(true));
+reviewEls.more.addEventListener("click", () => startReviewSession(reviewPracticeNext));
+document.getElementById("btn-review-back").addEventListener("click", () => openDrawer("history"));
+reviewEls.open.addEventListener("click", async () => {
+  const res = await chrome.storage.local.get("history");
+  const item = (res.history || []).find(entry => entry && entry.id === reviewCurrentId);
+  if (item) await loadHistoryItem(item);
 });
 
 // Clipboard and text box helpers

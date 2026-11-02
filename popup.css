@@ -1071,6 +1071,65 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--danger-color);
 }
 
+.history-more-btn { align-self: center; }
+
+/* Review (flashcards from the history) */
+.review-due-text {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.review-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.review-card {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-src {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.review-translation {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-main);
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.review-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.review-actions button {
+  flex: 1;
+  justify-content: center;
+}
+
+.review-open-btn { align-self: flex-start; }
+
+#review-done-text {
+  text-align: center;
+  line-height: 1.5;
+}
+
 /* Console logs panel styling */
 .console-theme {
   background-color: var(--console-bg);
