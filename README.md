@@ -20,10 +20,13 @@ A sleek, modern Chrome extension for instant AI-powered translations. Inspired b
   * **Clipboard Copy**: One-click translation copy with visual checkmark success feedback.
   * **Text-to-Speech (TTS)**: Built-in SpeechSynthesis lets you read translations aloud.
 * **Translation History Panel**:
-  * Saves past translations with language labels and relative timestamps (e.g. "5m ago").
+  * Saves past translations from the popup, side panel, and webpage bubble, with language labels and relative timestamps (e.g. "5m ago"). Looking a sentence up again moves it to the top instead of adding a duplicate.
+  * Search past sentences by source text or translation.
   * Click any history item to restore its text and settings.
   * Delete individual history records or clear the entire history.
-  * Customizable maximum history limit.
+  * Keeps up to 5000 sentences (default 1000, set in Settings); the `unlimitedStorage` permission keeps a long history from hitting the browser's storage quota.
+  * Export the whole history as a UTF-8 CSV for spreadsheets or Anki.
+* **Review Mode (溫故知新)**: Flashcards drawn from your history. Recall the meaning, reveal the translation, then mark it **Remembered** or **Not Yet**. Remembered sentences come back after 1, 3, 7, 14, then 30 days; forgotten ones return at the end of the round, and looking a sentence up again puts it back in the review queue.
 * **Developer Log Console**:
   * Displays real-time API requests and response structures.
   * Expandable JSON nodes help troubleshoot local LLM configurations.
@@ -104,7 +107,7 @@ The extension posts requests to `${API_ENDPOINT}/v1/chat/completions` with the f
 設定頁的連線與偏好變更先保留為草稿，按底部固定的「儲存設定」才會生效；儲存不會自動重新翻譯原文。API 網址、模型格式、用量統計、提示詞、備份、Telegram、主題及診斷日誌依用途收合，設定儲存在目前瀏覽器。網頁浮窗連線失敗時可查看詳細資訊並重試。
 
 * **Ctrl + Enter** / **Cmd + Enter** (Mac): Press within the source text input area to trigger a translation instantly.
-* **Escape**: Closes any active drawer panel (Settings, History, or Logs).
+* **Escape**: Closes any active drawer panel (Settings, History, Review, or Logs).
 * **Right Click Extension Icon**: Select **Open Side Panel** to dock the translator to the side.
 
 ---

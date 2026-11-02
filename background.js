@@ -75,7 +75,7 @@ chrome.runtime.onInstalled.addListener(() => {
   ]
 }`;
     }
-    if (result.maxHistory === undefined) defaults.maxHistory = 100;
+    if (result.maxHistory === undefined) defaults.maxHistory = DEFAULT_MAX_HISTORY;
     if (result.history === undefined) defaults.history = [];
     if (result.logs === undefined) defaults.logs = [];
     if (result.theme === undefined) defaults.theme = "dark";
@@ -334,9 +334,10 @@ const activePhase2Fetches = new Map();
 async function updateHistoryItemWithRich(srcText, parsedData, srcLang, targetLang) {
   const res = await chrome.storage.local.get("history");
   let history = res.history || [];
-  const idx = history.findIndex(item => item.srcText === srcText && item.targetLang === targetLang);
+  const idx = history.findIndex(item => (item.srcText || "").trim() === srcText.trim() && item.targetLang === targetLang);
   if (idx !== -1) {
-    history[idx].translatedText = JSON.stringify(parsedData);
+    history[idx].targetText = JSON.stringify(parsedData);
+    delete history[idx].translatedText;
     await chrome.storage.local.set({ history: history });
   }
 }
@@ -405,31 +406,11 @@ function escapeTelegramHTML(str) {
 }
 
 async function addHistoryItemBg(src, target, srcLang, targetLang) {
-  const res = await chrome.storage.local.get("history");
-  let history = res.history || [];
-  
-  if (history.length > 0 && history[0].srcText === src && history[0].targetLang === targetLang) {
-    return;
-  }
-  
-  const newItem = {
-    id: Date.now().toString(),
-    srcText: src,
-    translatedText: target,
-    srcLang,
-    targetLang,
-    timestamp: new Date().toISOString()
-  };
-  
-  history.unshift(newItem);
-  
-  const config = await chrome.storage.local.get("maxHistory");
-  const maxHistory = config.maxHistory || 100;
-  if (history.length > maxHistory) {
-    history = history.slice(0, maxHistory);
-  }
-  
-  await chrome.storage.local.set({ history });
+  const res = await chrome.storage.local.get(["history", "maxHistory"]);
+  const history = res.history || [];
+  const updated = addToHistory(history, { srcText: src, targetText: target, srcLang, targetLang }, res.maxHistory);
+  if (updated === history) return;
+  await chrome.storage.local.set({ history: updated });
 }
 
 // Record monthly token usage in background script
@@ -544,7 +525,7 @@ async function sendToTelegram(srcText, translatedText) {
   if (!currentInHistory) {
     todayItems.unshift({
       srcText: cleanSrc,
-      translatedText: cleanTarget,
+      targetText: cleanTarget,
       timestamp: new Date().toISOString()
     });
   }
@@ -552,14 +533,7 @@ async function sendToTelegram(srcText, translatedText) {
   let htmlMessage = `<b>🔥 Fire Translate - Daily Review (${new Date().toLocaleDateString()})</b>\n\n`;
   todayItems.forEach((item, idx) => {
     const srcTextSafe = String(item.srcText || "");
-    let cleanTranslation = item.translatedText || "";
-    if (typeof cleanTranslation === "string" && cleanTranslation.startsWith("{") && cleanTranslation.endsWith("}")) {
-      try {
-        const parsed = JSON.parse(cleanTranslation);
-        cleanTranslation = parsed.translation || "";
-      } catch (e) {}
-    }
-    const transTextSafe = String(cleanTranslation);
+    const transTextSafe = getHistoryTranslationText(item);
     htmlMessage += `${idx + 1}. <b>${escapeTelegramHTML(srcTextSafe)}</b> → ${escapeTelegramHTML(transTextSafe)}\n`;
   });
 

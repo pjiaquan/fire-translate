@@ -345,7 +345,7 @@
         </div>
         <div class="form-group flex-1">
           <label for="input-max-history">Max History Items</label>
-          <input type="number" id="input-max-history" min="5" max="1000" value="100">
+          <input type="number" id="input-max-history" min="5" max="5000" value="1000">
         </div>
         <div class="form-group flex-1">
           <label for="select-text-size">Text Font Size</label>
@@ -496,11 +496,59 @@
         </button>
       </div>
     </div>
+    <div class="exclusions-toolbar">
+      <!-- Review summary: how many saved sentences are due -->
+      <div class="exclusions-summary">
+        <span id="review-due-text" class="review-due-text">No sentences to review yet</span>
+        <button type="button" id="btn-start-review" class="primary-btn btn-small" disabled>Start Review</button>
+      </div>
+      <div class="exclusions-add-row">
+        <input type="text" id="input-search-history" class="compact-input" placeholder="🔍 Search history..." aria-label="Search translation history" maxlength="500">
+        <button type="button" id="btn-export-history" class="secondary-btn btn-small" title="Export history as CSV" aria-label="Export history as CSV" disabled>Export CSV</button>
+      </div>
+      <span id="history-count-text" class="info-text" role="status" aria-live="polite"></span>
+    </div>
     <div id="history-list" class="drawer-body list-container">
       <!-- Dynamically filled -->
       <div class="empty-state">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         <p>No translation history yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Review Panel: flashcards drawn from the translation history -->
+  <div id="drawer-review" class="drawer" inert>
+    <div class="drawer-header">
+      <h3>Review</h3>
+      <div class="header-actions-inline">
+        <span id="review-progress" class="history-time" aria-live="polite"></span>
+        <button type="button" id="btn-review-back" class="secondary-btn btn-small">Back to History</button>
+        <button type="button" class="drawer-close" title="Close Review" aria-label="Close Review">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+    <div class="drawer-body review-body">
+      <div id="review-card" class="review-card">
+        <div class="history-header">
+          <span id="review-meta" class="history-meta"></span>
+          <span id="review-level" class="history-time"></span>
+        </div>
+        <p id="review-src" class="review-src"></p>
+        <p id="review-hint" class="info-text">Recall the translation, then reveal it.</p>
+        <p id="review-translation" class="review-translation hidden" aria-live="polite"></p>
+        <div class="review-actions">
+          <button type="button" id="btn-review-reveal" class="primary-btn">Show Translation</button>
+          <button type="button" id="btn-review-forgot" class="secondary-btn hidden">Not Yet</button>
+          <button type="button" id="btn-review-remembered" class="primary-btn hidden">Remembered</button>
+        </div>
+        <button type="button" id="btn-review-open" class="secondary-btn btn-small review-open-btn">Open in Translator</button>
+      </div>
+      <div id="review-done" class="empty-state hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <p id="review-done-text"></p>
+        <button type="button" id="btn-review-more" class="primary-btn btn-small hidden"></button>
       </div>
     </div>
   </div>

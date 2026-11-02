@@ -3103,6 +3103,277 @@ async function executeTestSuite() {
     assert.strictEqual(testBtnText.textContent, "Test Connection", "testBtnText must be restored even if diagnostic fails");
   });
 
+  await runTest("History helpers read legacy and rich translations, dedupe lookups and clamp the history limit", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+
+    assert.strictEqual(sandbox.getHistoryTranslationText({ targetText: "你好" }), "你好");
+    // Older background writes used translatedText
+    assert.strictEqual(sandbox.getHistoryTranslationText({ translatedText: "舊的欄位" }), "舊的欄位");
+    const rich = JSON.stringify({ translation: "<think>hmm</think>豐富譯文", vocabulary: [{ word: "x" }] });
+    assert.strictEqual(sandbox.getHistoryTargetText({ targetText: rich }), rich);
+    assert.strictEqual(sandbox.getHistoryTranslationText({ targetText: rich }), "豐富譯文");
+    assert.strictEqual(sandbox.getHistoryTranslationText({ targetText: "```json\n" + rich + "\n```" }), "豐富譯文");
+    assert.strictEqual(sandbox.getHistoryTranslationText({}), "");
+
+    assert.strictEqual(sandbox.normalizeMaxHistory(undefined), 1000);
+    assert.strictEqual(sandbox.normalizeMaxHistory("abc"), 1000);
+    assert.strictEqual(sandbox.normalizeMaxHistory(1), 5);
+    assert.strictEqual(sandbox.normalizeMaxHistory("99999"), 5000);
+    assert.strictEqual(sandbox.normalizeMaxHistory("250"), 250);
+
+    const t0 = Date.parse("2026-01-01T00:00:00Z");
+    let history = sandbox.addToHistory([], { srcText: "Hello", targetText: "你好", srcLang: "en", targetLang: "zh-TW" }, 100, t0);
+    history = sandbox.addToHistory(history, { srcText: "World", targetText: "世界", srcLang: "en", targetLang: "zh-TW" }, 100, t0 + 1);
+    assert.deepStrictEqual(history.map(item => item.srcText), ["World", "Hello"]);
+    assert.strictEqual(history[0].targetText, "世界");
+    assert.strictEqual(history[0].translatedText, undefined);
+
+    // Pressing Translate twice changes nothing and hands back the same array
+    assert.strictEqual(sandbox.addToHistory(history, { srcText: " World ", targetText: "世界", srcLang: "en", targetLang: "zh-TW" }, 100), history);
+
+    // Looking a reviewed sentence up again moves it up, keeps its id and puts it back in the queue
+    history[1] = sandbox.gradeReviewItem(history[1], true, t0 + 2);
+    const helloId = history[1].id;
+    history = sandbox.addToHistory(history, { srcText: "Hello", targetText: "哈囉", srcLang: "en", targetLang: "zh-TW" }, 100, t0 + 3);
+    assert.strictEqual(history.length, 2);
+    assert.strictEqual(history[0].id, helloId);
+    assert.strictEqual(history[0].targetText, "哈囉");
+    assert.strictEqual(history[0].lookupCount, 2);
+    assert.strictEqual(history[0].reviewLevel, 0);
+    assert.strictEqual(history[0].reviewCount, 1);
+    assert.strictEqual(history[0].nextReview, undefined);
+
+    // Same sentence into another language is a separate entry
+    history = sandbox.addToHistory(history, { srcText: "Hello", targetText: "こんにちは", srcLang: "en", targetLang: "ja" }, 100, t0 + 4);
+    assert.strictEqual(history.length, 3);
+
+    let capped = [];
+    for (let i = 0; i < 8; i++) {
+      capped = sandbox.addToHistory(capped, { srcText: `s${i}`, targetText: `t${i}`, srcLang: "en", targetLang: "zh-TW" }, 2, t0 + i);
+    }
+    assert.deepStrictEqual(capped.map(item => item.srcText), ["s7", "s6", "s5", "s4", "s3"], "limit is clamped to at least 5");
+  });
+
+  await runTest("Review scheduling spaces remembered sentences and brings forgotten ones back first", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    const day = 24 * 60 * 60 * 1000;
+    const now = Date.parse("2026-03-01T00:00:00Z");
+
+    let item = { id: "1", srcText: "a", timestamp: new Date(now - 10 * day).toISOString() };
+    const expectedDays = [1, 3, 7, 14, 30, 30];
+    expectedDays.forEach((days, i) => {
+      item = sandbox.gradeReviewItem(item, true, now);
+      assert.strictEqual(item.reviewLevel, Math.min(i + 1, 5));
+      assert.strictEqual(Date.parse(item.nextReview), now + days * day);
+    });
+    assert.strictEqual(item.reviewCount, 6);
+    item = sandbox.gradeReviewItem(item, false, now);
+    assert.strictEqual(item.reviewLevel, 0);
+    assert.strictEqual(Date.parse(item.nextReview), now);
+    assert.strictEqual(item.lastReviewed, new Date(now).toISOString());
+
+    const history = [
+      { id: "new-recent", srcText: "x", timestamp: new Date(now - day).toISOString() },
+      { id: "not-due", srcText: "y", timestamp: new Date(now - 9 * day).toISOString(), reviewLevel: 2, nextReview: new Date(now + 2 * day).toISOString() },
+      { id: "due-level-3", srcText: "z", timestamp: new Date(now - 30 * day).toISOString(), reviewLevel: 3, nextReview: new Date(now - day).toISOString() },
+      { id: "new-old", srcText: "w", timestamp: new Date(now - 5 * day).toISOString() },
+      { id: "empty", srcText: "", timestamp: new Date(now - 50 * day).toISOString() },
+      { id: "soon", srcText: "v", timestamp: new Date(now - 9 * day).toISOString(), reviewLevel: 1, nextReview: new Date(now + 3600000).toISOString() }
+    ];
+    assert.deepStrictEqual(sandbox.getDueReviewItems(history, now).map(entry => entry.id), ["new-old", "new-recent", "due-level-3"]);
+    assert.strictEqual(sandbox.getNextReviewTime(history, now), now + 3600000);
+    assert.strictEqual(sandbox.getNextReviewTime([], now), null);
+  });
+
+  await runTest("History CSV export keeps Chinese readable, quotes cells and neutralizes spreadsheet formulas", () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    const csv = sandbox.historyToCsv([
+      { timestamp: "2026-01-01T00:00:00.000Z", srcLang: "en", targetLang: "zh-TW", srcText: 'Say "hi", then\nleave',
+        targetText: JSON.stringify({ translation: "說「嗨」" }), reviewLevel: 2, reviewCount: 3, lookupCount: 2 },
+      { timestamp: "2026-01-02T00:00:00.000Z", srcLang: "en", targetLang: "zh-TW", srcText: "=HYPERLINK(\"http://x\")", translatedText: "+1" }
+    ]);
+    assert.ok(csv.startsWith("\uFEFF查詢時間,原文語言,譯文語言,原文,譯文,熟練度,複習次數,查詢次數\r\n"));
+    assert.ok(csv.includes('\r\n2026-01-01T00:00:00.000Z,en,zh-TW,"Say ""hi"", then\nleave",說「嗨」,2,3,2\r\n'));
+    assert.ok(csv.includes(`\r\n2026-01-02T00:00:00.000Z,en,zh-TW,"'=HYPERLINK(""http://x"")",'+1,0,0,1\r\n`));
+  });
+
+  await runTest("Background history writes use targetText, dedupe and feed the Telegram daily review", async () => {
+    const sandbox = createSandbox();
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(bgCode, sandbox);
+    sandbox.mockLocalStorage.maxHistory = 50;
+    sandbox.mockLocalStorage.history = [{ id: "popup-1", timestamp: new Date().toISOString(),
+      srcText: "From the popup", targetText: "來自彈出視窗", srcLang: "en", targetLang: "zh-TW" }];
+
+    await sandbox.addHistoryItemBg("Double-clicked", "雙擊的句子", "en", "zh-TW");
+    let history = sandbox.mockLocalStorage.history;
+    assert.strictEqual(history.length, 2);
+    assert.strictEqual(history[0].targetText, "雙擊的句子");
+    assert.strictEqual(history[0].translatedText, undefined);
+
+    await sandbox.addHistoryItemBg("From the popup", "來自彈出視窗", "en", "zh-TW");
+    history = sandbox.mockLocalStorage.history;
+    assert.deepStrictEqual(history.map(item => item.srcText), ["From the popup", "Double-clicked"]);
+
+    // Phase 2 learning data lands where the history panel reads it
+    history[1].translatedText = "legacy";
+    await sandbox.updateHistoryItemWithRich("Double-clicked", { translation: "雙擊的句子", vocabulary: [] }, "en", "zh-TW");
+    history = sandbox.mockLocalStorage.history;
+    assert.strictEqual(JSON.parse(history[1].targetText).translation, "雙擊的句子");
+    assert.strictEqual(history[1].translatedText, undefined);
+
+    Object.assign(sandbox.mockLocalStorage, { enableTelegram: true, telegramBotToken: "123:abc", telegramChatId: "42" });
+    let sentText = null;
+    sandbox.fetch = async (url, opts) => {
+      sentText = JSON.parse(opts.body).text;
+      return { ok: true, text: async () => "" };
+    };
+    await sandbox.sendToTelegram("From the popup", "來自彈出視窗");
+    assert.ok(sentText.includes("<b>From the popup</b> → 來自彈出視窗"), "popup-written items must show their translation");
+    assert.ok(sentText.includes("<b>Double-clicked</b> → 雙擊的句子"), "rich items must show the plain translation");
+  });
+
+  await runTest("History panel shows legacy webpage lookups, searches, and loads them without crashing", async () => {
+    const sandbox = createSandbox();
+    const now = new Date().toISOString();
+    sandbox.mockLocalStorage.history = [
+      { id: "bg-1", timestamp: now, srcText: "Serendipity", translatedText: "意外的驚喜", srcLang: "en", targetLang: "zh-TW" },
+      { id: "rich-1", timestamp: now, srcText: "Resilience", targetText: JSON.stringify({ translation: "韌性", vocabulary: [] }), srcLang: "en", targetLang: "zh-TW" }
+    ];
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.renderHistory();
+    const list = sandbox.document.getElementById("history-list");
+    const targets = list.querySelectorAll(".history-target").map(el => el.textContent);
+    assert.deepStrictEqual(targets, ["意外的驚喜", "韌性"]);
+    assert.strictEqual(sandbox.document.getElementById("history-count-text").textContent, "共 2 句");
+    assert.strictEqual(sandbox.document.getElementById("btn-export-history").disabled, false);
+    assert.strictEqual(sandbox.document.getElementById("btn-start-review").disabled, false);
+    assert.strictEqual(sandbox.document.getElementById("review-due-text").textContent, "🧠 2 句待複習");
+
+    sandbox.document.getElementById("input-search-history").value = "韌";
+    await sandbox.renderHistory();
+    assert.strictEqual(list.children.length, 1);
+    assert.strictEqual(list.querySelector(".history-src").textContent, "Resilience");
+    assert.strictEqual(sandbox.document.getElementById("history-count-text").textContent, "找到 1 句（共 2 句）");
+
+    sandbox.document.getElementById("input-search-history").value = "nothing matches";
+    await sandbox.renderHistory();
+    assert.strictEqual(list.querySelector(".history-item"), null);
+
+    await sandbox.loadHistoryItem(sandbox.mockLocalStorage.history[0]);
+    assert.strictEqual(sandbox.document.getElementById("target-content").textContent, "意外的驚喜");
+
+    sandbox.mockLocalStorage.history = [];
+    await sandbox.renderHistory();
+    assert.strictEqual(sandbox.document.getElementById("btn-export-history").disabled, true);
+    assert.strictEqual(sandbox.document.getElementById("btn-start-review").disabled, true);
+  });
+
+  await runTest("History panel renders long histories a page at a time", async () => {
+    const sandbox = createSandbox();
+    sandbox.mockLocalStorage.history = Array.from({ length: 450 }, (_, i) => ({
+      id: `id-${i}`, timestamp: new Date().toISOString(), srcText: `sentence ${i}`, targetText: `句子 ${i}`, srcLang: "en", targetLang: "zh-TW"
+    }));
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    await sandbox.renderHistory();
+    const list = sandbox.document.getElementById("history-list");
+    assert.strictEqual(list.querySelectorAll(".history-item").length, 200);
+    const moreBtn = list.querySelector(".history-more-btn");
+    assert.strictEqual(moreBtn.textContent, "顯示更多（還有 250 句）");
+    moreBtn.click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.strictEqual(list.querySelectorAll(".history-item").length, 400);
+    list.querySelector(".history-more-btn").click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.strictEqual(list.querySelectorAll(".history-item").length, 450);
+    assert.strictEqual(list.querySelector(".history-more-btn"), null);
+  });
+
+  await runTest("Review round reveals translations, saves grades and repeats forgotten sentences", async () => {
+    const sandbox = createSandbox();
+    const old = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    sandbox.mockLocalStorage.history = [
+      { id: "b", timestamp: new Date().toISOString(), srcText: "Second", translatedText: "第二句", srcLang: "en", targetLang: "zh-TW" },
+      { id: "a", timestamp: old, srcText: "First", targetText: "第一句", srcLang: "en", targetLang: "zh-TW", lookupCount: 3 }
+    ];
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+    const el = id => sandbox.document.getElementById(id);
+    const flush = () => new Promise(resolve => setImmediate(resolve));
+
+    await sandbox.startReviewSession();
+    await flush();
+    assert.ok(el("drawer-review").classList.contains("open"));
+    // Oldest sentence first, translation hidden until revealed
+    assert.strictEqual(el("review-src").textContent, "First");
+    assert.strictEqual(el("review-level").textContent, "熟練度 0/5 · 查過 3 次");
+    assert.strictEqual(el("review-progress").textContent, "剩 2 句");
+    assert.ok(el("review-translation").classList.contains("hidden"));
+    assert.ok(el("btn-review-remembered").classList.contains("hidden"));
+
+    el("btn-review-reveal").click();
+    assert.ok(!el("review-translation").classList.contains("hidden"));
+    assert.strictEqual(el("review-translation").textContent, "第一句");
+    assert.ok(el("btn-review-reveal").classList.contains("hidden"));
+
+    el("btn-review-forgot").click();
+    await flush();
+    assert.strictEqual(sandbox.mockLocalStorage.history[1].reviewLevel, 0);
+    assert.strictEqual(sandbox.mockLocalStorage.history[1].reviewCount, 1);
+    assert.strictEqual(el("review-src").textContent, "Second");
+    assert.strictEqual(el("review-translation").textContent, "第二句", "legacy translatedText items show their translation");
+    assert.ok(el("review-translation").classList.contains("hidden"), "next card starts hidden again");
+
+    el("btn-review-reveal").click();
+    el("btn-review-remembered").click();
+    await flush();
+    assert.strictEqual(sandbox.mockLocalStorage.history[0].reviewLevel, 1);
+    // The forgotten sentence comes back at the end of the round
+    assert.strictEqual(el("review-src").textContent, "First");
+    assert.strictEqual(el("review-progress").textContent, "剩 1 句");
+
+    el("btn-review-reveal").click();
+    el("btn-review-remembered").click();
+    await flush();
+    assert.strictEqual(sandbox.mockLocalStorage.history[1].reviewLevel, 1);
+    assert.strictEqual(sandbox.mockLocalStorage.history[1].reviewCount, 2);
+    assert.ok(el("review-card").classList.contains("hidden"));
+    assert.ok(!el("review-done").classList.contains("hidden"));
+    assert.match(el("review-done-text").textContent, /^這輪完成 2 句：1 句一次就記得，1 句多練了幾遍。下一句 1 天後到期。$/);
+    assert.strictEqual(el("btn-review-more").textContent, "隨機複習 2 句");
+
+    // With nothing due, the follow-up round practises a random pick
+    el("btn-review-more").click();
+    await flush();
+    await flush();
+    assert.ok(["First", "Second"].includes(el("review-src").textContent));
+    assert.strictEqual(el("review-progress").textContent, "剩 2 句");
+  });
+
+  await runTest("Manifest and settings allow a long-lived review history", () => {
+    const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+    assert.ok(manifest.permissions.includes("unlimitedStorage"));
+    const html = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.match(html, /id="input-max-history" min="5" max="5000" value="1000"/);
+    for (const id of ["input-search-history", "btn-export-history", "btn-start-review", "drawer-review", "btn-review-reveal", "btn-review-forgot", "btn-review-remembered"]) {
+      assert.ok(html.includes(`id="${id}"`), `popup.html must include #${id}`);
+    }
+  });
+
   // Summary reporting
   console.log("\n-------------------------------------------");
   console.log(`📊 Test Execution Complete: ${passed} passed, ${failed} failed.`);
