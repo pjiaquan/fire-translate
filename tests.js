@@ -2989,6 +2989,59 @@ async function executeTestSuite() {
   });
 
   // Test 61: Dynamic disabled state on Add Exclusion button
+  await runTest("Dynamic disabled state on List Clear buttons", async () => {
+    const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
+    assert.ok(
+      popupHtml.includes('id="btn-clear-history"') && popupHtml.includes('disabled'),
+      "popup.html must render #btn-clear-history with disabled attribute by default"
+    );
+    assert.ok(
+      popupHtml.includes('id="btn-clear-logs"') && popupHtml.includes('disabled'),
+      "popup.html must render #btn-clear-logs with disabled attribute by default"
+    );
+    assert.ok(
+      popupHtml.includes('id="btn-clear-exclusions"') && popupHtml.includes('disabled'),
+      "popup.html must render #btn-clear-exclusions with disabled attribute by default"
+    );
+
+    const sandbox = createSandbox();
+
+    // Override chrome storage getter
+    let mockStorageData = {};
+    sandbox.chrome.storage.local.get = async (keys) => {
+      return mockStorageData;
+    };
+
+    vm.createContext(sandbox);
+    vm.runInContext(sharedCode, sandbox);
+    vm.runInContext(uiCode, sandbox);
+    vm.runInContext(popupCode, sandbox);
+
+    // Initial empty state
+    await sandbox.renderHistory();
+    await sandbox.renderLogs();
+    await sandbox.renderDisabledSitesList();
+
+    assert.strictEqual(sandbox.document.getElementById("btn-clear-history").disabled, true, "btn-clear-history must be disabled when history is empty");
+    assert.strictEqual(sandbox.document.getElementById("btn-clear-logs").disabled, true, "btn-clear-logs must be disabled when logs are empty");
+    assert.strictEqual(sandbox.document.getElementById("btn-clear-exclusions").disabled, true, "btn-clear-exclusions must be disabled when exclusions are empty");
+
+    // Populated state
+    mockStorageData = {
+      history: [{ id: 1, srcText: "test" }],
+      logs: [{ type: "info", message: "test", timestamp: "2024-01-01" }],
+      disabledDomains: ["example.com"]
+    };
+
+    await sandbox.renderHistory();
+    await sandbox.renderLogs();
+    await sandbox.renderDisabledSitesList();
+
+    assert.strictEqual(sandbox.document.getElementById("btn-clear-history").disabled, false, "btn-clear-history must be enabled when history has items");
+    assert.strictEqual(sandbox.document.getElementById("btn-clear-logs").disabled, false, "btn-clear-logs must be enabled when logs have items");
+    assert.strictEqual(sandbox.document.getElementById("btn-clear-exclusions").disabled, false, "btn-clear-exclusions must be enabled when exclusions have items");
+  });
+
   await runTest("Dynamic disabled state on Add Exclusion button", async () => {
     const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
     assert.ok(
