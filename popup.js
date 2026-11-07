@@ -1573,6 +1573,7 @@ async function addExclusionDomain(rawDomain) {
 async function renderDisabledSitesList() {
   const res = await chrome.storage.local.get("disabledDomains");
   const disabledDomains = res.disabledDomains || [];
+  if (btnClearExclusions) btnClearExclusions.disabled = disabledDomains.length === 0;
 
   let currentDomain = "";
   let baseDomain = "";
@@ -3319,6 +3320,8 @@ async function renderLogs() {
   const res = await chrome.storage.local.get("logs");
   const logs = res.logs || [];
   const logsContainer = document.getElementById("logs-list");
+  const btnClearLogs = document.getElementById("btn-clear-logs");
+  if (btnClearLogs) btnClearLogs.disabled = logs.length === 0;
 
   if (logs.length === 0) {
     setDomContent(logsContainer, [
@@ -3415,6 +3418,8 @@ async function renderHistory() {
   const listContainer = document.getElementById("history-list");
   updateReviewSummary(history);
   if (btnExportHistory) btnExportHistory.disabled = history.length === 0;
+  const btnClearHistory = document.getElementById("btn-clear-history");
+  if (btnClearHistory) btnClearHistory.disabled = history.length === 0;
   
   if (history.length === 0) {
     if (historyCountText) historyCountText.textContent = "";
