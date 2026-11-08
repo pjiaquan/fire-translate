@@ -1596,6 +1596,10 @@ async function renderDisabledSitesList() {
     }
   }
 
+  if (btnClearExclusions) {
+    btnClearExclusions.disabled = disabledDomains.length === 0;
+  }
+
   // Update Summary card count
   if (exclusionsCountText) {
     const count = disabledDomains.length;
@@ -3320,6 +3324,11 @@ async function renderLogs() {
   const logs = res.logs || [];
   const logsContainer = document.getElementById("logs-list");
 
+  const btnClearLogs = document.getElementById("btn-clear-logs");
+  if (btnClearLogs) {
+    btnClearLogs.disabled = logs.length === 0;
+  }
+
   if (logs.length === 0) {
     setDomContent(logsContainer, [
       "\n      ",
@@ -3413,6 +3422,10 @@ async function renderHistory() {
   const res = await chrome.storage.local.get("history");
   const history = res.history || [];
   const listContainer = document.getElementById("history-list");
+  const btnClearHistory = document.getElementById("btn-clear-history");
+  if (btnClearHistory) {
+    btnClearHistory.disabled = history.length === 0;
+  }
   updateReviewSummary(history);
   if (btnExportHistory) btnExportHistory.disabled = history.length === 0;
   
