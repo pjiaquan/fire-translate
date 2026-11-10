@@ -3196,11 +3196,11 @@ async function executeTestSuite() {
     const csv = sandbox.historyToCsv([
       { timestamp: "2026-01-01T00:00:00.000Z", srcLang: "en", targetLang: "zh-TW", srcText: 'Say "hi", then\nleave',
         targetText: JSON.stringify({ translation: "說「嗨」" }), reviewLevel: 2, reviewCount: 3, lookupCount: 2 },
-      { timestamp: "2026-01-02T00:00:00.000Z", srcLang: "en", targetLang: "zh-TW", srcText: "=HYPERLINK(\"http://x\")", translatedText: "+1" }
+      { timestamp: "2026-01-02T00:00:00.000Z", srcLang: "en", targetLang: "zh-TW", srcText: " =HYPERLINK(\"http://x\")", translatedText: " +1" }
     ]);
     assert.ok(csv.startsWith("\uFEFF查詢時間,原文語言,譯文語言,原文,譯文,熟練度,複習次數,查詢次數\r\n"));
     assert.ok(csv.includes('\r\n2026-01-01T00:00:00.000Z,en,zh-TW,"Say ""hi"", then\nleave",說「嗨」,2,3,2\r\n'));
-    assert.ok(csv.includes(`\r\n2026-01-02T00:00:00.000Z,en,zh-TW,"'=HYPERLINK(""http://x"")",'+1,0,0,1\r\n`));
+    assert.ok(csv.includes(`\r\n2026-01-02T00:00:00.000Z,en,zh-TW,"' =HYPERLINK(""http://x"")",'+1,0,0,1\r\n`));
   });
 
   await runTest("Background history writes use targetText, dedupe and feed the Telegram daily review", async () => {
