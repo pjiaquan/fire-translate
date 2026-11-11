@@ -313,7 +313,7 @@ function filterHistory(history, query) {
 function escapeCsvCell(value) {
   let text = String(value ?? "");
   // Spreadsheet apps run cells that start with these characters as formulas.
-  if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+  if (/^\s*[=+\-@\t\r]/.test(text)) text = "'" + text;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
