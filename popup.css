@@ -582,8 +582,13 @@ html[data-surface="popup"] body {
   transition: all 0.2s;
 }
 
-.text-danger-btn:hover {
+.text-danger-btn:hover:not(:disabled) {
   background-color: var(--danger-glow);
+}
+
+.text-danger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Spinner overlay inside output */
