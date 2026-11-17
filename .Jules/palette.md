@@ -31,3 +31,6 @@
 ## 2024-05-25 - UX improvements for dynamic disabled states on translation button
 **Learning:** Found that the main "Translate" button visually feels active and clickable even when the source text area is completely empty. This is a poor UX pattern that fails to provide the expected visual feedback and might lead users to click it expecting an action or an error message. By dynamically managing the `disabled` state based on the input's actual length, the user gets immediate visual cues on whether the translation action is available.
 **Action:** When implementing primary action buttons tied to the state of an input field (like the "Translate" button), ensure you dynamically bind the `disabled` state of that button to reflect the empty/filled state of the input, updating it across all input, paste, and programmatic clear events.
+## 2026-10-29 - Empty state placeholder for quick models container
+**Learning:** Found that using placeholder on non-input tags like `div` does not work automatically. I had to use the attr(placeholder) approach and a CSS class that checks for the pseudo `::before` target.
+**Action:** When implementing placeholder text for empty lists or containers, be sure to use CSS `attr(placeholder)` in the pseudo element `::before` combined with an empty class.

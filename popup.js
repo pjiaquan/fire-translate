@@ -2004,6 +2004,12 @@ function renderQuickModelChips(models) {
 
   const combined = Array.from(new Set([...(models || []), ...recList])).filter(Boolean);
 
+  if (combined.length === 0) {
+    quickModelsContainer.classList.add("empty");
+  } else {
+    quickModelsContainer.classList.remove("empty");
+  }
+
   if (modelCountTag) {
     modelCountTag.textContent = `${combined.length} 個模型`;
   }
