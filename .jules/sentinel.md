@@ -37,3 +37,7 @@
 **Vulnerability:** Configuration inputs like API endpoints, models, API keys, and system prompts lacked length validation in `popup.html`.
 **Learning:** Text inputs that are synced to storage or processed by the application can be vectors for resource exhaustion (DoS), storage bloat, or UI freezes if they don't have constraints.
 **Prevention:** Always apply length bounds on all text input elements, especially configuration parameters, using HTML `maxlength` properties (e.g. `maxlength="500"` for simple fields and `maxlength="5000"` for long prompts) to proactively prevent resource abuse.
+## 2024-06-05 - [Formula Injection in CSV Export]
+**Vulnerability:** The CSV export function `escapeCsvCell` in `shared.js` did not account for leading whitespaces before formula characters (`=`, `+`, `-`, `@`, `\t`, `\r`). Spreadsheet applications (like Excel or Google Sheets) often trim leading spaces before executing cells, which can bypass simple first-character checks.
+**Learning:** When sanitizing data for CSV export to prevent Formula Injection (CSV Injection), it's crucial to account for leading whitespaces because the target applications might trim them before execution.
+**Prevention:** Ensure the sanitization logic for CSV cells accounts for leading whitespaces by using a regex like `/^\s*[=+\-@\t\r]/` instead of just `/^[=+\-@\t\r]/`.
