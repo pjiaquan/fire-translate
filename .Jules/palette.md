@@ -34,3 +34,7 @@
 ## 2026-10-29 - Empty state placeholder for quick models container
 **Learning:** Found that using placeholder on non-input tags like `div` does not work automatically. I had to use the attr(placeholder) approach and a CSS class that checks for the pseudo `::before` target.
 **Action:** When implementing placeholder text for empty lists or containers, be sure to use CSS `attr(placeholder)` in the pseudo element `::before` combined with an empty class.
+
+## 2024-05-26 - Accessibility and UX improvements for action button disabled states
+**Learning:** Found that core action buttons (.primary-btn, .secondary-btn) falsely advertise interactivity when disabled because their `:hover` and `:active` pseudo-classes lack `:not(:disabled)` guards, and they lack explicit `:disabled` opacity and cursor styles. This creates a confusing UX where a disabled button still glows, moves, or changes color on hover.
+**Action:** When implementing action buttons, explicitly define `:disabled` pseudo-class styles (e.g., `opacity: 0.5`, `cursor: not-allowed`) and wrap `:hover` or `:active` state styles with `:not(:disabled)` to prevent falsely advertising interactivity on disabled elements.
