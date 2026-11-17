@@ -2867,16 +2867,22 @@ async function executeTestSuite() {
   });
 
   // Test 57: Clear source text button dynamically manages disabled state across input, paste, and reset
-  await runTest("Clear source text button dynamically manages disabled state across input, paste, and reset", async () => {
+  await runTest("Clear source text button and translate button dynamically manage disabled state across input, paste, and reset", async () => {
     const popupHtml = fs.readFileSync(__dirname + "/popup.html", "utf8");
     assert.ok(
       popupHtml.includes('id="btn-clear-src" class="icon-action-btn" title="Clear text" aria-label="Clear text" disabled>'),
       "popup.html must configure #btn-clear-src with initial disabled attribute"
     );
+    assert.ok(
+      popupHtml.includes('id="btn-translate" class="primary-btn" title="Translate (Ctrl/Cmd + Enter)" disabled>'),
+      "popup.html must configure #btn-translate with initial disabled attribute"
+    );
 
     const sandbox = createSandbox();
     const btnClearSrc = sandbox.document.getElementById("btn-clear-src");
     btnClearSrc.disabled = true;
+    const btnTranslate = sandbox.document.getElementById("btn-translate");
+    btnTranslate.disabled = true;
     const srcTextarea = sandbox.document.getElementById("src-textarea");
     srcTextarea.value = "";
 
@@ -2887,25 +2893,30 @@ async function executeTestSuite() {
 
     // 1. Initial state
     assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must initially be disabled when textarea is empty");
+    assert.strictEqual(btnTranslate.disabled, true, "btnTranslate must initially be disabled when textarea is empty");
 
-    // 2. Typing text enables the clear button
+    // 2. Typing text enables the clear button and translate button
     srcTextarea.value = "Hello world";
     srcTextarea.dispatchEvent("input");
     assert.strictEqual(btnClearSrc.disabled, false, "btnClearSrc must be enabled when input has text");
+    assert.strictEqual(btnTranslate.disabled, false, "btnTranslate must be enabled when input has text");
 
-    // 3. Clicking clear button resets text and disables clear button
+    // 3. Clicking clear button resets text and disables buttons
     btnClearSrc.click();
     assert.strictEqual(srcTextarea.value, "", "textarea value must be cleared");
     assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled after click");
+    assert.strictEqual(btnTranslate.disabled, true, "btnTranslate must be disabled after click");
 
-    // 4. Typing then deleting all text disables clear button again
+    // 4. Typing then deleting all text disables buttons again
     srcTextarea.value = "Something";
     srcTextarea.dispatchEvent("input");
     assert.strictEqual(btnClearSrc.disabled, false);
+    assert.strictEqual(btnTranslate.disabled, false);
 
     srcTextarea.value = "";
     srcTextarea.dispatchEvent("input");
     assert.strictEqual(btnClearSrc.disabled, true, "btnClearSrc must be disabled when text is erased to empty");
+    assert.strictEqual(btnTranslate.disabled, true, "btnTranslate must be disabled when text is erased to empty");
   });
 
   // Test 58: Target content empty state placeholder rendered via CSS attr(placeholder)
