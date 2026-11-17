@@ -3134,6 +3134,12 @@ async function executeTestSuite() {
     assert.strictEqual(sandbox.normalizeMaxHistory("99999"), 5000);
     assert.strictEqual(sandbox.normalizeMaxHistory("250"), 250);
 
+    assert.strictEqual(sandbox.normalizeTemperature(undefined), 0.1);
+    assert.strictEqual(sandbox.normalizeTemperature("not-a-number"), 0.1);
+    assert.strictEqual(sandbox.normalizeTemperature("-1.5"), 0);
+    assert.strictEqual(sandbox.normalizeTemperature("5.0"), 2);
+    assert.strictEqual(sandbox.normalizeTemperature("0.7"), 0.7);
+
     const t0 = Date.parse("2026-01-01T00:00:00Z");
     let history = sandbox.addToHistory([], { srcText: "Hello", targetText: "你好", srcLang: "en", targetLang: "zh-TW" }, 100, t0);
     history = sandbox.addToHistory(history, { srcText: "World", targetText: "世界", srcLang: "en", targetLang: "zh-TW" }, 100, t0 + 1);

@@ -2708,7 +2708,7 @@ function getFormSettingsState() {
     apiKey: inputApiKey ? inputApiKey.value.trim() : "",
     model: inputModel ? inputModel.value.trim() : "",
     modelType: selectModelType ? selectModelType.value : "qwen",
-    temperature: tempInput ? parseFloat(tempInput.value) : 0.1,
+    temperature: tempInput ? normalizeTemperature(tempInput.value) : 0.1,
     maxHistory: historyInput ? normalizeMaxHistory(historyInput.value) : DEFAULT_MAX_HISTORY,
     autoTranslate: autoInput ? autoInput.checked : true,
     grammarCheck: checkGrammarCheck ? checkGrammarCheck.checked : true,
@@ -3070,7 +3070,7 @@ btnSaveSettings.addEventListener("click", async () => {
   const model = inputModel.value.trim();
   const modelType = selectModelType.value;
 
-  const temperature = parseFloat(document.getElementById("input-temperature").value);
+  const temperature = normalizeTemperature(document.getElementById("input-temperature").value);
   const maxHistory = normalizeMaxHistory(document.getElementById("input-max-history").value);
   const autoTranslate = document.getElementById("check-auto-translate").checked;
   const grammarCheck = checkGrammarCheck ? checkGrammarCheck.checked : true;

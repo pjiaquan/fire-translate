@@ -206,6 +206,12 @@ function normalizeMaxHistory(value) {
   return Math.min(MAX_HISTORY_LIMIT, Math.max(MIN_HISTORY_LIMIT, parsed));
 }
 
+function normalizeTemperature(value) {
+  const parsed = parseFloat(value);
+  if (isNaN(parsed)) return 0.1;
+  return Math.min(2, Math.max(0, parsed));
+}
+
 // Raw stored translation: plain text, or the JSON of a rich (learning mode) result.
 // Items written by older background code used `translatedText` instead of `targetText`.
 function getHistoryTargetText(item) {
@@ -344,6 +350,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getBaseDomain,
     isDomainDisabled,
     normalizeMaxHistory,
+    normalizeTemperature,
     getHistoryTargetText,
     getHistoryTranslationText,
     addToHistory,

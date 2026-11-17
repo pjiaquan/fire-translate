@@ -41,3 +41,8 @@
 **Vulnerability:** The CSV export function `escapeCsvCell` in `shared.js` did not account for leading whitespaces before formula characters (`=`, `+`, `-`, `@`, `\t`, `\r`). Spreadsheet applications (like Excel or Google Sheets) often trim leading spaces before executing cells, which can bypass simple first-character checks.
 **Learning:** When sanitizing data for CSV export to prevent Formula Injection (CSV Injection), it's crucial to account for leading whitespaces because the target applications might trim them before execution.
 **Prevention:** Ensure the sanitization logic for CSV cells accounts for leading whitespaces by using a regex like `/^\s*[=+\-@\t\r]/` instead of just `/^[=+\-@\t\r]/`.
+
+## 2024-06-06 - [Enforce Configuration Numeric Boundaries]
+**Vulnerability:** Configuration inputs (`maxHistory`, `temperature`) relied on HTML `min`/`max` attributes which can be bypassed, potentially causing unexpected behavior or local storage/memory exhaustion.
+**Learning:** Client-side HTML input validation can be bypassed by users or programmatic script execution.
+**Prevention:** Programmatically enforce bounds with defensive normalization helpers (`normalizeMaxHistory`, `normalizeTemperature`) using `Math.min`, `Math.max`, and `isNaN` checks before saving or processing values.
